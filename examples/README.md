@@ -2,12 +2,13 @@
 
 ## get-address
 
-A minimal browser dapp that detects MetaMask, connects the wallet, and shows the
-provider name, connected address, and current chain id **on the page**. It
-exercises the typed RPC path:
+A minimal browser dapp that detects MetaMask, connects the wallet, shows the
+provider name, connected address, balance and current chain id **on the page**,
+and switches the wallet between chains. It exercises the typed RPC path:
 
 ```
-@provider.BrowserProvider::require  ->  @provider.request_accounts  ->  @provider.chain_id
+@browser.BrowserProvider::require  ->  @provider.request_accounts  ->  @provider.balance / @provider.chain_id
+                                   ->  @provider.switch_or_add_chain
 ```
 
 The UI is rendered from MoonBit with [luna.mbt](https://github.com/mizchi/luna.mbt):
@@ -40,7 +41,14 @@ installed and click **Connect wallet**. The card fills in with:
 
 - **Provider** — `MetaMask`, or `EIP-1193 provider` for other injected wallets
 - **Address** — the selected account
+- **Balance** — the account's balance in wei on the current chain
 - **Chain id** — decimal and hex, e.g. `1 (0x1)`
+
+The **Mainnet / Sepolia / Polygon** buttons below the card call
+`@provider.switch_or_add_chain`, which switches the wallet and — if the wallet
+answers 4902 because it does not know the chain — adds it from the
+`ChainParams` in `main.mbt` and switches again. The card re-reads the balance
+and chain id afterwards, so the fields follow the wallet.
 
 Failures land in the same card's status line: no extension, a rejected request,
 or any other `ProviderError` replaces the status text instead of throwing.

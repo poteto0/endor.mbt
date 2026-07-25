@@ -6,6 +6,8 @@ package "poteto0/endor-examples-get-address"
 // Errors
 
 // Types and methods
+type Chain
+
 type WalletView
 
 // Type aliases

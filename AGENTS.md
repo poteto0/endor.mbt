@@ -7,13 +7,15 @@ It wraps the [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider
 (`globalThis.ethereum`) injected by extensions such as MetaMask and exposes a
 typed, async MoonBit API.
 
-**As of v0.1.0 the API is read-only**: `eth_requestAccounts`, `eth_accounts`,
-`eth_chainId`, `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
-`eth_gasPrice` and `eth_getCode` are wrapped in typed helpers. Calls
-(`eth_call`, `eth_estimateGas`), blocks and receipts, transaction sending,
-message signing, chain switching, and provider events are planned but not
-implemented — do not describe them as available. Callers reach unwrapped methods
-through the generic `Provider::request` escape hatch.
+**As of v0.1.0 the API reads chain state and switches chains**:
+`eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `eth_getBalance`,
+`eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`
+are wrapped in typed helpers, as are `wallet_switchEthereumChain` /
+`wallet_addEthereumChain` (`switch_chain`, `add_chain`, `switch_or_add_chain`).
+Calls (`eth_call`, `eth_estimateGas`), blocks and receipts, transaction sending,
+message signing, and provider events are planned but not implemented — do not
+describe them as available. Callers reach unwrapped methods through the generic
+`Provider::request` escape hatch.
 
 ## Project Structure
 
@@ -31,9 +33,12 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
-- `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, codecs
+- `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`,
+  `ChainParams`, codecs
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
-  helpers, `BrowserProvider`, `MockProvider`
+  helpers, `MockProvider`; backend-agnostic
+- `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;
+  the only package above `ffi/js` that is `js`-only
 - `ffi/js/` — the **only** package containing `extern "js"` bindings to
   `globalThis.ethereum` / JS Promises
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's

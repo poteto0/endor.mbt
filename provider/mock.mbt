@@ -13,13 +13,28 @@
 pub struct MockProvider {
   priv responses : Map[String, Json]
   priv errors : Map[String, ProviderError]
+  priv sequences : Map[String, Array[Answer]]
   priv calls : Array[(String, Json)]
+}
+
+///|
+/// What a mocked method does on one call: answer, or raise.
+pub(all) enum Answer {
+  /// Answer with this JSON result.
+  Answers(Json)
+  /// Raise this error instead of answering.
+  Raises(ProviderError)
 }
 
 ///|
 /// Create an empty mock provider.
 pub fn MockProvider::new() -> MockProvider {
-  MockProvider::{ responses: Map([]), errors: Map([]), calls: [] }
+  MockProvider::{
+    responses: Map([]),
+    errors: Map([]),
+    sequences: Map([]),
+    calls: [],
+  }
 }
 
 ///|
@@ -47,6 +62,31 @@ pub fn MockProvider::on_error(
 }
 
 ///|
+/// Register a run of answers for `method_name`: the first call gets the first
+/// answer, the second the second, and so on. Once they run out, calls fall back
+/// to whatever `on` / `on_error` registered.
+///
+/// This is what a flow that retries needs — a wallet answering
+/// `wallet_switchEthereumChain` with 4902 and then succeeding once the chain
+/// has been added.
+///
+/// ```
+/// let mock = @provider.MockProvider::new().on_sequence(
+///   method_name="wallet_switchEthereumChain",
+///   answers=[Raises(UnrecognizedChain), Answers(Json::null())],
+/// )
+/// ignore(mock)
+/// ```
+pub fn MockProvider::on_sequence(
+  self : MockProvider,
+  method_name~ : String,
+  answers~ : Array[Answer],
+) -> MockProvider {
+  self.sequences[method_name] = answers
+  self
+}
+
+///|
 /// The list of `(method_name, params)` calls received so far, in order.
 pub fn MockProvider::calls(self : MockProvider) -> Array[(String, Json)] {
   self.calls
@@ -61,6 +101,13 @@ pub fn MockProvider::last_call(self : MockProvider) -> (String, Json)? {
 ///|
 pub impl Provider for MockProvider with fn request(self, method_name~, params~) {
   self.calls.push((method_name, params))
+  // A registered run answers first, one entry per call, until it is used up.
+  if self.sequences.get(method_name) is Some(answers) && !answers.is_empty() {
+    return match answers.remove(0) {
+      Answers(j) => j
+      Raises(e) => raise e
+    }
+  }
   if self.errors.get(method_name) is Some(e) {
     raise e
   }

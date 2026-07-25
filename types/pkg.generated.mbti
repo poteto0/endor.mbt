@@ -59,6 +59,13 @@ pub fn ChainId::to_json(Self) -> Json
 pub fn ChainId::to_uint64(Self) -> UInt64
 pub impl Show for ChainId
 
+pub struct ChainParams {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ChainParams::chain_id(Self) -> ChainId
+pub fn ChainParams::new(ChainId, chain_name~ : String, rpc_urls~ : Array[String], native_currency~ : NativeCurrency, block_explorer_urls? : Array[String]) -> Self
+pub fn ChainParams::to_json(Self) -> Json
+
 pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -69,6 +76,12 @@ pub fn Hex::is_empty(Self) -> Bool
 pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
+
+pub struct NativeCurrency {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn NativeCurrency::new(name~ : String, symbol~ : String, decimals? : Int) -> Self
+pub fn NativeCurrency::to_json(Self) -> Json
 
 pub struct Quantity {
   // private fields
