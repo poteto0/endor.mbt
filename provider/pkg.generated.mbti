@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/endor/provider"
+
+import {
+  "moonbitlang/core/debug",
+  "username/endor/types",
+}
+
+// Values
+pub async fn[P : Provider] accounts(P) -> Array[@types.Address] raise ProviderError
+
+pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
+
+pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
+
+// Errors
+pub(all) suberror ProviderError {
+  UserRejected
+  Unauthorized
+  UnsupportedMethod
+  Disconnected
+  ChainDisconnected
+  UnrecognizedChain
+  Rpc(code~ : Int, message~ : String)
+  NotInstalled
+} derive(Eq, @debug.Debug)
+pub fn ProviderError::from_code(Int, String) -> Self
+pub fn ProviderError::internal(String) -> Self
+pub impl Show for ProviderError
+
+// Types and methods
+pub struct MockProvider {
+  // private fields
+}
+pub fn MockProvider::calls(Self) -> Array[(String, Json)]
+pub fn MockProvider::last_call(Self) -> (String, Json)?
+pub fn MockProvider::new() -> Self
+pub fn MockProvider::on(Self, method_name~ : String, response~ : Json) -> Self
+pub fn MockProvider::on_error(Self, method_name~ : String, error~ : ProviderError) -> Self
+pub impl Provider for MockProvider
+
+// Type aliases
+
+// Traits
+pub(open) trait Provider {
+  async fn request(Self, method_name~ : String, params~ : Json) -> Json raise ProviderError
+}
+
