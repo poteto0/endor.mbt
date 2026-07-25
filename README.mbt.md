@@ -9,8 +9,8 @@ MoonBit functions.
 
 > **v0.1.0 is read-only.** Reading accounts and the current chain is supported;
 > sending transactions, signing, and chain switching are not yet wrapped. See
-> [Scope](#scope) below — anything unwrapped is still reachable through
-> `Provider::request`.
+> [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
+> — anything unwrapped is still reachable through `Provider::request`.
 
 ## Install
 
@@ -64,36 +64,13 @@ for the build-and-serve steps.
 
 ## Scope
 
-Wrapped in typed helpers today:
+v0.1.0 wraps `eth_requestAccounts`, `eth_accounts`, and `eth_chainId` in typed
+helpers. Sending transactions, signing, chain switching, and provider events are
+planned but not implemented; until they land, `Provider::request` reaches any
+method with raw `Json`.
 
-| Function                        | JSON-RPC method       |
-| ------------------------------- | --------------------- |
-| `@provider.request_accounts(p)` | `eth_requestAccounts` |
-| `@provider.accounts(p)`         | `eth_accounts`        |
-| `@provider.chain_id(p)`         | `eth_chainId`         |
-
-Planned, not implemented yet:
-
-- sending transactions (`eth_sendTransaction`)
-- message signing (`personal_sign`, `eth_signTypedData_v4`)
-- chain switching (`wallet_switchEthereumChain`, `wallet_addEthereumChain`)
-- provider events (`accountsChanged`, `chainChanged`, `disconnect`)
-
-Until those land, the generic escape hatch reaches any method. It returns raw
-`Json` and gives up the typed surface, so prefer the helpers above where they
-exist:
-
-```
-async fn balance(
-  wallet : @provider.BrowserProvider,
-  who : @endor.Address,
-) -> Json raise @provider.ProviderError {
-  wallet.request(
-    method_name="eth_getBalance",
-    params=[who.to_json(), Json::string("latest")],
-  )
-}
-```
+**→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
+for the full list, what each helper returns, and how to use the escape hatch.
 
 ## Layout
 
