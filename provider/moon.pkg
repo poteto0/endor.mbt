@@ -1,5 +1,6 @@
 import {
-  "username/endor/types",
+  "poteto0/endor/types",
+  "poteto0/endor/ffi/js",
   "moonbitlang/core/debug",
 }
 

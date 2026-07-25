@@ -152,9 +152,7 @@ async test "error invalid accounts response" {
 
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(
       method_name="eth_accounts",
-      response=Json::array([
-        "invalid".to_json(),
-      ]),
+      response=Json::array(["invalid".to_json()]),
     )
 
     try @provider.accounts(provider) catch {

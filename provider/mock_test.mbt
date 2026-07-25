@@ -1,11 +1,10 @@
 ///|
 async test "mock provider returns canned response" {
   @async.with_task_group(_ => {
-    let provider : @provider.MockProvider =
-      @provider.MockProvider::new().on(
-        method_name="eth_chainId",
-        response="0x1".to_json(),
-      )
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_chainId",
+      response="0x1".to_json(),
+    )
 
     let result = provider.request(
       method_name="eth_chainId",
@@ -31,13 +30,11 @@ async test "mock provider returns canned response" {
 ///|
 async test "mock provider errors for unknown method" {
   @async.with_task_group(_ => {
-    let provider : @provider.MockProvider =
-      @provider.MockProvider::new()
+    let provider : @provider.MockProvider = @provider.MockProvider::new()
 
-    try provider.request(
-      method_name="eth_unknown",
-      params=Json::array([]),
-    ) catch {
+    try
+      provider.request(method_name="eth_unknown", params=Json::array([]))
+    catch {
       @provider.ProviderError::Rpc(_) => ()
       e => fail("expected rpc error, but not \{e}")
     } noraise {
@@ -49,16 +46,17 @@ async test "mock provider errors for unknown method" {
 ///|
 async test "mock provider returns registered error" {
   @async.with_task_group(_ => {
-    let provider : @provider.MockProvider =
-      @provider.MockProvider::new().on_error(
-        method_name="eth_requestAccounts",
-        error=@provider.ProviderError::UserRejected,
-      )
-
-    try provider.request(
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on_error(
       method_name="eth_requestAccounts",
-      params=Json::array([]),
-    ) catch {
+      error=@provider.ProviderError::UserRejected,
+    )
+
+    try
+      provider.request(
+        method_name="eth_requestAccounts",
+        params=Json::array([]),
+      )
+    catch {
       @provider.ProviderError::UserRejected => ()
       e => fail("expected user rejected, but not \{e}")
     } noraise {
@@ -70,28 +68,15 @@ async test "mock provider returns registered error" {
 ///|
 async test "mock provider records calls in order" {
   @async.with_task_group(_ => {
-    let provider : @provider.MockProvider =
-      @provider.MockProvider::new()
-        .on(
-          method_name="eth_chainId",
-          response="0x1".to_json(),
-        )
-        .on(
-          method_name="eth_accounts",
-          response=Json::array([]),
-        )
+    let provider : @provider.MockProvider = @provider.MockProvider::new()
+      .on(method_name="eth_chainId", response="0x1".to_json())
+      .on(method_name="eth_accounts", response=Json::array([]))
 
-    let _ = provider.request(
-      method_name="eth_chainId",
-      params=Json::array([]),
-    ) catch {
+    let _ = provider.request(method_name="eth_chainId", params=Json::array([])) catch {
       e => fail("unexpected error \{e}")
     }
 
-    let _ = provider.request(
-      method_name="eth_accounts",
-      params=Json::array([]),
-    ) catch {
+    let _ = provider.request(method_name="eth_accounts", params=Json::array([])) catch {
       e => fail("unexpected error \{e}")
     }
 
@@ -110,11 +95,10 @@ async test "mock provider records calls in order" {
 ///|
 async test "mock provider returns last call" {
   @async.with_task_group(_ => {
-    let provider : @provider.MockProvider =
-      @provider.MockProvider::new().on(
-        method_name="eth_chainId",
-        response="0x1".to_json(),
-      )
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_chainId",
+      response="0x1".to_json(),
+    )
 
     let before = provider.last_call()
     match before {
@@ -122,10 +106,7 @@ async test "mock provider returns last call" {
       Some(_) => fail("expected no last call")
     }
 
-    let _ = provider.request(
-      method_name="eth_chainId",
-      params=Json::array([]),
-    ) catch {
+    let _ = provider.request(method_name="eth_chainId", params=Json::array([])) catch {
       e => fail("unexpected error \{e}")
     }
 

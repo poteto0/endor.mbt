@@ -1,9 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "username/endor/provider"
+package "poteto0/endor/provider"
 
 import {
   "moonbitlang/core/debug",
-  "username/endor/types",
+  "poteto0/endor/types",
 }
 
 // Values
@@ -29,6 +29,14 @@ pub fn ProviderError::internal(String) -> Self
 pub impl Show for ProviderError
 
 // Types and methods
+pub struct BrowserProvider {
+  // private fields
+}
+pub fn BrowserProvider::detect() -> Self?
+pub fn BrowserProvider::is_metamask(Self) -> Bool
+pub fn BrowserProvider::require() -> Self raise ProviderError
+pub impl Provider for BrowserProvider
+
 pub struct MockProvider {
   // private fields
 }
