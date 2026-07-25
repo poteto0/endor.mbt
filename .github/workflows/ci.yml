@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# a new push to the same branch supersedes the previous run
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # `moon test --target js` runs the generated JS under node
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up MoonBit
+        run: |
+          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
+          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+
+      - name: Set up just
+        run: |
+          curl -fsSL https://just.systems/install.sh | bash -s -- --to "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Show toolchain versions
+        run: |
+          moon version --all
+          just --version
+
+      - name: Sync dependencies
+        run: moon update
+
+      # every step below mirrors a `just ci-check` recipe, so the same checks
+      # can be reproduced locally with a single command
+      - name: Format check
+        run: just fmt-check
+
+      - name: Type check
+        run: just check
+
+      - name: Build (js)
+        run: just build
+
+      - name: Unit tests
+        run: just ut-cov
+
+      - name: Interface (.mbti) check
+        run: just info-check
