@@ -1,6 +1,6 @@
 # Scope
 
-What `poteto0/endor` covers as of **v0.1.0**. Chain state is read-only at this
+What `poteto0/endor` covers. Chain state is read-only at this
 version — it reads accounts, balances and the current chain, and does not yet
 send transactions or sign. What it does change is which chain the wallet is on,
 through the `wallet_*` methods below.
@@ -9,17 +9,17 @@ through the `wallet_*` methods below.
 
 ### Reads
 
-| Function                                | JSON-RPC method           | Returns                 |
-| --------------------------------------- | ------------------------- | ----------------------- |
-| `@provider.request_accounts(p)`         | `eth_requestAccounts`     | `Array[@endor.Address]` |
-| `@provider.accounts(p)`                 | `eth_accounts`            | `Array[@endor.Address]` |
-| `@provider.chain_id(p)`                 | `eth_chainId`             | `@endor.ChainId`        |
-| `@provider.balance(p, who)`             | `eth_getBalance`          | `@endor.Wei`            |
-| `@provider.block_number(p)`             | `eth_blockNumber`         | `UInt64`                |
-| `@provider.transaction_count(p, who)`   | `eth_getTransactionCount` | `UInt64` (nonce)        |
-| `@provider.gas_price(p)`                | `eth_gasPrice`            | `@endor.Wei`            |
-| `@provider.code(p, who)`                | `eth_getCode`             | `@endor.Hex`            |
-| `@provider.is_contract(p, who)`         | `eth_getCode`             | `Bool`                  |
+| Function                              | JSON-RPC method           | Returns                 |
+| ------------------------------------- | ------------------------- | ----------------------- |
+| `@provider.request_accounts(p)`       | `eth_requestAccounts`     | `Array[@endor.Address]` |
+| `@provider.accounts(p)`               | `eth_accounts`            | `Array[@endor.Address]` |
+| `@provider.chain_id(p)`               | `eth_chainId`             | `@endor.ChainId`        |
+| `@provider.balance(p, who)`           | `eth_getBalance`          | `@endor.Wei`            |
+| `@provider.block_number(p)`           | `eth_blockNumber`         | `UInt64`                |
+| `@provider.transaction_count(p, who)` | `eth_getTransactionCount` | `UInt64` (nonce)        |
+| `@provider.gas_price(p)`              | `eth_gasPrice`            | `@endor.Wei`            |
+| `@provider.code(p, who)`              | `eth_getCode`             | `@endor.Hex`            |
+| `@provider.is_contract(p, who)`       | `eth_getCode`             | `Bool`                  |
 
 `request_accounts` prompts the wallet to connect if it is not connected yet;
 `accounts` never prompts and returns an empty array when the dapp is not
@@ -44,11 +44,11 @@ transactions the wallet has broadcast but that are not mined yet.
 
 ### Chain switching
 
-| Function                                  | JSON-RPC method              |
-| ----------------------------------------- | ---------------------------- |
-| `@provider.switch_chain(p, chain_id)`     | `wallet_switchEthereumChain` |
-| `@provider.add_chain(p, params)`          | `wallet_addEthereumChain`    |
-| `@provider.switch_or_add_chain(p, params)` | both, see below             |
+| Function                                   | JSON-RPC method              |
+| ------------------------------------------ | ---------------------------- |
+| `@provider.switch_chain(p, chain_id)`      | `wallet_switchEthereumChain` |
+| `@provider.add_chain(p, params)`           | `wallet_addEthereumChain`    |
+| `@provider.switch_or_add_chain(p, params)` | both, see below              |
 
 All three prompt the user, so they raise `UserRejected` when the user declines.
 `switch_chain` raises `UnrecognizedChain` (4902) when the wallet does not know
