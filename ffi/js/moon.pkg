@@ -2,3 +2,9 @@ import {
   "moonbitlang/async/js_async",
   "moonbitlang/core/json",
 }
+
+// The `extern "js"` bindings to `globalThis.ethereum` only exist on this
+// backend. Declaring it per package rather than in `moon.mod` keeps the root
+// package and `types` buildable everywhere.
+
+supported_targets = "js"

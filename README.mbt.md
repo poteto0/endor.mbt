@@ -5,7 +5,7 @@ A MoonBit SDK for talking to browser wallets from a dapp. It wraps the
 as MetaMask inject as `globalThis.ethereum`, and exposes it as typed, async
 MoonBit functions.
 
-![demo](./docs/movie/demo.gif)
+![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
 > **v0.1.0 is read-only.** Reading accounts and the current chain is supported;
 > sending transactions, signing, and chain switching are not yet wrapped. See
@@ -56,10 +56,11 @@ fn main {
 ```
 
 A runnable version of this lives in
-[`examples/get-address`](./examples/get-address), which renders the same values
-onto a page, together with an `index.html` you can open in a browser that has a
-wallet installed — see [`examples/README.md`](./examples/README.md) for the
-build-and-serve steps.
+[`examples/get-address`](https://github.com/poteto0/endor.mbt/tree/main/examples/get-address),
+which renders the same values onto a page, together with an `index.html` you can
+open in a browser that has a wallet installed — see
+[`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md)
+for the build-and-serve steps.
 
 ## Scope
 
@@ -113,6 +114,8 @@ own internal failures use `ProviderError::internal`.
 
 ## Development
 
+From a clone of the [repository](https://github.com/poteto0/endor.mbt) — the
+recipes below live in its `justfile`, which is not part of the published package.
 The default target is `js`, since the SDK drives a browser-injected object.
 
 ```sh

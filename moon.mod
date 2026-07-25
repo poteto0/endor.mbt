@@ -28,3 +28,11 @@ description = "Typed, async MoonBit SDK for the EIP-1193 wallet providers that b
 import {
   "moonbitlang/async@0.20.3",
 }
+
+options(
+  // Kept out of the published archive. `examples/` matters most: it is a nested
+  // module with its own `moon.mod` pulling in UI dependencies, so shipping it
+  // would drag `mizchi/luna` into a consumer's resolution. The rest is
+  // repository-local tooling and notes.
+  exclude: [ "examples", "moon.work", "justfile", "AGENTS.md", "docs" ],
+)
