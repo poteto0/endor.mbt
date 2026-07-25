@@ -8,3 +8,6 @@ _coverage/
 
 # build artifact copied next to the example's index.html by `just example`
 examples/get-address/main.js
+# transient files written by the Claude Code permission prompt
+.claude/settings.local.json
+.claude/settings.local.json.tmp.*

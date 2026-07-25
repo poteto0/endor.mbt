@@ -6,5 +6,7 @@ pub using @types {
   type Hex,
   type ChainId,
   type Wei,
+  type Quantity,
+  type BlockTag,
   type CodecError,
 }

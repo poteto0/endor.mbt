@@ -8,10 +8,12 @@ It wraps the [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider
 typed, async MoonBit API.
 
 **As of v0.1.0 the API is read-only**: `eth_requestAccounts`, `eth_accounts`,
-and `eth_chainId` are wrapped in typed helpers. Transaction sending, message
-signing, chain switching, and provider events are planned but not implemented —
-do not describe them as available. Callers reach unwrapped methods through the
-generic `Provider::request` escape hatch.
+`eth_chainId`, `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
+`eth_gasPrice` and `eth_getCode` are wrapped in typed helpers. Calls
+(`eth_call`, `eth_estimateGas`), blocks and receipts, transaction sending,
+message signing, chain switching, and provider events are planned but not
+implemented — do not describe them as available. Callers reach unwrapped methods
+through the generic `Provider::request` escape hatch.
 
 ## Project Structure
 
@@ -29,7 +31,7 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
-- `types/` — `Address`, `Hex`, `ChainId`, `Wei`, codecs
+- `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, codecs
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `BrowserProvider`, `MockProvider`
 - `ffi/js/` — the **only** package containing `extern "js"` bindings to

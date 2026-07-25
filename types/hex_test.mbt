@@ -64,3 +64,13 @@ test "debug hex" {
   let hex = @types.Hex::from_string("0xAB01")
   assert_eq(hex.to_string(), "0xab01")
 }
+
+///|
+/// Byte length counts whole bytes, and empty is the `"0x"` an account with no
+/// contract code answers with.
+test "can measure hex length" {
+  assert_eq(@types.Hex::from_string("0x").byte_length(), 0)
+  assert_eq(@types.Hex::from_string("0xab01").byte_length(), 2)
+  assert_true(@types.Hex::from_string("0x").is_empty())
+  assert_false(@types.Hex::from_string("0x00").is_empty())
+}

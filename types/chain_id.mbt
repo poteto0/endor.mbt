@@ -67,20 +67,13 @@ pub fn ChainId::base() -> ChainId {
 ///|
 /// Parse a `0x`-prefixed hex quantity into a chain id.
 pub fn ChainId::from_hex(s : String) -> ChainId raise CodecError {
-  let body = strip_0x(s)
-  guard body.length() > 0 else { raise InvalidHex("empty chain id: \{s}") }
-  // `strip_0x` already rejected non-hex digits, so the only remaining failure
-  // is a value too large for 64 bits.
-  let value = @string.parse_uint64(body, base=16) catch {
-    _ => raise InvalidLength("chain id exceeds 64 bits: \{s}")
-  }
-  ChainId::{ value, }
+  ChainId::{ value: parse_quantity(s, what="chain id") }
 }
 
 ///|
 /// Encode as a minimal `0x`-prefixed hex quantity.
 pub fn ChainId::to_hex(self : ChainId) -> String {
-  "0x" + self.value.to_string(radix=16)
+  format_quantity(self.value)
 }
 
 ///|

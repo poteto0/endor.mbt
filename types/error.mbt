@@ -3,8 +3,11 @@
 /// on-the-wire representations (hex strings, JSON) into domain types.
 ///
 /// ```
-/// let e : @types.CodecError = InvalidHex("nope")
-/// inspect(e, content="InvalidHex(nope)")
+/// try @types.Address::from_string("nope") catch {
+///   e => inspect(e, content="InvalidHex(nope)")
+/// } noraise {
+///   _ => fail("expected an error")
+/// }
 /// ```
 pub suberror CodecError {
   /// The string is not a valid `0x`-prefixed hex value.

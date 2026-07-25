@@ -20,11 +20,26 @@ pub impl Show for CodecError
 pub struct Address {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Address::array_from_json(Json) -> Array[Self] raise CodecError
 pub fn Address::from_json(Json) -> Self raise CodecError
 pub fn Address::from_string(String) -> Self raise CodecError
 pub fn Address::to_json(Self) -> Json
 pub fn Address::to_string(Self) -> String
 pub impl Show for Address
+
+pub(all) enum BlockTag {
+  Latest
+  Pending
+  Earliest
+  Safe
+  Finalized
+  Number(UInt64)
+} derive(Eq, @debug.Debug)
+pub fn BlockTag::from_json(Json) -> Self raise CodecError
+pub fn BlockTag::from_string(String) -> Self raise CodecError
+pub fn BlockTag::to_json(Self) -> Json
+pub fn BlockTag::to_string(Self) -> String
+pub impl Show for BlockTag
 
 pub struct ChainId {
   // private fields
@@ -47,11 +62,24 @@ pub impl Show for ChainId
 pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Hex::byte_length(Self) -> Int
 pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError
+pub fn Hex::is_empty(Self) -> Bool
 pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
+
+pub struct Quantity {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Quantity::from_hex(String) -> Self raise CodecError
+pub fn Quantity::from_json(Json) -> Self raise CodecError
+pub fn Quantity::new(UInt64) -> Self
+pub fn Quantity::to_hex(Self) -> String
+pub fn Quantity::to_json(Self) -> Json
+pub fn Quantity::to_uint64(Self) -> UInt64
+pub impl Show for Quantity
 
 pub struct Wei {
   // private fields
