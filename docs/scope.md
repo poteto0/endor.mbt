@@ -1,10 +1,13 @@
 # Scope
 
-What `poteto0/endor` covers as of **v0.1.0**. The SDK is read-only at this
-version: it reads accounts, balances and the current chain, and does not yet
-write.
+What `poteto0/endor` covers as of **v0.1.0**. Chain state is read-only at this
+version — it reads accounts, balances and the current chain, and does not yet
+send transactions or sign. What it does change is which chain the wallet is on,
+through the `wallet_*` methods below.
 
 ## Wrapped in typed helpers
+
+### Reads
 
 | Function                                | JSON-RPC method           | Returns                 |
 | --------------------------------------- | ------------------------- | ----------------------- |
@@ -39,17 +42,56 @@ The tags are `Latest` (the default), `Pending`, `Earliest`, `Safe`, `Finalized`
 and `Number(n)`. `Pending` is the one to use for a nonce, since it counts
 transactions the wallet has broadcast but that are not mined yet.
 
+### Chain switching
+
+| Function                                  | JSON-RPC method              |
+| ----------------------------------------- | ---------------------------- |
+| `@provider.switch_chain(p, chain_id)`     | `wallet_switchEthereumChain` |
+| `@provider.add_chain(p, params)`          | `wallet_addEthereumChain`    |
+| `@provider.switch_or_add_chain(p, params)` | both, see below             |
+
+All three prompt the user, so they raise `UserRejected` when the user declines.
+`switch_chain` raises `UnrecognizedChain` (4902) when the wallet does not know
+the chain, which is what the composite absorbs: it switches, and on 4902 adds
+the chain and switches again. Any other error propagates from the step that
+raised it.
+
+```
+@provider.switch_chain(wallet, @endor.ChainId::mainnet())
+
+let polygon = @endor.ChainParams::new(
+  @endor.ChainId::polygon(),
+  chain_name="Polygon Mainnet",
+  rpc_urls=["https://polygon-rpc.com"],
+  native_currency=@endor.NativeCurrency::new(name="POL", symbol="POL"),
+  block_explorer_urls=["https://polygonscan.com"],
+)
+@provider.switch_or_add_chain(wallet, polygon)
+```
+
+`@endor.ChainParams` is the EIP-3085 description a wallet needs in order to add
+a chain it has never seen — a domain type like the rest, so it lives in
+`endor/types`. `block_explorer_urls` is optional and left out of the request
+when empty; `NativeCurrency`'s `decimals` defaults to 18. Presets such as
+`ChainId::mainnet()` / `::polygon()` / `::sepolia()` save spelling the id out.
+
+Adding a chain is also how a wallet switches to it, so `switch_or_add_chain`'s
+second switch is redundant on wallets that do both — it is there for the ones
+that add without switching.
+
 Alongside those:
 
-- `@provider.BrowserProvider::detect()` / `::require()` — find
+- `@browser.BrowserProvider::detect()` / `::require()` — find
   `globalThis.ethereum`, returning `None` / raising `NotInstalled` when no wallet
   extension is present
-- `@provider.BrowserProvider::is_metamask()` — whether the injected provider
+- `@browser.BrowserProvider::is_metamask()` — whether the injected provider
   identifies itself as MetaMask
 - `@provider.MockProvider` — an in-memory `Provider` for tests, so the RPC layer
   can be exercised without a browser
-- `@endor.Address` / `Hex` / `ChainId` / `Wei` / `Quantity` / `BlockTag` —
-  domain types with hex and JSON codecs
+- `@endor.Address` / `Hex` / `ChainId` / `Wei` / `Quantity` / `BlockTag` /
+  `ChainParams` / `NativeCurrency` — domain types with hex and JSON codecs
+- `@provider.MockProvider::on_sequence` — canned answers one per call, for
+  flows that retry (the 4902 fallback above is tested with it)
 - `@provider.ProviderError` — EIP-1193 / EIP-1474 codes mapped onto typed
   variants (`UserRejected`, `UnrecognizedChain`, …). Wallet-side failures never
   panic.
@@ -60,7 +102,6 @@ Alongside those:
 - blocks and receipts (`eth_getBlockByNumber`, `eth_getTransactionReceipt`)
 - sending transactions (`eth_sendTransaction`)
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
-- chain switching (`wallet_switchEthereumChain`, `wallet_addEthereumChain`)
 - provider events (`accountsChanged`, `chainChanged`, `disconnect`)
 
 ## Reaching anything not wrapped
@@ -71,7 +112,7 @@ wherever they exist:
 
 ```
 async fn block(
-  wallet : @provider.BrowserProvider,
+  wallet : @browser.BrowserProvider,
   at : @endor.BlockTag,
 ) -> Json raise @provider.ProviderError {
   wallet.request(
@@ -92,7 +133,7 @@ The raw `Json` it returns can be decoded with the same codecs the helpers use �
 
 ## Backends
 
-The typed RPC layer and the domain types are plain MoonBit, but the provider it
-drives is a browser-injected JS object, so `endor/ffi/js` and `endor/provider`
-declare `supported_targets = "js"`. The root package and `endor/types` stay
-backend-agnostic.
+The typed RPC layer and the domain types are plain MoonBit. Only the injected
+provider itself is JS, so `supported_targets = "js"` is confined to `endor/ffi/js`
+and `endor/provider/browser`; the root package, `endor/types` and
+`endor/provider` stay backend-agnostic.

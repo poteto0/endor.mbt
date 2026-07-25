@@ -7,9 +7,10 @@ MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> **v0.1.0 is read-only.** Reading accounts, balances, nonces, gas price and
-> contract code is supported; sending transactions, signing, and chain switching
-> are not yet wrapped. See
+> **v0.1.0 reads chain state and switches chains.** Accounts, balances, nonces,
+> gas price and contract code are wrapped, as is chain switching
+> (`wallet_switchEthereumChain` / `wallet_addEthereumChain`, 4902 fallback
+> included); sending transactions and signing are not yet. See
 > [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
 > — anything unwrapped is still reachable through `Provider::request`.
 
@@ -23,8 +24,9 @@ Then import the packages you need in your `moon.pkg`:
 
 ```
 import {
-  "poteto0/endor/provider", // @provider — Provider, typed RPC, errors
-  "poteto0/endor/ffi/js",   // @js — spawn (bridge async to the JS event loop)
+  "poteto0/endor/provider",         // @provider — Provider, typed RPC, errors
+  "poteto0/endor/provider/browser", // @browser — the injected wallet
+  "poteto0/endor/ffi/js",           // @js — spawn (bridge async to the JS event loop)
 }
 ```
 
@@ -38,7 +40,7 @@ you need to spell a type out.
 async fn connect() -> Unit {
   try {
     // raises NotInstalled when no wallet extension is present
-    let wallet = @provider.BrowserProvider::require()
+    let wallet = @browser.BrowserProvider::require()
     match @provider.request_accounts(wallet).get(0) { // eth_requestAccounts
       Some(addr) => println("address: \{addr}")
       None => println("no authorized accounts")
@@ -63,15 +65,43 @@ open in a browser that has a wallet installed — see
 [`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md)
 for the build-and-serve steps.
 
+## Switching chains
+
+```
+async fn to_polygon(wallet : @browser.BrowserProvider) -> Unit {
+  try {
+    @provider.switch_or_add_chain(
+      wallet,
+      @endor.ChainParams::new(
+        @endor.ChainId::polygon(),
+        chain_name="Polygon Mainnet",
+        rpc_urls=["https://polygon-rpc.com"],
+        native_currency=@endor.NativeCurrency::new(name="POL", symbol="POL"),
+      ),
+    )
+  } catch {
+    UserRejected => println("the user declined")
+    e => println("error: \{e}")
+  }
+}
+```
+
+`switch_or_add_chain` sends `wallet_switchEthereumChain`, and when the wallet
+answers 4902 — it does not know that chain — adds it with
+`wallet_addEthereumChain` from the same `ChainParams` and switches again. That
+fallback is the part every dapp otherwise writes by hand; `switch_chain` and
+`add_chain` are the individual steps when you want them.
+
 ## Scope
 
 v0.1.0 wraps the basic reads in typed helpers: accounts
 (`eth_requestAccounts`, `eth_accounts`), the current chain (`eth_chainId`), and
 the account and chain state behind `eth_getBalance`, `eth_blockNumber`,
-`eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`. Calls, blocks and
-receipts, sending transactions, signing, chain switching, and provider events
-are planned but not implemented; until they land, `Provider::request` reaches
-any method with raw `Json`.
+`eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`. On top of those,
+`switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
+chains. Calls, blocks and receipts, sending transactions, signing, and provider
+events are planned but not implemented; until they land, `Provider::request`
+reaches any method with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
@@ -83,13 +113,14 @@ for where the unimplemented parts sit in the plan.
 | Package           | Contents                                                                                |
 | ----------------- | --------------------------------------------------------------------------------------- |
 | `endor` (root)    | re-exports the domain types, so they can be spelled `@endor.Address`                    |
-| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag` and their hex/JSON codecs     |
-| `endor/provider`  | `Provider` trait, `ProviderError`, typed RPC helpers, `BrowserProvider`, `MockProvider`  |
+| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `ChainParams` and their codecs |
+| `endor/provider`  | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                     |
+| `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped              |
 | `endor/ffi/js`    | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`            |
 
-`endor` and `endor/types` are backend-agnostic; `endor/ffi/js` and therefore
-`endor/provider` are `js`-only, since the whole point is a browser-injected
-object.
+`endor`, `endor/types` and `endor/provider` are backend-agnostic;
+`endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
+whole point there is a browser-injected object.
 
 Wallet-side failures never panic: EIP-1193 / EIP-1474 codes map onto
 `ProviderError` variants (`UserRejected`, `UnrecognizedChain`, …), and the SDK's

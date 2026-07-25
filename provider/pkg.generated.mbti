@@ -9,6 +9,8 @@ import {
 // Values
 pub async fn[P : Provider] accounts(P) -> Array[@types.Address] raise ProviderError
 
+pub async fn[P : Provider] add_chain(P, @types.ChainParams) -> Unit raise ProviderError
+
 pub async fn[P : Provider] balance(P, @types.Address, block? : @types.BlockTag) -> @types.Wei raise ProviderError
 
 pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
@@ -22,6 +24,10 @@ pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
 pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockTag) -> Bool raise ProviderError
 
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
+
+pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise ProviderError
+
+pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit raise ProviderError
 
 pub async fn[P : Provider] transaction_count(P, @types.Address, block? : @types.BlockTag) -> UInt64 raise ProviderError
 
@@ -41,6 +47,11 @@ pub fn ProviderError::internal(String) -> Self
 pub impl Show for ProviderError
 
 // Types and methods
+pub(all) enum Answer {
+  Answers(Json)
+  Raises(ProviderError)
+}
+
 pub struct MockProvider {
   // private fields
 }
@@ -49,6 +60,7 @@ pub fn MockProvider::last_call(Self) -> (String, Json)?
 pub fn MockProvider::new() -> Self
 pub fn MockProvider::on(Self, method_name~ : String, response~ : Json) -> Self
 pub fn MockProvider::on_error(Self, method_name~ : String, error~ : ProviderError) -> Self
+pub fn MockProvider::on_sequence(Self, method_name~ : String, answers~ : Array[Answer]) -> Self
 pub impl Provider for MockProvider
 
 // Type aliases

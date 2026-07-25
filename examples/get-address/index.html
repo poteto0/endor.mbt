@@ -48,13 +48,29 @@
         padding: 0.6rem 1.2rem;
         cursor: pointer;
       }
+      .hint {
+        margin: 1.25rem 0 0.4rem;
+        color: #555;
+        font-size: 0.9rem;
+      }
+      .chains {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .chain {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.9rem;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
     <h1>endor.mbt — get wallet address</h1>
     <p>
-      This demo detects MetaMask and requests the connected wallet address using
-      the <code>endor</code> MoonBit SDK (compiled to JavaScript). Everything
+      This demo detects MetaMask, requests the connected wallet address, and
+      switches chains using the <code>endor</code> MoonBit SDK (compiled to
+      JavaScript). Everything
       below the heading is rendered from MoonBit with
       <a href="https://github.com/mizchi/luna.mbt">luna.mbt</a>, so the wallet
       values appear on the page rather than in the console.
