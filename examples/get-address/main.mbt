@@ -23,6 +23,7 @@ struct WalletView {
   status : @signals.Signal[String]
   provider_name : @signals.Signal[String]
   address : @signals.Signal[String]
+  balance : @signals.Signal[String]
   chain : @signals.Signal[String]
 }
 
@@ -35,6 +36,7 @@ fn WalletView::new() -> WalletView {
     status: signal("Not connected yet."),
     provider_name: signal(PLACEHOLDER),
     address: signal(PLACEHOLDER),
+    balance: signal(PLACEHOLDER),
     chain: signal(PLACEHOLDER),
   }
 }
@@ -44,6 +46,7 @@ fn WalletView::clear(self : WalletView, status~ : String) -> Unit {
   self.status.set(status)
   self.provider_name.set(PLACEHOLDER)
   self.address.set(PLACEHOLDER)
+  self.balance.set(PLACEHOLDER)
   self.chain.set(PLACEHOLDER)
 }
 
@@ -64,12 +67,13 @@ async fn WalletView::connect(self : WalletView) -> Unit {
         "EIP-1193 provider"
       },
     )
-    self.address.set(
-      match @provider.request_accounts(wallet).get(0) {
-        Some(addr) => addr.to_string()
-        None => "no authorized accounts"
-      },
-    )
+    // `request_accounts` prompts and raises rather than returning an empty
+    // array, so an empty one means the wallet broke its own contract.
+    guard @provider.request_accounts(wallet).get(0) is Some(addr) else {
+      raise @provider.ProviderError::internal("wallet returned no accounts")
+    }
+    self.address.set(addr.to_string())
+    self.balance.set(@provider.balance(wallet, addr).to_bigint().to_string())
     let chain_id = @provider.chain_id(wallet)
     self.chain.set("\{chain_id.to_uint64()} (\{chain_id.to_hex()})")
     self.status.set("Connected.")
@@ -106,6 +110,7 @@ fn wallet_card() -> DomNode {
     ],
     field("Provider", view.provider_name),
     field("Address", view.address),
+    field("Balance", view.balance),
     field("Chain id", view.chain),
     // Wallets gate `eth_requestAccounts` behind a user gesture, so the flow is
     // started from the click rather than on load.

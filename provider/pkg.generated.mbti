@@ -9,6 +9,8 @@ import {
 // Values
 pub async fn[P : Provider] accounts(P) -> Array[@types.Address] raise ProviderError
 
+pub async fn[P : Provider] balance(P, @types.Address, block? : String) -> @types.Wei raise ProviderError
+
 pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
 
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError

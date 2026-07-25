@@ -1,19 +1,25 @@
 # Scope
 
 What `poteto0/endor` covers as of **v0.1.0**. The SDK is read-only at this
-version: it reads accounts and the current chain, and does not yet write.
+version: it reads accounts, balances and the current chain, and does not yet
+write.
 
 ## Wrapped in typed helpers
 
-| Function                        | JSON-RPC method       | Returns                     |
-| ------------------------------- | --------------------- | --------------------------- |
-| `@provider.request_accounts(p)` | `eth_requestAccounts` | `Array[@endor.Address]`     |
-| `@provider.accounts(p)`         | `eth_accounts`        | `Array[@endor.Address]`     |
-| `@provider.chain_id(p)`         | `eth_chainId`         | `@endor.ChainId`            |
+| Function                        | JSON-RPC method       | Returns                 |
+| ------------------------------- | --------------------- | ----------------------- |
+| `@provider.request_accounts(p)` | `eth_requestAccounts` | `Array[@endor.Address]` |
+| `@provider.accounts(p)`         | `eth_accounts`        | `Array[@endor.Address]` |
+| `@provider.chain_id(p)`         | `eth_chainId`         | `@endor.ChainId`        |
+| `@provider.balance(p, who)`     | `eth_getBalance`      | `@endor.Wei`            |
 
 `request_accounts` prompts the wallet to connect if it is not connected yet;
 `accounts` never prompts and returns an empty array when the dapp is not
 authorized.
+
+`balance` reads at the `"latest"` block by default; pass `block=` for any other
+tag the wallet accepts (`"pending"`, `"finalized"`, or a `0x`-prefixed block
+number).
 
 Alongside those:
 
@@ -44,13 +50,13 @@ returns raw `Json` and gives up the typed surface, so prefer the helpers above
 wherever they exist:
 
 ```
-async fn balance(
+async fn tx_count(
   wallet : @provider.BrowserProvider,
   who : @endor.Address,
 ) -> Json raise @provider.ProviderError {
   wallet.request(
-    method_name="eth_getBalance",
-    params=[who.to_json(), Json::string("latest")],
+    method_name="eth_getTransactionCount",
+    params=Json::array([who.to_json(), Json::string("latest")]),
   )
 }
 ```

@@ -22,7 +22,7 @@ fn decode_accounts(j : Json) -> Array[@types.Address] raise ProviderError {
 /// account.
 ///
 /// ```
-/// async fn connect[P : @provider.Provider](
+/// async fn[P : @provider.Provider] connect(
 ///   p : P,
 /// ) -> @types.Address raise @provider.ProviderError {
 ///   @provider.request_accounts(p)[0]
@@ -43,7 +43,7 @@ pub async fn[P : Provider] request_accounts(
 /// (`eth_accounts`). Returns an empty array when the dapp is not connected.
 ///
 /// ```
-/// async fn current[P : @provider.Provider](
+/// async fn[P : @provider.Provider] current(
 ///   p : P,
 /// ) -> Int raise @provider.ProviderError {
 ///   @provider.accounts(p).length()
@@ -60,7 +60,7 @@ pub async fn[P : Provider] accounts(
 /// Return the chain id the wallet is currently connected to (`eth_chainId`).
 ///
 /// ```
-/// async fn on_mainnet[P : @provider.Provider](
+/// async fn[P : @provider.Provider] on_mainnet(
 ///   p : P,
 /// ) -> Bool raise @provider.ProviderError {
 ///   @provider.chain_id(p) == @types.ChainId::mainnet()
@@ -72,5 +72,34 @@ pub async fn[P : Provider] chain_id(
   let r = provider.request(method_name="eth_chainId", params=Json::array([]))
   @types.ChainId::from_json(r) catch {
     e => raise ProviderError::internal("decode chainId: \{e}")
+  }
+}
+
+///|
+/// Return the balance of `who` in wei (`eth_getBalance`).
+///
+/// `block` is the block tag the balance is read at — `"latest"` by default,
+/// but any tag the wallet accepts (`"pending"`, `"finalized"`, or a
+/// `0x`-prefixed block number) works.
+///
+/// ```
+/// async fn[P : @provider.Provider] is_funded(
+///   p : P,
+///   who : @types.Address,
+/// ) -> Bool raise @provider.ProviderError {
+///   @provider.balance(p, who) != @types.Wei::zero()
+/// }
+/// ```
+pub async fn[P : Provider] balance(
+  provider : P,
+  who : @types.Address,
+  block? : String = "latest",
+) -> @types.Wei raise ProviderError {
+  let r = provider.request(
+    method_name="eth_getBalance",
+    params=Json::array([who.to_json(), Json::string(block)]),
+  )
+  @types.Wei::from_json(r) catch {
+    e => raise ProviderError::internal("decode wei: \{e}")
   }
 }
