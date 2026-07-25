@@ -7,9 +7,9 @@ MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> gas price and contract code are wrapped, as is chain switching
+> reads, calls (`eth_call` / `eth_estimateGas`) and chain switching
 > (`wallet_switchEthereumChain` / `wallet_addEthereumChain`, 4902 fallback
-> included); sending transactions and signing are not yet. See
+> included) are wrapped; sending transactions and signing are not yet. See
 > [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
 > — anything unwrapped is still reachable through `Provider::request`.
 
@@ -64,6 +64,36 @@ open in a browser that has a wallet installed — see
 [`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md)
 for the build-and-serve steps.
 
+## Reading a contract
+
+```
+async fn total_supply(
+  wallet : @browser.BrowserProvider,
+  token : @endor.Address,
+) -> Unit {
+  try {
+    // `totalSupply()` — a selector with no arguments, until the ABI layer lands
+    let req = @endor.CallRequest::new(
+      token,
+      data=@endor.Hex::from_string("0x18160ddd"),
+    )
+    let ret = @provider.call(wallet, req) // eth_call
+    println("returned \{ret.byte_length()} bytes: \{ret}")
+    let gas = @provider.estimate_gas(wallet, req) // eth_estimateGas
+    println("would cost \{gas.to_uint64()} gas")
+  } catch {
+    e => println("error: \{e}")
+  }
+}
+```
+
+`call` evaluates the request against the node's state instead of broadcasting it,
+so it needs no signature and never prompts the user; `estimate_gas` simulates the
+same request and answers with the gas it would need. `to` is the only required
+field of a `CallRequest` — `from`, `data` and `value` are optional and omitted
+from the request when absent. A call that reverts comes back as a `ProviderError`,
+which makes `estimate_gas` a cheap pre-flight check before asking anyone to sign.
+
 ## Switching chains
 
 ```
@@ -93,14 +123,15 @@ fallback is the part every dapp otherwise writes by hand; `switch_chain` and
 
 ## Scope
 
-v0.1.0 wraps the basic reads in typed helpers: accounts
-(`eth_requestAccounts`, `eth_accounts`), the current chain (`eth_chainId`), and
-the account and chain state behind `eth_getBalance`, `eth_blockNumber`,
-`eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`. On top of those,
-`switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
-chains. Calls, blocks and receipts, sending transactions, signing, and provider
-events are planned but not implemented; until they land, `Provider::request`
-reaches any method with raw `Json`.
+The reads are wrapped in typed helpers: accounts (`eth_requestAccounts`,
+`eth_accounts`), the current chain (`eth_chainId`), and the account and chain
+state behind `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
+`eth_gasPrice` and `eth_getCode`. On top of those, `call` / `estimate_gas`
+evaluate a request without broadcasting it, and `switch_chain` / `add_chain` /
+`switch_or_add_chain` move the wallet between chains. Blocks and receipts,
+sending transactions, signing, and provider events are planned but not
+implemented; until they land, `Provider::request` reaches any method with raw
+`Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
@@ -112,7 +143,7 @@ for where the unimplemented parts sit in the plan.
 | Package                  | Contents                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------ |
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                       |
-| `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `ChainParams` and their codecs |
+| `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs |
 | `endor/provider`         | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                       |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                            |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`              |

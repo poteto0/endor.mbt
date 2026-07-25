@@ -7,15 +7,16 @@ It wraps the [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider
 (`globalThis.ethereum`) injected by extensions such as MetaMask and exposes a
 typed, async MoonBit API.
 
-**As of v0.1.0 the API reads chain state and switches chains**:
+**The API reads chain state, evaluates calls, and switches chains**:
 `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `eth_getBalance`,
 `eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`
-are wrapped in typed helpers, as are `wallet_switchEthereumChain` /
+are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
+`estimate_gas`, over a `CallRequest`) and `wallet_switchEthereumChain` /
 `wallet_addEthereumChain` (`switch_chain`, `add_chain`, `switch_or_add_chain`).
-Calls (`eth_call`, `eth_estimateGas`), blocks and receipts, transaction sending,
-message signing, and provider events are planned but not implemented — do not
-describe them as available. Callers reach unwrapped methods through the generic
-`Provider::request` escape hatch.
+Blocks and receipts, transaction sending, message signing, and provider events
+are planned but not implemented — do not describe them as available. There is no
+ABI layer yet either, so a call's `data` and its answer are raw `Hex`. Callers
+reach unwrapped methods through the generic `Provider::request` escape hatch.
 
 ## Project Structure
 

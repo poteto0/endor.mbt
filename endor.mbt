@@ -8,6 +8,7 @@ pub using @types {
   type Wei,
   type Quantity,
   type BlockTag,
+  type CallRequest,
   type ChainParams,
   type NativeCurrency,
   type CodecError,

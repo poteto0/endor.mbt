@@ -41,6 +41,12 @@ pub fn BlockTag::to_json(Self) -> Json
 pub fn BlockTag::to_string(Self) -> String
 pub impl Show for BlockTag
 
+pub struct CallRequest {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn CallRequest::new(Address, from? : Address, data? : Hex, value? : Wei) -> Self
+pub fn CallRequest::to_json(Self) -> Json
+
 pub struct ChainId {
   // private fields
 } derive(Eq, @debug.Debug)
