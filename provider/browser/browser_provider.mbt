@@ -21,10 +21,10 @@ pub fn BrowserProvider::detect() -> BrowserProvider? {
 
 ///|
 /// Detect provider or raise when no wallet is installed.
-pub fn BrowserProvider::require() -> BrowserProvider raise ProviderError {
+pub fn BrowserProvider::require() -> BrowserProvider raise @provider.ProviderError {
   match BrowserProvider::detect() {
     Some(provider) => provider
-    None => raise NotInstalled
+    None => raise @provider.NotInstalled
   }
 }
 
@@ -36,7 +36,7 @@ pub fn BrowserProvider::is_metamask(self : BrowserProvider) -> Bool {
 
 ///|
 /// Send an EIP-1193 request.
-pub impl Provider for BrowserProvider with fn request(
+pub impl @provider.Provider for BrowserProvider with fn request(
   self,
   method_name~,
   params~,
@@ -47,13 +47,14 @@ pub impl Provider for BrowserProvider with fn request(
   })
 
   let result_json = @js.request(self.eth, payload.stringify()).wait() catch {
-    e => raise ProviderError::internal("request failed: \{e}")
+    e => raise @provider.ProviderError::internal("request failed: \{e}")
   }
 
   let result = @js.decode_envelope(result_json) catch {
     @js.JsError::RemoteError(code, msg) =>
-      raise ProviderError::from_code(code, msg)
-    @js.JsError::InvalidEnvelope(msg) => raise ProviderError::internal(msg)
+      raise @provider.ProviderError::from_code(code, msg)
+    @js.JsError::InvalidEnvelope(msg) =>
+      raise @provider.ProviderError::internal(msg)
   }
 
   result

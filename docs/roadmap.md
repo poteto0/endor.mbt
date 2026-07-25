@@ -4,17 +4,16 @@
 [GitHub issues](https://github.com/poteto0/endor.mbt/issues) 側で追う。
 このファイルはその上位の枠組み — なぜその順番なのか — を書いておく場所。
 
-現在地は **v0.1.0（読み取り専用、未公開）**。4 パッケージ、88 テスト。
 何が実装済みで何がそうでないかの正確な一覧は
 [`docs/scope.md`](./scope.md) にある。
 
 ## 長期: v1.0 — 「MoonBit で dapp が書ける」
 
-| | 目標 | issue |
-| --- | --- | --- |
-| **L1** | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20/721 プリセット | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
+|        | 目標                                                                                        | issue                                                 |
+| ------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **L1** | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20/721 プリセット             | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
 | **L2** | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
-| **L3** | ドキュメント / クックブック、semver ポリシー確立 | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
+| **L3** | ドキュメント / クックブック、semver ポリシー確立                                            | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
 
 L1 が SDK の価値の中心で、L2 は「何がコアか」を決める。この2つは独立に見えて、
 どちらも同じ問いに触る: **`Provider` trait はどこまで背負うのか**。
@@ -32,28 +31,28 @@ unsubscribe ハンドルとして公開することで満たす — 購読側で
 
 読み取り専用では「繋いで残高を見る」までしかできない。ここを埋めるのが中期。
 
-| | 目標 | issue |
-| --- | --- | --- |
-| **M1** | `eth_call` / `eth_estimateGas` | [#9](https://github.com/poteto0/endor.mbt/issues/9) |
-| **M2** | `eth_sendTransaction` + `TransactionRequest` / `TxHash` 型 | [#10](https://github.com/poteto0/endor.mbt/issues/10) |
-| **M3** | ブロック / レシート + `wait_for_receipt` | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
-| **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4` | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
-| **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
+|        | 目標                                                                   | issue                                                 |
+| ------ | ---------------------------------------------------------------------- | ----------------------------------------------------- |
+| **M1** | `eth_call` / `eth_estimateGas`                                         | [#9](https://github.com/poteto0/endor.mbt/issues/9)   |
+| **M2** | `eth_sendTransaction` + `TransactionRequest` / `TxHash` 型             | [#10](https://github.com/poteto0/endor.mbt/issues/10) |
+| **M3** | ブロック / レシート + `wait_for_receipt`                               | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
+| **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`               | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
+| **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む  | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
 | **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect` | [#16](https://github.com/poteto0/endor.mbt/issues/16) |
-| **M7** | EIP-6963 — 複数の injected provider を列挙する | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
+| **M7** | EIP-6963 — 複数の injected provider を列挙する                         | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
 
 M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も承認 UI も要らないので
 `MockProvider` だけで完結して検証でき、かつ L1 への足場になる。
 
 ## 短期: v0.1.0 を出し切る
 
-| | 目標 | issue |
-| --- | --- | --- |
+|        | 目標                                                       | issue                                               |
+| ------ | ---------------------------------------------------------- | --------------------------------------------------- |
 | **S1** | `provider/` を backend-agnostic に戻す（publish 前に判断） | [#4](https://github.com/poteto0/endor.mbt/issues/4) |
-| **S2** | `v0.1.0` タグを貼り直して mooncakes に publish | [#5](https://github.com/poteto0/endor.mbt/issues/5) |
-| **S3** | `CHANGELOG.md` と README バッジ | [#6](https://github.com/poteto0/endor.mbt/issues/6) |
-| **S4** | リリース自動化: tag push → Actions で `moon publish` | [#7](https://github.com/poteto0/endor.mbt/issues/7) |
-| **S5** | doc / README の例を CI でテストする | [#8](https://github.com/poteto0/endor.mbt/issues/8) |
+| **S2** | `v0.1.0` タグを貼り直して mooncakes に publish             | [#5](https://github.com/poteto0/endor.mbt/issues/5) |
+| **S3** | `CHANGELOG.md` と README バッジ                            | [#6](https://github.com/poteto0/endor.mbt/issues/6) |
+| **S4** | リリース自動化: tag push → Actions で `moon publish`       | [#7](https://github.com/poteto0/endor.mbt/issues/7) |
+| **S5** | doc / README の例を CI でテストする                        | [#8](https://github.com/poteto0/endor.mbt/issues/8) |
 
 ## 順番が効く課題
 

@@ -1,5 +1,6 @@
 import {
   "poteto0/endor/provider",
+  "poteto0/endor/provider/browser",
   "poteto0/endor/ffi/js",
   "mizchi/luna/dom" @element,
   "mizchi/luna/js/resource",
