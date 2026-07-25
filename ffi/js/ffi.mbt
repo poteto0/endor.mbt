@@ -2,22 +2,37 @@
 /// Opaque handle to the injected `globalThis.ethereum` EIP-1193 provider
 /// object. This is the only package that talks to JavaScript directly.
 #external
-type Ethereum
+pub type Ethereum
 
 ///|
 /// `true` when `globalThis.ethereum` is present.
-extern "js" fn js_has_ethereum() -> Bool =
+extern "js" fn _has_ethereum() -> Bool =
   #| () => (typeof globalThis.ethereum !== 'undefined' && globalThis.ethereum !== null)
 
 ///|
+pub fn has_ethereum() -> Bool {
+  _has_ethereum()
+}
+
+///|
 /// Fetch the injected provider object (assumes `js_has_ethereum()` is true).
-extern "js" fn js_get_ethereum() -> Ethereum =
+extern "js" fn _get_ethereum() -> Ethereum =
   #| () => globalThis.ethereum
 
 ///|
+pub fn get_ethereum() -> Ethereum {
+  _get_ethereum()
+}
+
+///|
 /// `true` when the injected provider identifies itself as MetaMask.
-extern "js" fn js_is_metamask(eth : Ethereum) -> Bool =
+extern "js" fn _is_metamask(eth : Ethereum) -> Bool =
   #| (eth) => !!(eth && eth.isMetaMask)
+
+///|
+pub fn is_metamask(eth : Ethereum) -> Bool {
+  _is_metamask(eth)
+}
 
 ///|
 /// Call `ethereum.request(payload)` where `payload` is a JSON string of
@@ -26,7 +41,7 @@ extern "js" fn js_is_metamask(eth : Ethereum) -> Bool =
 ///
 /// - success: `{"ok": <result>}`
 /// - failure: `{"err": {"code": <int>, "message": <string>}}`
-extern "js" fn js_request(
+extern "js" fn _request(
   eth : Ethereum,
   payload_json : String,
 ) -> @js_async.Promise[String] =
@@ -39,3 +54,53 @@ extern "js" fn js_request(
   #|          message: String((e && e.message) ? e.message : e)
   #|        }
   #|      }))
+
+///|
+pub fn request(
+  eth : Ethereum,
+  payload_json : String,
+) -> @js_async.Promise[String] {
+  _request(eth, payload_json)
+}
+
+///|
+pub fn spawn(task : async () -> Unit) -> Unit {
+  @js_async.Promise::from_async(task) |> ignore
+}
+
+///|
+/// Parse the JSON-string envelope returned from the JavaScript boundary.
+///
+/// The envelope format is:
+///
+/// - success: `{"ok": <result>}`
+/// - failure: `{"err": {"code": <int>, "message": <string>}}`
+pub fn decode_envelope(result_json : String) -> Json raise JsError {
+  let parsed = @json.parse(result_json) catch {
+    e => raise InvalidEnvelope("malformed FFI envelope: \{e}")
+  }
+
+  guard parsed is Object(obj) else {
+    raise InvalidEnvelope("FFI envelope not an object")
+  }
+
+  if obj.get("err") is Some(Object(err_obj)) {
+    let code = match err_obj.get("code") {
+      Some(Number(c, ..)) => c.to_int()
+      _ => -32603
+    }
+
+    let message = match err_obj.get("message") {
+      Some(String(s)) => s
+      _ => ""
+    }
+
+    raise RemoteError(code, message)
+  }
+
+  guard obj.get("ok") is Some(v) else {
+    raise InvalidEnvelope("FFI envelope missing ok/err")
+  }
+
+  v
+}

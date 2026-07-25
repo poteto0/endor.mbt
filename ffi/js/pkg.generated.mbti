@@ -2,26 +2,31 @@
 package "poteto0/endor/ffi/js"
 
 import {
-  "poteto0/endor/provider",
+  "moonbitlang/async/js_async",
 }
 
 // Values
-pub fn detect() -> MetaMaskProvider?
+pub fn decode_envelope(String) -> Json raise JsError
 
-pub fn require() -> MetaMaskProvider raise @provider.ProviderError
+pub fn get_ethereum() -> Ethereum
+
+pub fn has_ethereum() -> Bool
+
+pub fn is_metamask(Ethereum) -> Bool
+
+pub fn request(Ethereum, String) -> @js_async.Promise[String]
 
 pub fn spawn(async () -> Unit) -> Unit
 
 // Errors
+pub(all) suberror JsError {
+  InvalidEnvelope(String)
+  RemoteError(Int, String)
+} derive(Eq)
 
 // Types and methods
-type Ethereum
-
-pub struct MetaMaskProvider {
-  // private fields
-}
-pub fn MetaMaskProvider::is_metamask(Self) -> Bool
-pub impl @provider.Provider for MetaMaskProvider
+#external
+pub type Ethereum
 
 // Type aliases
 
