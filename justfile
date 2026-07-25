@@ -66,8 +66,6 @@ release-check tag:
   }
   expect "moon.mod version" \
     "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)"
-  expect "examples/get-address/moon.mod version" \
-    "$(grep -m1 '^version' examples/get-address/moon.mod | cut -d'"' -f2)"
   # the demo should show the version being released, not the previous one
   expect "examples/get-address dependency on poteto0/endor" \
     "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"

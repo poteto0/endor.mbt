@@ -7,7 +7,6 @@ MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> **v0.1.0 reads chain state and switches chains.** Accounts, balances, nonces,
 > gas price and contract code are wrapped, as is chain switching
 > (`wallet_switchEthereumChain` / `wallet_addEthereumChain`, 4902 fallback
 > included); sending transactions and signing are not yet. See
@@ -110,13 +109,13 @@ for where the unimplemented parts sit in the plan.
 
 ## Layout
 
-| Package           | Contents                                                                                |
-| ----------------- | --------------------------------------------------------------------------------------- |
-| `endor` (root)    | re-exports the domain types, so they can be spelled `@endor.Address`                    |
-| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `ChainParams` and their codecs |
-| `endor/provider`  | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                     |
-| `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped              |
-| `endor/ffi/js`    | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`            |
+| Package                  | Contents                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                       |
+| `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `ChainParams` and their codecs |
+| `endor/provider`         | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                       |
+| `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                            |
+| `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`              |
 
 `endor`, `endor/types` and `endor/provider` are backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
