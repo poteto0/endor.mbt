@@ -1,0 +1,29 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/ffi/js"
+
+import {
+  "poteto0/endor/provider",
+}
+
+// Values
+pub fn detect() -> MetaMaskProvider?
+
+pub fn require() -> MetaMaskProvider raise @provider.ProviderError
+
+pub fn spawn(async () -> Unit) -> Unit
+
+// Errors
+
+// Types and methods
+type Ethereum
+
+pub struct MetaMaskProvider {
+  // private fields
+}
+pub fn MetaMaskProvider::is_metamask(Self) -> Bool
+pub impl @provider.Provider for MetaMaskProvider
+
+// Type aliases
+
+// Traits
+
