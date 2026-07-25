@@ -22,29 +22,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      # `moon test --target js` runs the generated JS under node
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
-
-      - name: Set up just
-        run: |
-          curl -fsSL https://just.systems/install.sh | bash -s -- --to "$HOME/.local/bin"
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Show toolchain versions
-        run: |
-          moon version --all
-          just --version
-
-      - name: Sync dependencies
-        run: moon update
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
 
       # every step below mirrors a `just ci-check` recipe, so the same checks
       # can be reproduced locally with a single command
