@@ -7,8 +7,9 @@ MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> **v0.1.0 is read-only.** Reading accounts and the current chain is supported;
-> sending transactions, signing, and chain switching are not yet wrapped. See
+> **v0.1.0 is read-only.** Reading accounts, balances, nonces, gas price and
+> contract code is supported; sending transactions, signing, and chain switching
+> are not yet wrapped. See
 > [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
 > — anything unwrapped is still reachable through `Provider::request`.
 
@@ -64,10 +65,13 @@ for the build-and-serve steps.
 
 ## Scope
 
-v0.1.0 wraps `eth_requestAccounts`, `eth_accounts`, and `eth_chainId` in typed
-helpers. Sending transactions, signing, chain switching, and provider events are
-planned but not implemented; until they land, `Provider::request` reaches any
-method with raw `Json`.
+v0.1.0 wraps the basic reads in typed helpers: accounts
+(`eth_requestAccounts`, `eth_accounts`), the current chain (`eth_chainId`), and
+the account and chain state behind `eth_getBalance`, `eth_blockNumber`,
+`eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`. Calls, blocks and
+receipts, sending transactions, signing, chain switching, and provider events
+are planned but not implemented; until they land, `Provider::request` reaches
+any method with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
@@ -77,7 +81,7 @@ for the full list, what each helper returns, and how to use the escape hatch.
 | Package           | Contents                                                                                |
 | ----------------- | --------------------------------------------------------------------------------------- |
 | `endor` (root)    | re-exports the domain types, so they can be spelled `@endor.Address`                    |
-| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei` and their hex/JSON codecs                             |
+| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag` and their hex/JSON codecs     |
 | `endor/provider`  | `Provider` trait, `ProviderError`, typed RPC helpers, `BrowserProvider`, `MockProvider`  |
 | `endor/ffi/js`    | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`            |
 

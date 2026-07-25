@@ -43,6 +43,25 @@ pub fn Address::from_json(j : Json) -> Address raise CodecError {
 }
 
 ///|
+/// Decode a JSON array of address strings, as the account-listing RPCs
+/// (`eth_accounts`, `eth_requestAccounts`) answer with.
+///
+/// ```
+/// let js : Json = ["0x52908400098527886e0f7030069857d2e4169ee7"]
+/// inspect(@types.Address::array_from_json(js).length(), content="1")
+/// ```
+pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
+  guard j is Array(items) else {
+    raise InvalidJson("expected an array of addresses")
+  }
+  let out = []
+  for it in items {
+    out.push(Address::from_json(it))
+  }
+  out
+}
+
+///|
 pub impl Show for Address with fn output(self, logger) {
   logger.write_string(self.inner)
 }

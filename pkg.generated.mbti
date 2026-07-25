@@ -14,11 +14,15 @@ import {
 // Type aliases
 pub using @types {type Address}
 
+pub using @types {type BlockTag}
+
 pub using @types {type ChainId}
 
 pub using @types {type CodecError}
 
 pub using @types {type Hex}
+
+pub using @types {type Quantity}
 
 pub using @types {type Wei}
 

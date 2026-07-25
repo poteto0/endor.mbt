@@ -9,11 +9,21 @@ import {
 // Values
 pub async fn[P : Provider] accounts(P) -> Array[@types.Address] raise ProviderError
 
-pub async fn[P : Provider] balance(P, @types.Address, block? : String) -> @types.Wei raise ProviderError
+pub async fn[P : Provider] balance(P, @types.Address, block? : @types.BlockTag) -> @types.Wei raise ProviderError
+
+pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
 
 pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
 
+pub async fn[P : Provider] code(P, @types.Address, block? : @types.BlockTag) -> @types.Hex raise ProviderError
+
+pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
+
+pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockTag) -> Bool raise ProviderError
+
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
+
+pub async fn[P : Provider] transaction_count(P, @types.Address, block? : @types.BlockTag) -> UInt64 raise ProviderError
 
 // Errors
 pub(all) suberror ProviderError {

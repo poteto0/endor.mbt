@@ -48,6 +48,19 @@ pub fn Hex::to_string(self : Hex) -> String {
 }
 
 ///|
+/// How many bytes the value holds.
+pub fn Hex::byte_length(self : Hex) -> Int {
+  (self.inner.length() - 2) / 2
+}
+
+///|
+/// Whether the value holds no bytes at all (`"0x"`) — what `eth_getCode`
+/// answers for an account that is not a contract.
+pub fn Hex::is_empty(self : Hex) -> Bool {
+  self.byte_length() == 0
+}
+
+///|
 /// Encode as a JSON string.
 pub fn Hex::to_json(self : Hex) -> Json {
   Json::string(self.inner)
