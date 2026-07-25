@@ -1,0 +1,125 @@
+# endor.mbt
+
+A MoonBit SDK for talking to browser wallets from a dapp. It wraps the
+[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider that extensions such
+as MetaMask inject as `globalThis.ethereum`, and exposes it as typed, async
+MoonBit functions.
+
+![demo](./docs/movie/demo.gif)
+
+> **v0.1.0 is read-only.** Reading accounts and the current chain is supported;
+> sending transactions, signing, and chain switching are not yet wrapped. See
+> [Scope](#scope) below — anything unwrapped is still reachable through
+> `Provider::request`.
+
+## Install
+
+```sh
+moon add poteto0/endor
+```
+
+Then import the packages you need in your `moon.pkg`:
+
+```
+import {
+  "poteto0/endor/provider", // @provider — Provider, typed RPC, errors
+  "poteto0/endor/ffi/js",   // @js — spawn (bridge async to the JS event loop)
+}
+```
+
+The domain types are re-exported from the root package, so
+`"poteto0/endor"` gives you `@endor.Address`, `@endor.ChainId`, and friends when
+you need to spell a type out.
+
+## Getting a wallet address
+
+```
+async fn connect() -> Unit {
+  try {
+    // raises NotInstalled when no wallet extension is present
+    let wallet = @provider.BrowserProvider::require()
+    match @provider.request_accounts(wallet).get(0) { // eth_requestAccounts
+      Some(addr) => println("address: \{addr}")
+      None => println("no authorized accounts")
+    }
+    let chain = @provider.chain_id(wallet) // eth_chainId
+    println("chain: \{chain.to_uint64()} (\{chain.to_hex()})")
+  } catch {
+    UserRejected => println("the user declined")
+    e => println("error: \{e}")
+  }
+}
+
+fn main {
+  @js.spawn(connect) // bridge async to the JS event loop
+}
+```
+
+A runnable version of this lives in
+[`examples/get-address`](./examples/get-address), which renders the same values
+onto a page, together with an `index.html` you can open in a browser that has a
+wallet installed — see [`examples/README.md`](./examples/README.md) for the
+build-and-serve steps.
+
+## Scope
+
+Wrapped in typed helpers today:
+
+| Function                        | JSON-RPC method       |
+| ------------------------------- | --------------------- |
+| `@provider.request_accounts(p)` | `eth_requestAccounts` |
+| `@provider.accounts(p)`         | `eth_accounts`        |
+| `@provider.chain_id(p)`         | `eth_chainId`         |
+
+Planned, not implemented yet:
+
+- sending transactions (`eth_sendTransaction`)
+- message signing (`personal_sign`, `eth_signTypedData_v4`)
+- chain switching (`wallet_switchEthereumChain`, `wallet_addEthereumChain`)
+- provider events (`accountsChanged`, `chainChanged`, `disconnect`)
+
+Until those land, the generic escape hatch reaches any method. It returns raw
+`Json` and gives up the typed surface, so prefer the helpers above where they
+exist:
+
+```
+async fn balance(
+  wallet : @provider.BrowserProvider,
+  who : @endor.Address,
+) -> Json raise @provider.ProviderError {
+  wallet.request(
+    method_name="eth_getBalance",
+    params=[who.to_json(), Json::string("latest")],
+  )
+}
+```
+
+## Layout
+
+| Package           | Contents                                                                                |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| `endor` (root)    | re-exports the domain types, so they can be spelled `@endor.Address`                    |
+| `endor/types`     | `Address`, `Hex`, `ChainId`, `Wei` and their hex/JSON codecs                             |
+| `endor/provider`  | `Provider` trait, `ProviderError`, typed RPC helpers, `BrowserProvider`, `MockProvider`  |
+| `endor/ffi/js`    | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`            |
+
+`endor` and `endor/types` are backend-agnostic; `endor/ffi/js` and therefore
+`endor/provider` are `js`-only, since the whole point is a browser-injected
+object.
+
+Wallet-side failures never panic: EIP-1193 / EIP-1474 codes map onto
+`ProviderError` variants (`UserRejected`, `UnrecognizedChain`, …), and the SDK's
+own internal failures use `ProviderError::internal`.
+
+## Development
+
+The default target is `js`, since the SDK drives a browser-injected object.
+
+```sh
+just ut     # unit tests — no browser or wallet needed
+just build  # build for js, including the example
+just ci     # test, format, check, and refresh generated interfaces
+```
+
+The typed RPC layer is tested against `MockProvider`, so nothing in the test
+suite requires a wallet.
