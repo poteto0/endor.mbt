@@ -4,7 +4,7 @@
 /// are always reported through this suberror; the public API never panics.
 ///
 /// ```
-/// let e = @endor.ProviderError::from_code(4001, "user rejected")
+/// let e = @provider.ProviderError::from_code(4001, "user rejected")
 /// inspect(e, content="UserRejected")
 /// ```
 pub(all) suberror ProviderError {
@@ -22,7 +22,7 @@ pub(all) suberror ProviderError {
   UnrecognizedChain
   /// Any other JSON-RPC error (EIP-1474), e.g. `-32603` internal error.
   Rpc(code~ : Int, message~ : String)
-  /// `window.ethereum` is not present — MetaMask is not installed.
+  /// `globalThis.ethereum` is not present — no wallet extension is installed.
   NotInstalled
 } derive(Eq, Debug)
 
@@ -38,9 +38,9 @@ pub impl Show for ProviderError with fn output(self, logger) {
 /// `ProviderError` variant. Unknown codes fall through to `Rpc`.
 ///
 /// ```
-/// inspect(@endor.ProviderError::from_code(4902, "unknown chain"), content="UnrecognizedChain")
+/// inspect(@provider.ProviderError::from_code(4902, "unknown chain"), content="UnrecognizedChain")
 /// inspect(
-///   @endor.ProviderError::from_code(-32603, "boom"),
+///   @provider.ProviderError::from_code(-32603, "boom"),
 ///   content=(
 ///     #|Rpc(code=-32603, message="boom")
 ///   ),
@@ -65,7 +65,7 @@ pub fn ProviderError::from_code(code : Int, message : String) -> ProviderError {
 ///
 /// ```
 /// inspect(
-///   @endor.ProviderError::internal("bad response"),
+///   @provider.ProviderError::internal("bad response"),
 ///   content=(
 ///     #|Rpc(code=-32603, message="bad response")
 ///   ),

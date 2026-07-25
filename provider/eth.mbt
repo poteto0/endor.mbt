@@ -22,8 +22,10 @@ fn decode_accounts(j : Json) -> Array[@types.Address] raise ProviderError {
 /// account.
 ///
 /// ```
-/// async fn connect(p : &@endor.Provider) -> @endor.Address raise @endor.ProviderError {
-///   @endor.request_accounts(p)[0]
+/// async fn connect[P : @provider.Provider](
+///   p : P,
+/// ) -> @types.Address raise @provider.ProviderError {
+///   @provider.request_accounts(p)[0]
 /// }
 /// ```
 pub async fn[P : Provider] request_accounts(
@@ -41,8 +43,10 @@ pub async fn[P : Provider] request_accounts(
 /// (`eth_accounts`). Returns an empty array when the dapp is not connected.
 ///
 /// ```
-/// async fn current(p : &@endor.Provider) -> Int raise @endor.ProviderError {
-///   @endor.accounts(p).length()
+/// async fn current[P : @provider.Provider](
+///   p : P,
+/// ) -> Int raise @provider.ProviderError {
+///   @provider.accounts(p).length()
 /// }
 /// ```
 pub async fn[P : Provider] accounts(
@@ -56,8 +60,10 @@ pub async fn[P : Provider] accounts(
 /// Return the chain id the wallet is currently connected to (`eth_chainId`).
 ///
 /// ```
-/// async fn on_mainnet(p : &@endor.Provider) -> Bool raise @endor.ProviderError {
-///   @endor.chain_id(p) == @endor.ChainId::mainnet()
+/// async fn on_mainnet[P : @provider.Provider](
+///   p : P,
+/// ) -> Bool raise @provider.ProviderError {
+///   @provider.chain_id(p) == @types.ChainId::mainnet()
 /// }
 /// ```
 pub async fn[P : Provider] chain_id(

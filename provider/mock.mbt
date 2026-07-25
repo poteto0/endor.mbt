@@ -4,7 +4,7 @@
 /// that the RPC layer built the expected method name and params.
 ///
 /// ```
-/// let mock = @endor.MockProvider::new().on(
+/// let mock = @provider.MockProvider::new().on(
 ///   method_name="eth_chainId",
 ///   response=Json::string("0x1"),
 /// )
