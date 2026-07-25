@@ -50,6 +50,30 @@ ci: unit-test fmt check info
 [group("ci")]
 ci-check: fmt-check check build unit-test info-check
 
+# every version this repo declares must agree with the release tag. `moon publish`
+# uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release
+# cannot be taken back — so run this *before* `git tag`, not after.
+# just release-check v0.2.0
+[group("ci")]
+release-check tag:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  want="{{tag}}"
+  want="${want#v}"
+  fail=0
+  expect() { # expect <what> <found>
+    [ "$2" = "$want" ] || { echo "error: $1 is \"$2\", expected \"$want\""; fail=1; }
+  }
+  expect "moon.mod version" \
+    "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)"
+  expect "examples/get-address/moon.mod version" \
+    "$(grep -m1 '^version' examples/get-address/moon.mod | cut -d'"' -f2)"
+  # the demo should show the version being released, not the previous one
+  expect "examples/get-address dependency on poteto0/endor" \
+    "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
+  [ "$fail" -eq 0 ] || exit 1
+  echo "ok: every declared version is ${want}"
+
 alias ac := analyze-coverage
 # just ac types
 [group("develop")]

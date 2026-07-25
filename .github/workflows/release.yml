@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# a constant group, not one per tag: two publishes must never overlap, and a run
+# already inside `moon publish` must never be cancelled by the next one
+concurrency:
+  group: release
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      # needs no toolchain, so it runs first: a missing secret is the likeliest
+      # misconfiguration and would otherwise surface only at the last step
+      - name: Check the publish credentials are configured
+        env:
+          MOONCAKES_USERNAME: ${{ secrets.MOONCAKES_USERNAME }}
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+        run: |
+          for name in MOONCAKES_USERNAME MOONCAKES_TOKEN; do
+            if [ -z "${!name}" ]; then
+              echo "error: repository secret ${name} is not set"
+              exit 1
+            fi
+          done
+
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
+
+      # the same gate maintainers are meant to run before `git tag`; repeated
+      # here because a mooncakes release cannot be taken back
+      - name: Check the tag matches every declared version
+        run: just release-check "$GITHUB_REF_NAME"
+
+      - name: Run the CI checks against the tagged tree
+        run: just ci-check
+
+      # `moon login` is interactive and `moon publish` takes no token flag, so
+      # writing the credentials file is the only non-interactive path
+      - name: Write mooncakes.io credentials
+        env:
+          MOONCAKES_USERNAME: ${{ secrets.MOONCAKES_USERNAME }}
+          MOONCAKES_TOKEN: ${{ secrets.MOONCAKES_TOKEN }}
+        run: |
+          mkdir -p "$HOME/.moon"
+          jq -n --arg username "$MOONCAKES_USERNAME" --arg token "$MOONCAKES_TOKEN" \
+            '{username: $username, token: $token}' > "$HOME/.moon/credentials.json"
+          chmod 600 "$HOME/.moon/credentials.json"
+
+      - name: Publish to mooncakes.io
+        run: moon publish

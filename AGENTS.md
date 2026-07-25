@@ -86,6 +86,28 @@ Layout:
   results. Use `moon coverage analyze > uncovered.log` to find uncovered code.
 - Tests must not require a real browser or MetaMask: unit-test codecs and
   error mapping directly, and test the RPC layer against a mock `Provider`.
+- Every check CI runs is a `just` recipe, so it reproduces locally with one
+  command: `just ci-check` is what GitHub Actions gates on and what
+  `.githooks/pre-commit` runs. Add a check to the recipe, not only to the
+  workflow.
+
+## Releasing
+
+Pushing a `v*` tag publishes to mooncakes.io
+(`.github/workflows/release.yml`). A mooncakes release cannot be taken back, so
+the version must be right before the tag exists:
+
+```sh
+# 1. bump every declared version — `moon.mod`, and the example module's own
+#    version and its `poteto0/endor@…` dependency — then commit
+just release-check v0.2.0   # verifies exactly that, before you tag
+git tag v0.2.0 && git push origin v0.2.0
+```
+
+The workflow re-runs `just release-check` and `just ci-check` against the tagged
+tree before publishing. It needs two repository secrets, which are the `token`
+and `username` fields `moon login` writes to `~/.moon/credentials.json`:
+`MOONCAKES_TOKEN` and `MOONCAKES_USERNAME`.
 
 You can browse and install extra MoonBit skills here:
 <https://github.com/moonbitlang/skills>

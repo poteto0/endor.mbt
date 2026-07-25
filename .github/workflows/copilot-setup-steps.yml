@@ -29,13 +29,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Set up MoonBit
-        run: |
-          curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
-          echo "$HOME/.moon/bin" >> $GITHUB_PATH
+      # the same setup CI and Release use, so the agent gets `just` too and can
+      # run the `just ci-check` recipes the other workflows gate on
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
 
-      - name: Update MoonBit dependencies
-        run: |
-            moon version --all
-            moon update
-            
