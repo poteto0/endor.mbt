@@ -1,0 +1,12 @@
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/ffi/js",
+  "mizchi/luna/dom" @element,
+  "mizchi/luna/js/resource",
+  "mizchi/signals",
+  "mizchi/js_browser/dom",
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")
