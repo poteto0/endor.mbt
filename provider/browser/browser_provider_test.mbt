@@ -31,11 +31,11 @@ extern "js" fn uninstall_mock_ethereum() -> Unit =
 test "detect browser provider & judge metamask when wallet exists" {
   install_mock_ethereum()
 
-  let provider = @provider.BrowserProvider::detect()
+  let provider = @browser.BrowserProvider::detect()
 
   inspect(provider is Some(_), content="true")
 
-  let provider = @provider.BrowserProvider::require() catch {
+  let provider = @browser.BrowserProvider::require() catch {
     e => fail("expected success, but \{e}")
   }
 
@@ -46,11 +46,11 @@ test "detect browser provider & judge metamask when wallet exists" {
 
 ///|
 test "detect none when wallet doesn't exists" {
-  let provider = @provider.BrowserProvider::detect()
+  let provider = @browser.BrowserProvider::detect()
 
   inspect(provider is Some(_), content="false")
 
-  let _ = try @provider.BrowserProvider::require() catch {
+  let _ = try @browser.BrowserProvider::require() catch {
     @provider.NotInstalled(_) => ()
     e => fail("expected not installed, but \{e}")
   } noraise {
@@ -62,7 +62,7 @@ test "detect none when wallet doesn't exists" {
 async test "request returns accounts" {
   install_mock_ethereum()
 
-  let provider = match @provider.BrowserProvider::detect() {
+  let provider = match @browser.BrowserProvider::detect() {
     Some(p) => p
     None => fail("expected provider")
   }
@@ -86,7 +86,7 @@ async test "request returns accounts" {
 async test "request returns chain id" {
   install_mock_ethereum()
 
-  let provider = @provider.BrowserProvider::require() catch {
+  let provider = @browser.BrowserProvider::require() catch {
     e => fail("expected provider, but \{e}")
   }
 
@@ -106,7 +106,7 @@ async test "request returns chain id" {
 async test "request maps provider error" {
   install_mock_ethereum()
 
-  let provider = @provider.BrowserProvider::require() catch {
+  let provider = @browser.BrowserProvider::require() catch {
     e => fail("expected provider, but \{e}")
   }
 

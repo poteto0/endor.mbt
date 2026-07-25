@@ -59,7 +59,7 @@ fn WalletView::clear(self : WalletView, status~ : String) -> Unit {
 async fn WalletView::connect(self : WalletView) -> Unit {
   self.clear(status="Waiting for the wallet…")
   try {
-    let wallet = @provider.BrowserProvider::require()
+    let wallet = @browser.BrowserProvider::require()
     self.provider_name.set(
       if wallet.is_metamask() {
         "MetaMask"

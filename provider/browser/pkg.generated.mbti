@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/provider/browser"
+
+import {
+  "poteto0/endor/provider",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BrowserProvider {
+  // private fields
+}
+pub fn BrowserProvider::detect() -> Self?
+pub fn BrowserProvider::is_metamask(Self) -> Bool
+pub fn BrowserProvider::require() -> Self raise @provider.ProviderError
+pub impl @provider.Provider for BrowserProvider
+
+// Type aliases
+
+// Traits
+

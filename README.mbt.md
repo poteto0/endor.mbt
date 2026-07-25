@@ -75,6 +75,8 @@ any method with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
+**→ [`docs/roadmap.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/roadmap.md)**
+for where the unimplemented parts sit in the plan.
 
 ## Layout
 
