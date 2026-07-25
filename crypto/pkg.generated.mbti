@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/crypto"
+
+// Values
+pub fn keccak256(Bytes) -> Bytes
+
+pub fn keccak256_string(String) -> Bytes
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

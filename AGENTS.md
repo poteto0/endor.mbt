@@ -34,6 +34,10 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
+- `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
+  (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
+  package depending on nothing else in the module, so the layers above can use
+  it without a cycle
 - `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`,
   `ChainParams`, codecs
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC

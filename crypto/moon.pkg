@@ -1,0 +1,8 @@
+import {
+  "moonbitlang/core/encoding/utf8",
+}
+
+// Deliberately depends on nothing inside this module: `crypto` is a leaf, so
+// `types` and any future ABI layer can depend on it without a cycle. No
+// `supported_targets` either — this is pure MoonBit and stays usable on every
+// backend, including the non-browser transports.
