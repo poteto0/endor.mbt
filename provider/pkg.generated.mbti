@@ -15,9 +15,13 @@ pub async fn[P : Provider] balance(P, @types.Address, block? : @types.BlockTag) 
 
 pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
 
+pub async fn[P : Provider] call(P, @types.CallRequest, block? : @types.BlockTag) -> @types.Hex raise ProviderError
+
 pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
 
 pub async fn[P : Provider] code(P, @types.Address, block? : @types.BlockTag) -> @types.Hex raise ProviderError
+
+pub async fn[P : Provider] estimate_gas(P, @types.CallRequest) -> @types.Quantity raise ProviderError
 
 pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
 
