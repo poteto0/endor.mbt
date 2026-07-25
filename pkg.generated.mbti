@@ -1,0 +1,26 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor"
+
+import {
+  "poteto0/endor/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+pub using @types {type Address}
+
+pub using @types {type ChainId}
+
+pub using @types {type CodecError}
+
+pub using @types {type Hex}
+
+pub using @types {type Wei}
+
+// Traits
+
