@@ -1,0 +1,48 @@
+///|
+/// A 20-byte Ethereum address. Parsing validates the `0x` prefix, hex digits
+/// and exact 20-byte length; the value is stored lowercased. EIP-55 checksum
+/// casing is a later milestone.
+///
+/// ```
+/// let a = @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7")
+/// inspect(a.to_string(), content="0x52908400098527886e0f7030069857d2e4169ee7")
+/// ```
+pub struct Address {
+  priv inner : String
+} derive(Eq, Debug)
+
+///|
+/// Parse and validate a 20-byte hex address.
+pub fn Address::from_string(s : String) -> Address raise CodecError {
+  let n = normalize_hex(s)
+  guard n.length() == 42 else {
+    raise InvalidLength("address must be 20 bytes (40 hex digits): \{s}")
+  }
+  Address::{ inner: n }
+}
+
+///|
+/// The canonical `0x`-prefixed lowercase string form.
+pub fn Address::to_string(self : Address) -> String {
+  self.inner
+}
+
+///|
+/// Encode as a JSON string.
+pub fn Address::to_json(self : Address) -> Json {
+  Json::string(self.inner)
+}
+
+///|
+/// Decode from a JSON string.
+pub fn Address::from_json(j : Json) -> Address raise CodecError {
+  match j {
+    String(s) => Address::from_string(s)
+    _ => raise InvalidJson("expected address string")
+  }
+}
+
+///|
+pub impl Show for Address with fn output(self, logger) {
+  logger.write_string(self.inner)
+}

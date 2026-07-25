@@ -1,0 +1,72 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "username/endor/types"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub suberror CodecError {
+  InvalidHex(String)
+  InvalidLength(String)
+  InvalidJson(String)
+} derive(Eq)
+pub impl Show for CodecError
+
+// Types and methods
+pub struct Address {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Address::from_json(Json) -> Self raise CodecError
+pub fn Address::from_string(String) -> Self raise CodecError
+pub fn Address::to_json(Self) -> Json
+pub fn Address::to_string(Self) -> String
+pub impl Show for Address
+
+pub struct ChainId {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn ChainId::arbitrum() -> Self
+pub fn ChainId::base() -> Self
+pub fn ChainId::from_hex(String) -> Self raise CodecError
+pub fn ChainId::from_json(Json) -> Self raise CodecError
+pub fn ChainId::holesky() -> Self
+pub fn ChainId::mainnet() -> Self
+pub fn ChainId::new(UInt64) -> Self
+pub fn ChainId::optimism() -> Self
+pub fn ChainId::polygon() -> Self
+pub fn ChainId::sepolia() -> Self
+pub fn ChainId::to_hex(Self) -> String
+pub fn ChainId::to_json(Self) -> Json
+pub fn ChainId::to_uint64(Self) -> UInt64
+pub impl Show for ChainId
+
+pub struct Hex {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Hex::from_json(Json) -> Self raise CodecError
+pub fn Hex::from_string(String) -> Self raise CodecError
+pub fn Hex::to_json(Self) -> Json
+pub fn Hex::to_string(Self) -> String
+pub impl Show for Hex
+
+pub struct Wei {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Wei::from_bigint(@bigint.BigInt) -> Self
+pub fn Wei::from_hex(String) -> Self raise CodecError
+pub fn Wei::from_int(Int) -> Self
+pub fn Wei::from_json(Json) -> Self raise CodecError
+pub fn Wei::to_bigint(Self) -> @bigint.BigInt
+pub fn Wei::to_hex(Self) -> String
+pub fn Wei::to_json(Self) -> Json
+pub fn Wei::zero() -> Self
+pub impl Show for Wei
+
+// Type aliases
+
+// Traits
+
