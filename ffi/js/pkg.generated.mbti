@@ -12,6 +12,8 @@ pub fn get_ethereum() -> Ethereum
 
 pub fn has_ethereum() -> Bool
 
+pub fn install_wallet(String) -> Unit
+
 pub fn is_metamask(Ethereum) -> Bool
 
 pub fn request(Ethereum, String) -> @js_async.Promise[String]
