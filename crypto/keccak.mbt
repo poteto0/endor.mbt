@@ -1,8 +1,4 @@
 ///|
-/// Ethereum's keccak256 — the pre-standardization Keccak, *not* NIST SHA3-256.
-/// The two differ only in the domain-separation byte appended during padding
-/// (`0x01` here, `0x06` for SHA3), which is enough to make every output differ.
-///
 /// The state is 1600 bits = 25 lanes of 64 bits, addressed as a 5x5 grid where
 /// `A[x][y]` lives at `lanes[x + 5 * y]`.
 const LANES = 25
@@ -14,17 +10,12 @@ const LANES = 25
 const RATE = 136
 
 ///|
-/// `RATE` in whole lanes, i.e. how many lanes a block of input covers.
-const RATE_LANES = 17
-
-///|
 /// The digest is 32 bytes, which fits in one squeeze because it is below
 /// `RATE` — no extra permutation is needed to produce it.
 const DIGEST_SIZE = 32
 
 ///|
-/// The domain-separation byte `pad10*1` appends for Ethereum's keccak256. SHA3
-/// uses `0x06` in the same position; nothing else about the two differs.
+/// The domain-separation byte `pad10*1` appends. See `keccak256`.
 const KECCAK_PAD : Byte = 0x01
 
 ///|
@@ -95,9 +86,10 @@ fn permute(a : FixedArray[UInt64]) -> Unit {
     // chi — the only non-linear step, mixing each lane with the next two in
     // its row.
     for y in 0..<5 {
+      let row = 5 * y
       for x in 0..<5 {
-        a[x + 5 * y] = b[x + 5 * y] ^
-          (b[(x + 1) % 5 + 5 * y].lnot() & b[(x + 2) % 5 + 5 * y])
+        a[row + x] = b[row + x] ^
+          (b[row + (x + 1) % 5].lnot() & b[row + (x + 2) % 5])
       }
     }
 
@@ -108,20 +100,24 @@ fn permute(a : FixedArray[UInt64]) -> Unit {
 
 ///|
 /// XOR one `RATE`-byte block into the state (little-endian lanes) and permute.
-fn absorb(a : FixedArray[UInt64], block : FixedArray[Byte], from : Int) -> Unit {
-  for lane in 0..<RATE_LANES {
-    let base = from + lane * 8
-    let mut word = 0UL
-    for k = 7; k >= 0; k = k - 1 {
-      word = (word << 8) | block[base + k].to_uint().to_uint64()
-    }
-    a[lane] = a[lane] ^ word
+///
+/// The unchecked read is sound by construction: `from` only ever names the
+/// start of a whole block, so every lane lies within `from ..< from + RATE`,
+/// and the caller never passes a block that stops short of that.
+fn absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
+  for lane in 0..<(RATE / 8) {
+    a[lane] = a[lane] ^ block.unsafe_read_uint64_le(from + lane * 8)
   }
   permute(a)
 }
 
 ///|
 /// Hash `input` with Ethereum's keccak256, returning exactly 32 bytes.
+///
+/// This is the pre-standardization Keccak, **not** NIST SHA3-256. The two share
+/// a permutation, a rate and a sponge, and differ only in the byte `pad10*1`
+/// appends — `0x01` here against SHA3's `0x06`. That single byte makes every
+/// output differ, so a SHA3-256 routine can never stand in for this one.
 ///
 /// ```
 /// assert_eq(
@@ -136,30 +132,36 @@ pub fn keccak256(input : Bytes) -> Bytes {
 ///|
 /// Absorb `input` a block at a time and squeeze a 32-byte digest.
 ///
-/// `pad` is the domain-separation byte, and the only thing that separates the
-/// two hashes built on this permutation: `0x01` for Ethereum's keccak256,
-/// `0x06` for NIST SHA3-256. Keeping it a parameter lets the tests check the
-/// permutation against SHA3-256 vectors, for which an authoritative reference
-/// exists in every standard library.
+/// `pad` is the domain-separation byte described on `keccak256`. It stays a
+/// parameter so the tests can drive this against SHA3-256's published vectors,
+/// which is the only external authority available — no standard library ships
+/// keccak256 itself.
 fn sponge(input : Bytes, pad : Byte) -> Bytes {
   let a = FixedArray::make(LANES, 0UL)
-  let bytes = input.to_fixedarray()
-  let full_blocks = bytes.length() / RATE
+  let full_blocks = input.length() / RATE
   for block in 0..<full_blocks {
-    absorb(a, bytes, block * RATE)
+    absorb(a, input, block * RATE)
   }
 
   // The tail always needs one more block, even when the input divides evenly
-  // into `RATE`: `pad10*1` appends the `0x01` domain byte and the closing high
-  // bit unconditionally. When the tail is 135 bytes the two land on the same
-  // byte, which is why the second one is OR-ed in.
-  let rest = bytes.length() % RATE
-  let tail = FixedArray::make(RATE, b'\x00')
-  for i in 0..<rest {
-    tail[i] = bytes[full_blocks * RATE + i]
-  }
-  tail[rest] = pad
-  tail[RATE - 1] = tail[RATE - 1] | b'\x80'
+  // into `RATE`: `pad10*1` appends the domain byte and the closing high bit
+  // unconditionally. When the tail is 135 bytes the two land on the same byte,
+  // which is why the closing bit is OR-ed rather than assigned.
+  let rest = input.length() % RATE
+  let tail = Bytes::makei(RATE, i => {
+    let byte = if i < rest {
+      input[full_blocks * RATE + i]
+    } else if i == rest {
+      pad
+    } else {
+      b'\x00'
+    }
+    if i == RATE - 1 {
+      byte | b'\x80'
+    } else {
+      byte
+    }
+  })
   absorb(a, tail, 0)
 
   // Squeeze. The digest is shorter than `RATE`, so it comes straight off the
