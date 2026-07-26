@@ -33,6 +33,9 @@ options(
   // Kept out of the published archive. `examples/` matters most: it is a nested
   // module with its own `moon.mod` pulling in UI dependencies, so shipping it
   // would drag `mizchi/luna` into a consumer's resolution. The rest is
-  // repository-local tooling and notes.
-  exclude: [ "examples", "moon.work", "justfile", "AGENTS.md", "docs" ],
+  // repository-local tooling and notes. `e2e` is milder — it is a package of
+  // this module and nothing imports it, so it is dead weight rather than a
+  // resolution hazard — but `_test.mbt` files do land in the archive, so it
+  // has to be named here. `just release-check` asserts it stayed out.
+  exclude: [ "examples", "e2e", "moon.work", "justfile", "AGENTS.md", "docs" ],
 )

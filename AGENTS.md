@@ -39,9 +39,13 @@ Layout:
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;
-  the only package above `ffi/js` that is `js`-only
-- `ffi/js/` — the **only** package containing `extern "js"` bindings to
-  `globalThis.ethereum` / JS Promises
+  the only *shipped* package above `ffi/js` that is `js`-only
+- `ffi/js/` — the **only** package whose shipped code contains `extern "js"`
+  bindings to `globalThis.ethereum` / JS Promises
+- `e2e/` — end-to-end tests driving `BrowserProvider` against a local Anvil
+  node through a shim that puts an EIP-1193 wallet in front of it; test files
+  only, so the package exports nothing and is excluded from the published
+  archive (see `docs/e2e.md`)
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
 
@@ -49,9 +53,13 @@ Layout:
 
 - **Primary target is `js`.** The SDK talks to a browser-injected JS object,
   so FFI is written for the JS backend. Do not add wasm-gc glue.
-- **Isolate FFI.** All `extern "js"` declarations live in the `ffi/js` package.
-  Everything above it is pure MoonBit and must be testable with a mock
-  provider (dependency injection via the `Provider` abstraction).
+- **Isolate FFI.** All `extern "js"` declarations in shipped code live in the
+  `ffi/js` package. Everything above it is pure MoonBit and must be testable
+  with a mock provider (dependency injection via the `Provider` abstraction).
+  Test files may declare `extern "js"` to fake the *environment underneath*
+  the SDK — the mock wallets in `provider/browser/browser_provider_test.mbt`
+  and `e2e/anvil_test.mbt` — but never to bind new wallet functionality; that
+  belongs in `ffi/js` regardless of who calls it.
 - **Typed surface over stringly RPC.** Public API functions like
   `request_accounts` / `send_transaction` take and return domain types
   (`Address`, `Wei`, …), never raw JSON or raw hex strings. The generic
@@ -87,10 +95,16 @@ Layout:
   results. Use `moon coverage analyze > uncovered.log` to find uncovered code.
 - Tests must not require a real browser or MetaMask: unit-test codecs and
   error mapping directly, and test the RPC layer against a mock `Provider`.
+  The one place that talks to a live node is `e2e/`, and it skips itself when
+  no node is configured — run it with `just anvil` in one terminal and
+  `just e2e` in another. Anything a mock cannot prove (the wire format a node
+  accepts) belongs there; anything only an extension can prove belongs in the
+  manual checklist in `docs/e2e.md`.
 - Every check CI runs is a `just` recipe, so it reproduces locally with one
-  command: `just ci-check` is what GitHub Actions gates on and what
-  `.githooks/pre-commit` runs. Add a check to the recipe, not only to the
-  workflow.
+  command. GitHub Actions gates on two: `just ci-check`, which is also what
+  `.githooks/pre-commit` runs and therefore must never need a node, and
+  `just e2e`, in its own job with an Anvil started by `just anvil`. Add a
+  check to the matching recipe, not only to the workflow.
 
 ## Releasing
 

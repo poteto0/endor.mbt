@@ -74,8 +74,13 @@ JS コールバックの寿命と MoonBit async の橋渡しに加えて、「SD
 chain を保持するのか」まで決まってしまう。書き始める前に決める対象。
 
 **書き込みパスの検証手段（[#12](https://github.com/poteto0/endor.mbt/issues/12)）** —
-テストはすべて `MockProvider` 上。読み取りなら手動デモで足りたが、送金と署名は
-モックでは検証不能。M2 に入る前に Anvil か手動 QA 手順を決める。
+決着済み: Anvil + 手動 QA の二段構え（[`docs/e2e.md`](./e2e.md)）。Anvil の dev
+account はロック解除済み = ノード自身がウォレットなので、`globalThis.ethereum` を
+Anvil へ転送する shim を挟めば `BrowserProvider` をそのまま e2e にかけられる
+（`e2e/`、`just e2e`）。ヘッドレスウォレット（synpress 相当）は入れない —
+承認 UI だけのために拡張機能ごと CI に載せる割に合わない。そこは
+`docs/e2e.md` のリリース前チェックリストで人が踏む。M2 / M4 で書き込みを
+足すときは、`e2e/` 側にも同じ操作を追加する。
 
 ## 推奨する着手順
 
