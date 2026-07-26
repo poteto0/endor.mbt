@@ -1,34 +1,36 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "poteto0/endor/backend/backend_js"
+package "poteto0/endor/backend/anvil"
 
 import {
+  "poteto0/endor/backend",
   "poteto0/endor/provider",
   "poteto0/endor/provider/browser",
   "poteto0/endor/types",
 }
 
 // Values
-pub fn account(String) -> @types.Address
-
 pub fn answer_contract_runtime() -> @types.Hex
 
-pub fn anvil_chain_id() -> @types.ChainId
+pub fn chain_id() -> @types.ChainId
 
 pub async fn deploy_answer_contract(@browser.BrowserProvider) -> @types.Address raise @provider.ProviderError
 
 pub fn dev_account() -> @types.Address
 
-pub async fn on_anvil(async (@browser.BrowserProvider) -> Unit) -> Unit
+pub fn endpoint() -> String
+
+pub async fn on(async (@browser.BrowserProvider) -> Unit) -> Unit
 
 pub fn other_account() -> @types.Address
-
-pub fn rpc_url() -> String
 
 pub async fn wait_mined(@browser.BrowserProvider, Json) -> Json raise @provider.ProviderError
 
 // Errors
 
 // Types and methods
+pub struct Anvil {
+}
+pub impl @backend.Backend for Anvil
 
 // Type aliases
 

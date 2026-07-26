@@ -95,14 +95,17 @@ release-check tag:
   expect "examples/get-address dependency on poteto0/endor" \
     "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
   # a release cannot be taken back, so also check what the archive contains:
-  # `e2e` is repo-only and `moon.mod` excludes it by hand, with nothing else
-  # watching that denylist
-  if moon package --list | grep -q '^e2e/'; then
-    echo "error: e2e/ is in the published archive — check moon.mod's exclude"
-    fail=1
-  fi
+  # the test-only packages are repo-only and `moon.mod` excludes them by hand,
+  # with nothing else watching that denylist. `backend/anvil` matters most — it
+  # can overwrite `globalThis.ethereum` with a fake wallet.
+  for repo_only in e2e backend; do
+    if moon package --list | grep -q "^${repo_only}/"; then
+      echo "error: ${repo_only}/ is in the published archive — check moon.mod's exclude"
+      fail=1
+    fi
+  done
   [ "$fail" -eq 0 ] || exit 1
-  echo "ok: every declared version is ${want}, and e2e/ stays unpublished"
+  echo "ok: every declared version is ${want}, and the test-only packages stay unpublished"
 
 alias ac := analyze-coverage
 # just ac types

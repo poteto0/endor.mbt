@@ -1,53 +1,58 @@
 ///|
-/// The endpoint the suite runs against, from `ENDOR_E2E_RPC_URL`
-/// (`just e2e` sets it). Empty when unset, and then every test skips.
-extern "js" fn _rpc_url() -> String =
-  #| () => (globalThis.process && globalThis.process.env
-  #|         && globalThis.process.env.ENDOR_E2E_RPC_URL) || ""
+/// The Anvil backend: a local [Anvil](https://getfoundry.sh/anvil/overview)
+/// node, reached through a fake wallet injected at `globalThis.ethereum`.
+///
+/// Anvil is itself a wallet — its dev accounts are unlocked, so the node
+/// answers `eth_accounts`, `eth_sendTransaction` and the signing methods with
+/// no key management on this side. Only the `wallet_*` methods, which have no
+/// node-side counterpart, are emulated by the shim in `js.mbt`.
+pub struct Anvil {}
 
 ///|
-pub fn rpc_url() -> String {
-  _rpc_url()
+pub impl @backend.Backend for Anvil with fn name(_) {
+  "anvil"
 }
 
 ///|
-/// Said once when the suite skips, so a green run without a node cannot be
-/// mistaken for a green run against one.
-let skip_reported : Ref[Bool] = { val: false }
+pub impl @backend.Backend for Anvil with fn endpoint(_) {
+  endpoint()
+}
 
 ///|
-/// Run `body` against a `BrowserProvider` backed by Anvil, or skip when no
-/// endpoint is configured. An error from `body` fails the test, so the tests
-/// themselves only catch where the error *is* the assertion.
-pub async fn on_anvil(body : async (@browser.BrowserProvider) -> Unit) -> Unit {
-  let url = rpc_url()
-  if url == "" {
-    if !skip_reported.val {
-      skip_reported.val = true
-      println("e2e: skipped — ENDOR_E2E_RPC_URL is unset (see `just e2e`)")
-    }
-    return
-  }
-  @js.install_wallet(url)
-  @async.with_task_group(_ => {
+pub impl @backend.Backend for Anvil with fn install(_, endpoint) {
+  install_wallet(endpoint)
+}
+
+///|
+/// Run `body` against a `BrowserProvider` backed by Anvil, or skip when
+/// `ENDOR_E2E_RPC_URL` is unset.
+///
+/// ```
+/// async test "chain id" {
+///   @anvil.on(provider => assert_eq(
+///     @provider.chain_id(provider),
+///     @anvil.chain_id(),
+///   ))
+/// }
+/// ```
+pub async fn on(body : async (@browser.BrowserProvider) -> Unit) -> Unit {
+  @backend.run(Anvil::{  }, () => {
     let provider = @browser.BrowserProvider::require() catch {
       e => fail("the anvil wallet shim did not install: \{e}")
     }
-    body(provider) catch {
-      e => fail("\{e}")
-    }
+    body(provider)
   })
 }
 
 ///|
 /// Anvil's default chain id, 31337.
-pub fn anvil_chain_id() -> @types.ChainId {
+pub fn chain_id() -> @types.ChainId {
   @types.ChainId::new(31337)
 }
 
 ///|
 /// One of the ten funded, unlocked accounts Anvil starts with.
-pub fn account(hex : String) -> @types.Address {
+fn account(hex : String) -> @types.Address {
   @types.Address::from_string(hex) catch {
     e => abort("bad dev account: \{e}")
   }

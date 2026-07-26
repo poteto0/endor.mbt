@@ -7,8 +7,11 @@
 /// Why a shim rather than a headless extension, and what that does and does not
 /// prove: `docs/e2e.md`.
 ///
-/// injected rpc node to window.ethereum
-extern "js" fn _install_wallet(rpc_url : String) -> Unit =
+/// This is the one `extern "js"` outside `ffi/js`, and it stays out of the
+/// published archive: `ffi/js` binds the wallet a browser really injected,
+/// while this fabricates one, and a wallet SDK must not ship a function that
+/// overwrites `globalThis.ethereum` with a fake.
+extern "js" fn install_wallet(rpc_url : String) -> Unit =
   #| (rpcUrl) => {
   #|   // tests share one JS context and run concurrently, so the wallet is
   #|   // installed once and never removed
@@ -68,6 +71,15 @@ extern "js" fn _install_wallet(rpc_url : String) -> Unit =
   #| }
 
 ///|
-pub fn install_wallet(rpc_url : String) -> Unit {
-  _install_wallet(rpc_url)
+/// The endpoint the suite runs against, from `ENDOR_E2E_RPC_URL`
+/// (`just e2e` sets it). Empty when unset, and then every test skips.
+extern "js" fn _endpoint() -> String =
+  #| () => (globalThis.process && globalThis.process.env
+  #|         && globalThis.process.env.ENDOR_E2E_RPC_URL) || ""
+
+///|
+/// The Anvil endpoint the suite is configured against, or `""` when there is
+/// none. Also `Backend::endpoint`.
+pub fn endpoint() -> String {
+  _endpoint()
 }

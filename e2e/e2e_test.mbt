@@ -7,35 +7,35 @@
 
 ///|
 async test "wallet is detected and answers as the injected provider" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     assert_true(provider.is_metamask())
     let accounts = @provider.request_accounts(provider)
     assert_eq(accounts.length(), 10)
-    assert_eq(accounts[0], @backend_js.dev_account())
-    assert_eq(accounts[1], @backend_js.other_account())
+    assert_eq(accounts[0], @anvil.dev_account())
+    assert_eq(accounts[1], @anvil.other_account())
     assert_eq(@provider.accounts(provider), accounts)
   })
 }
 
 ///|
 async test "chain id is anvil's" {
-  @backend_js.on_anvil(provider => {
-    assert_eq(@provider.chain_id(provider), @backend_js.anvil_chain_id())
+  @anvil.on(provider => {
+    assert_eq(@provider.chain_id(provider), @anvil.chain_id())
   })
 }
 
 ///|
 async test "dev accounts are funded" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     // anvil funds each dev account with 10000 ETH
-    let balance = @provider.balance(provider, @backend_js.dev_account())
+    let balance = @provider.balance(provider, @anvil.dev_account())
     assert_true(balance.to_bigint() > 0N)
   })
 }
 
 ///|
 async test "mining advances the block number" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     let before = @provider.block_number(provider)
     let _ = provider.request(method_name="evm_mine", params=Json::array([]))
     assert_true(@provider.block_number(provider) > before)
@@ -44,23 +44,20 @@ async test "mining advances the block number" {
 
 ///|
 async test "nonce grows with each transaction from the account" {
-  @backend_js.on_anvil(provider => {
-    let before = @provider.transaction_count(
-      provider,
-      @backend_js.dev_account(),
-    )
-    let _ = @backend_js.deploy_answer_contract(provider)
+  @anvil.on(provider => {
+    let before = @provider.transaction_count(provider, @anvil.dev_account())
+    let _ = @anvil.deploy_answer_contract(provider)
     // strictly greater, not `before + 1`: the tests share one chain and run
     // concurrently, so another test's transaction may land in between
     assert_true(
-      @provider.transaction_count(provider, @backend_js.dev_account()) > before,
+      @provider.transaction_count(provider, @anvil.dev_account()) > before,
     )
   })
 }
 
 ///|
 async test "gas price is reported" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     let price = @provider.gas_price(provider)
     assert_true(price.to_bigint() > 0N)
   })
@@ -68,13 +65,13 @@ async test "gas price is reported" {
 
 ///|
 async test "code distinguishes an account from a contract" {
-  @backend_js.on_anvil(provider => {
-    assert_true(@provider.code(provider, @backend_js.dev_account()).is_empty())
-    assert_false(@provider.is_contract(provider, @backend_js.dev_account()))
-    let deployed = @backend_js.deploy_answer_contract(provider)
+  @anvil.on(provider => {
+    assert_true(@provider.code(provider, @anvil.dev_account()).is_empty())
+    assert_false(@provider.is_contract(provider, @anvil.dev_account()))
+    let deployed = @anvil.deploy_answer_contract(provider)
     assert_eq(
       @provider.code(provider, deployed),
-      @backend_js.answer_contract_runtime(),
+      @anvil.answer_contract_runtime(),
     )
     assert_true(@provider.is_contract(provider, deployed))
   })
@@ -82,12 +79,9 @@ async test "code distinguishes an account from a contract" {
 
 ///|
 async test "call runs deployed code and estimate_gas prices it" {
-  @backend_js.on_anvil(provider => {
-    let deployed = @backend_js.deploy_answer_contract(provider)
-    let request = @types.CallRequest::new(
-      deployed,
-      from=@backend_js.dev_account(),
-    )
+  @anvil.on(provider => {
+    let deployed = @anvil.deploy_answer_contract(provider)
+    let request = @types.CallRequest::new(deployed, from=@anvil.dev_account())
     // the contract returns 42 as a single 32-byte word
     assert_eq(
       @provider.call(provider, request).to_string(),
@@ -100,10 +94,10 @@ async test "call runs deployed code and estimate_gas prices it" {
 
 ///|
 async test "call against a non-contract returns empty data" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     let request = @types.CallRequest::new(
-      @backend_js.other_account(),
-      from=@backend_js.dev_account(),
+      @anvil.other_account(),
+      from=@anvil.dev_account(),
     )
     assert_true(@provider.call(provider, request).is_empty())
   })
@@ -111,15 +105,15 @@ async test "call against a non-contract returns empty data" {
 
 ///|
 async test "switching to the chain the wallet is on succeeds" {
-  @backend_js.on_anvil(provider => {
-    @provider.switch_chain(provider, @backend_js.anvil_chain_id())
-    assert_eq(@provider.chain_id(provider), @backend_js.anvil_chain_id())
+  @anvil.on(provider => {
+    @provider.switch_chain(provider, @anvil.chain_id())
+    assert_eq(@provider.chain_id(provider), @anvil.chain_id())
   })
 }
 
 ///|
 async test "switching to an unknown chain raises 4902" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     // a chain id no other test adds — the wallet shim is shared
     try @provider.switch_chain(provider, @types.ChainId::new(9999)) catch {
       @provider.ProviderError::UnrecognizedChain(_) => ()
@@ -132,11 +126,11 @@ async test "switching to an unknown chain raises 4902" {
 
 ///|
 async test "switch_or_add_chain adds the chain the wallet does not know" {
-  @backend_js.on_anvil(provider => {
+  @anvil.on(provider => {
     let params = @types.ChainParams::new(
       @types.ChainId::new(4242),
       chain_name="Endor E2E",
-      rpc_urls=[@backend_js.rpc_url()],
+      rpc_urls=[@anvil.endpoint()],
       native_currency=@types.NativeCurrency::new(name="Ether", symbol="ETH"),
     )
     // the switch raises 4902, and the fallback adds the chain and switches again

@@ -42,10 +42,17 @@ Layout:
   the only *shipped* package above `ffi/js` that is `js`-only
 - `ffi/js/` — the **only** package whose shipped code contains `extern "js"`
   bindings to `globalThis.ethereum` / JS Promises
-- `e2e/` — end-to-end tests driving `BrowserProvider` against a local Anvil
-  node through a shim that puts an EIP-1193 wallet in front of it; test files
-  only, so the package exports nothing and is excluded from the published
-  archive (see `docs/e2e.md`)
+- `backend/` — the `Backend` trait: what an end-to-end run needs in place
+  before the SDK can reach a real node, and the shared skip/install/task-group
+  protocol (`run`). Backend-agnostic, no FFI
+- `backend/anvil/` — the `Backend` implementation for a local Anvil node, its
+  dev accounts and test-contract helpers, and `js.mbt`, which injects a fake
+  EIP-1193 wallet at `globalThis.ethereum`
+- `e2e/` — the end-to-end test cases themselves, driven through
+  `@anvil.on`; test files only, so the package exports nothing
+
+  `backend/` and `e2e/` are repo-only: `moon.mod` excludes both from the
+  published archive and `just release-check` asserts it (see `docs/e2e.md`)
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
 
@@ -56,10 +63,12 @@ Layout:
 - **Isolate FFI.** All `extern "js"` declarations in shipped code live in the
   `ffi/js` package. Everything above it is pure MoonBit and must be testable
   with a mock provider (dependency injection via the `Provider` abstraction).
-  Test files may declare `extern "js"` to fake the *environment underneath*
-  the SDK — the mock wallets in `provider/browser/browser_provider_test.mbt`
-  and `e2e/anvil_test.mbt` — but never to bind new wallet functionality; that
-  belongs in `ffi/js` regardless of who calls it.
+  Test code may declare `extern "js"` to fake the *environment underneath* the
+  SDK — the mock wallets in `provider/browser/browser_provider_test.mbt` and
+  `backend/anvil/js.mbt` — but never to bind new wallet functionality; that
+  belongs in `ffi/js` regardless of who calls it. Keep the two apart: `ffi/js`
+  binds the wallet a browser really injected and ships to consumers, so a
+  function that *fabricates* a wallet must not live there.
 - **Typed surface over stringly RPC.** Public API functions like
   `request_accounts` / `send_transaction` take and return domain types
   (`Address`, `Wei`, …), never raw JSON or raw hex strings. The generic

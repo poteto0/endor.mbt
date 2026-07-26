@@ -23,10 +23,10 @@ The other half is that **Anvil is itself a wallet**: it starts with ten funded,
 *unlocked* dev accounts, so it answers `eth_accounts`, `eth_sendTransaction`
 and the signing methods on its own. No key management, no approval UI.
 
-So `e2e/anvil.mbt` installs a `globalThis.ethereum` that forwards EIP-1193
-requests to Anvil over HTTP JSON-RPC. The SDK, the FFI envelope, the JSON it
-emits, and the decoding of what comes back are all the real code paths; only
-the transport underneath the injected object differs from a browser.
+So `backend/anvil/js.mbt` installs a `globalThis.ethereum` that forwards
+EIP-1193 requests to Anvil over HTTP JSON-RPC. The SDK, the FFI envelope, the
+JSON it emits, and the decoding of what comes back are all the real code paths;
+only the transport underneath the injected object differs from a browser.
 
 ```
 @provider.balance ─▶ BrowserProvider ─▶ ffi/js ─▶ globalThis.ethereum ─▶ HTTP ─▶ anvil
@@ -53,14 +53,24 @@ real extension. That is what the manual checklist below is for.
 
 ## The suite
 
-`e2e/` is a package of the root module, so it builds against the working tree
-rather than the published release; it holds only `_test.mbt` files, so it
-exports no interface and `moon.mod` keeps it out of the published archive.
+Three packages of the root module, so they build against the working tree
+rather than the published release:
 
-Its tests read `ENDOR_E2E_RPC_URL` and **skip when it is unset** — that is why
-`just ut` needs no node. Two things keep a skip from passing for a pass: the
-suite says so once on stdout, and `just e2e` refuses to run until something
-answers on the port.
+- `backend/` — the `Backend` trait (`name` / `endpoint` / `install`) and `run`,
+  the skip-install-task-group protocol. No FFI, no `js`.
+- `backend/anvil/` — the Anvil implementation: the shim, the dev accounts, the
+  test contract. `@anvil.on(provider => …)` is what a test calls.
+- `e2e/` — the test cases, and nothing else.
+
+`backend/` and `e2e/` never ship. `moon.mod` excludes both and
+`just release-check` asserts it before a tag exists — a mooncakes release
+cannot be taken back, and a wallet SDK that hands consumers a function
+overwriting `globalThis.ethereum` would be a real footgun.
+
+`Backend::endpoint` reads `ENDOR_E2E_RPC_URL`, and `run` **skips when it is
+unset** — that is why `just ut` needs no node. Two things keep a skip from
+passing for a pass: `run` says so once on stdout, and `just e2e` refuses to run
+until something answers on the port.
 
 A contract is deployed from `ANSWER_CONTRACT_CODE`, twenty-odd bytes of hand
 written EVM whose runtime always returns the word `42`. It exists so `call`,

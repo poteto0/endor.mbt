@@ -1,0 +1,13 @@
+import {
+  "poteto0/endor/types",
+  "poteto0/endor/backend",
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/browser",
+  "moonbitlang/async",
+}
+
+// `js`-only, and the one package outside `ffi/js` that declares `extern "js"`:
+// it fakes the environment underneath the SDK rather than binding to a wallet
+// the browser injected. See `js.mbt` and `docs/e2e.md`.
+
+supported_targets = "js"
