@@ -42,6 +42,9 @@ jobs:
       - name: Interface (.mbti) check
         run: just info-check
 
+      - name: Published archive check
+        run: just archive-check
+
   # separate job: the only one that needs a node, and its failures should read
   # as "the wire format broke", not as a unit-test regression
   e2e:
