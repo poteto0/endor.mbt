@@ -1,0 +1,19 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/backend"
+
+// Values
+pub async fn[B : Backend] run(B, async () -> Unit) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+pub(open) trait Backend {
+  fn name(Self) -> String
+  fn endpoint(Self) -> String
+  fn install(Self, String) -> Unit
+}
+

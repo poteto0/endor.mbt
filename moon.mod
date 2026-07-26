@@ -33,6 +33,17 @@ options(
   // Kept out of the published archive. `examples/` matters most: it is a nested
   // module with its own `moon.mod` pulling in UI dependencies, so shipping it
   // would drag `mizchi/luna` into a consumer's resolution. The rest is
-  // repository-local tooling and notes.
-  exclude: [ "examples", "moon.work", "justfile", "AGENTS.md", "docs" ],
+  // repository-local tooling and notes. `e2e` and `backend` are packages of
+  // this module that nothing shipped imports; `backend/anvil` in particular
+  // installs a fake wallet over `globalThis.ethereum`, which a wallet SDK must
+  // never hand a consumer. `just release-check` asserts both stayed out.
+  exclude: [
+    "examples",
+    "e2e",
+    "backend",
+    "moon.work",
+    "justfile",
+    "AGENTS.md",
+    "docs",
+  ],
 )

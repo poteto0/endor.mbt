@@ -1,0 +1,12 @@
+import {
+  "poteto0/endor/types",
+  "poteto0/endor/provider",
+  "poteto0/endor/backend/anvil",
+  "moonbitlang/async",
+} for "test"
+
+// Test cases only — the harness lives in `backend/`, so this package publishes
+// no interface at all. `js`-only because the Anvil backend drives
+// `BrowserProvider`. See `docs/e2e.md`.
+
+supported_targets = "js"

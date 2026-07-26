@@ -41,3 +41,26 @@ jobs:
 
       - name: Interface (.mbti) check
         run: just info-check
+
+      - name: Published archive check
+        run: just archive-check
+
+  # separate job: the only one that needs a node, and its failures should read
+  # as "the wire format broke", not as a unit-test regression
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@c7450ba673e133f5ee30098b3b54f444d3a2ca2d # v1.8.0
+
+      - name: Start Anvil
+        run: just anvil 8545 --silent &
+
+      - name: E2E tests (anvil)
+        run: just e2e
