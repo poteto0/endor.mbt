@@ -1,25 +1,20 @@
 ///|
-/// The Anvil backend: a local [Anvil](https://getfoundry.sh/anvil/overview)
-/// node, reached through a fake wallet injected at `globalThis.ethereum`.
-///
-/// Anvil is itself a wallet — its dev accounts are unlocked, so the node
-/// answers `eth_accounts`, `eth_sendTransaction` and the signing methods with
-/// no key management on this side. Only the `wallet_*` methods, which have no
-/// node-side counterpart, are emulated by the shim in `js.mbt`.
-pub struct Anvil {}
+/// A local [Anvil](https://getfoundry.sh/anvil/overview) node, reached through
+/// the fake wallet `js.mbt` injects. An implementation detail of `on`.
+priv struct Anvil {}
 
 ///|
-pub impl @backend.Backend for Anvil with fn name(_) {
+impl @backend.Backend for Anvil with fn name(_) {
   "anvil"
 }
 
 ///|
-pub impl @backend.Backend for Anvil with fn endpoint(_) {
+impl @backend.Backend for Anvil with fn endpoint(_) {
   endpoint()
 }
 
 ///|
-pub impl @backend.Backend for Anvil with fn install(_, endpoint) {
+impl @backend.Backend for Anvil with fn install(_, endpoint) {
   install_wallet(endpoint)
 }
 
@@ -93,8 +88,12 @@ pub fn answer_contract_runtime() -> @types.Hex {
 /// Deployment goes through `Provider::request` rather than a typed helper:
 /// `eth_sendTransaction` and receipts are not wrapped yet (#10), and this is
 /// exactly the escape hatch that exists for methods the SDK has not typed.
-pub async fn deploy_answer_contract(
-  provider : @browser.BrowserProvider,
+/// Generic over `Provider`, not tied to `BrowserProvider`: deploying a contract
+/// is a property of the chain, so a second backend (#19) reuses it as is.
+///
+/// TODO(#10): delete in favour of the typed `send_transaction` / receipt layer.
+pub async fn[P : @provider.Provider] deploy_answer_contract(
+  provider : P,
 ) -> @types.Address raise @provider.ProviderError {
   let tx = Json::object({
     "from": dev_account().to_json(),
@@ -116,8 +115,10 @@ pub async fn deploy_answer_contract(
 ///|
 /// Poll `eth_getTransactionReceipt` until the transaction is mined. Anvil
 /// automines, so the first poll normally answers.
-pub async fn wait_mined(
-  provider : @browser.BrowserProvider,
+///
+/// TODO(#10): delete in favour of the typed receipt layer.
+async fn[P : @provider.Provider] wait_mined(
+  provider : P,
   tx_hash : Json,
 ) -> Json raise @provider.ProviderError {
   for _ in 0..<50 {

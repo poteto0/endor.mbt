@@ -67,13 +67,35 @@ info:
 info-check: info
   @git diff --exit-code -- '*.mbti' || { echo "error: .mbti is stale — run \`just info\` and commit the diff"; exit 1; }
 
+# what `moon publish` would upload. An allowlist, not a denylist: the exclude
+# list in `moon.mod` is hand-maintained, so a new directory has to fail *closed*
+# — `backend/` and `e2e/` install a fake wallet over `globalThis.ethereum` and a
+# mooncakes release cannot be taken back. Runs on every commit, since it needs
+# no node and a release gate is too late to learn this.
+[group("ci")]
+archive-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\nprovider\nffi'
+  # the file list goes to stderr, interleaved with progress lines that all
+  # contain spaces, unlike archive paths
+  extra=$(moon package --list 2>&1 | grep -v ' ' | cut -d/ -f1 | sort -u \
+    | grep -vxF "$ships" || true)
+  [ -z "$extra" ] || {
+    echo "error: the published archive would ship, beyond the SDK itself:"
+    echo "$extra" | sed 's/^/  /'
+    echo "add it to \`exclude\` in moon.mod, or to \`ships\` here if it is meant to ship"
+    exit 1
+  }
+  echo "ok: the archive ships only the SDK packages"
+
 # what the pre-commit hook runs: formats and regenerates in place
 [group("ci")]
-ci: unit-test fmt check info
+ci: unit-test fmt check info archive-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check
+ci-check: fmt-check check build unit-test info-check archive-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release
@@ -94,18 +116,8 @@ release-check tag:
   # the demo should show the version being released, not the previous one
   expect "examples/get-address dependency on poteto0/endor" \
     "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
-  # a release cannot be taken back, so also check what the archive contains:
-  # the test-only packages are repo-only and `moon.mod` excludes them by hand,
-  # with nothing else watching that denylist. `backend/anvil` matters most — it
-  # can overwrite `globalThis.ethereum` with a fake wallet.
-  for repo_only in e2e backend; do
-    if moon package --list | grep -q "^${repo_only}/"; then
-      echo "error: ${repo_only}/ is in the published archive — check moon.mod's exclude"
-      fail=1
-    fi
-  done
   [ "$fail" -eq 0 ] || exit 1
-  echo "ok: every declared version is ${want}, and the test-only packages stay unpublished"
+  echo "ok: every declared version is ${want}"
 
 alias ac := analyze-coverage
 # just ac types

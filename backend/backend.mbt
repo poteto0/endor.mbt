@@ -23,31 +23,25 @@ pub(open) trait Backend {
 }
 
 ///|
-/// Said once when the suite skips, so a green run without a node cannot be
-/// mistaken for a green run against one.
-let skip_reported : Ref[Bool] = { val: false }
+/// Backends that have already announced a skip. Keyed by name rather than a
+/// single flag: with two backends configured differently, one flag would let
+/// the second skip in silence — and the whole point of announcing is that a
+/// green run without a node cannot be mistaken for a green run against one.
+let skip_reported : Array[String] = []
 
 ///|
 /// Run `body` against `backend`, or skip when the backend is not configured.
 ///
 /// An error from `body` fails the test, so the tests themselves only catch
 /// where the error *is* the assertion.
-///
-/// ```
-/// async test "chain id" {
-///   @anvil.on(provider => assert_eq(
-///     @provider.chain_id(provider),
-///     @anvil.chain_id(),
-///   ))
-/// }
-/// ```
 pub async fn[B : Backend] run(backend : B, body : async () -> Unit) -> Unit {
   let endpoint = backend.endpoint()
   if endpoint == "" {
-    if !skip_reported.val {
-      skip_reported.val = true
+    let name = backend.name()
+    if !skip_reported.contains(name) {
+      skip_reported.push(name)
       println(
-        "e2e: skipped — no endpoint configured for \{backend.name()} (see `just e2e`)",
+        "e2e: skipped — no endpoint configured for \{name} (see `just e2e`)",
       )
     }
     return

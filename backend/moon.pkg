@@ -5,6 +5,3 @@ import {
 // The `Backend` trait itself is backend-agnostic — no FFI, no `js` — so it is
 // the one part of the e2e harness that a future non-browser transport (#19)
 // can reuse unchanged. Implementations live in subpackages.
-//
-// Test-only, like everything under `backend/`: `moon.mod` keeps it out of the
-// published archive and `just release-check` asserts that it stayed out.

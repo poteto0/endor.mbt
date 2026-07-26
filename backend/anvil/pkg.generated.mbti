@@ -2,7 +2,6 @@
 package "poteto0/endor/backend/anvil"
 
 import {
-  "poteto0/endor/backend",
   "poteto0/endor/provider",
   "poteto0/endor/provider/browser",
   "poteto0/endor/types",
@@ -13,7 +12,7 @@ pub fn answer_contract_runtime() -> @types.Hex
 
 pub fn chain_id() -> @types.ChainId
 
-pub async fn deploy_answer_contract(@browser.BrowserProvider) -> @types.Address raise @provider.ProviderError
+pub async fn[P : @provider.Provider] deploy_answer_contract(P) -> @types.Address raise @provider.ProviderError
 
 pub fn dev_account() -> @types.Address
 
@@ -23,14 +22,9 @@ pub async fn on(async (@browser.BrowserProvider) -> Unit) -> Unit
 
 pub fn other_account() -> @types.Address
 
-pub async fn wait_mined(@browser.BrowserProvider, Json) -> Json raise @provider.ProviderError
-
 // Errors
 
 // Types and methods
-pub struct Anvil {
-}
-pub impl @backend.Backend for Anvil
 
 // Type aliases
 
