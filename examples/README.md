@@ -4,10 +4,12 @@
 
 A minimal browser dapp that detects MetaMask, connects the wallet, shows the
 provider name, connected address, balance and current chain id **on the page**,
-and switches the wallet between chains. It exercises the typed RPC path:
+sends the chain's native currency, and switches the wallet between chains. It
+exercises the typed RPC path:
 
 ```
 @browser.BrowserProvider::require  ->  @provider.request_accounts  ->  @provider.balance / @provider.chain_id
+                                   ->  @provider.send_transaction
                                    ->  @provider.switch_or_add_chain
 ```
 
@@ -43,8 +45,30 @@ installed and click **Connect wallet**. The card fills in with:
 - **Address** — the selected account
 - **Balance** — the account's balance in wei on the current chain
 - **Chain id** — decimal and hex, e.g. `1 (0x1)`
+- **Last tx** — the hash of the last transaction this page sent, once there is
+  one
 
-The **Mainnet / Sepolia / Polygon** buttons below the card call
+### Sending
+
+The **Send** row takes a recipient address and an amount of the chain's native
+currency ("0.01"), and calls `@provider.send_transaction` with a
+`TransactionRequest`. It sets no fee, which is `Fee::Auto` — the wallet prices
+the transaction, and on any post-London chain that means EIP-1559.
+
+Both fields are parsed into domain types before the wallet is touched, so a
+typo costs no prompt: a bad address is rejected by `Address::from_string`
+(including its EIP-55 checksum), and an amount that is not a plain decimal, or
+is finer than a wei, never becomes a `Wei`. Units are a UI concern — the SDK
+deals in wei — so `wei_of_ether` in `main.mbt` does that conversion.
+
+What comes back is a `TxHash`, which means **broadcast, not mined**. The card
+re-reads the balance right away and will usually still show the old one; there
+is no receipt layer yet ([#11](https://github.com/poteto0/endor.mbt/issues/11)).
+
+> This spends real funds on whatever chain the wallet is on. Switch to
+> **Sepolia** or **Polygon Amoy** first — both have public faucets.
+
+The **Mainnet / Sepolia / Polygon Amoy / Polygon** buttons below the card call
 `@provider.switch_or_add_chain`, which switches the wallet and — if the wallet
 answers 4902 because it does not know the chain — adds it from the
 `ChainParams` in `main.mbt` and switches again. The card re-reads the balance

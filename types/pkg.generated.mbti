@@ -52,6 +52,7 @@ pub fn CallRequest::to_json(Self) -> Json
 pub struct ChainId {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn ChainId::amoy() -> Self
 pub fn ChainId::arbitrum() -> Self
 pub fn ChainId::base() -> Self
 pub fn ChainId::from_hex(String) -> Self raise CodecError

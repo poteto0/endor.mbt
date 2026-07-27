@@ -103,7 +103,7 @@ approval path once per release:
 3. Run the demo per [`examples/README.md`](../examples/README.md) — it
    documents what each field should show.
 
-Then walk the four paths only an extension can exercise:
+Then walk the six paths only an extension can exercise:
 
 4. **Approve** the connect prompt → the card fills in, chain id `31337
    (0x7a69)`, a non-zero balance.
@@ -113,13 +113,19 @@ Then walk the four paths only an extension can exercise:
    and re-reads the balance.
 7. **Reject** a chain switch → the status line shows it and the card stays on
    the previous chain.
+8. **Approve** a send → switch to **Sepolia** or **Polygon Amoy** (a faucet
+   funds the account), put another address and `0.001` in the Send row, and
+   confirm in the wallet. The **Last tx** field fills in with the hash, and the
+   explorer shows it mined.
+9. **Reject** the send → the status line says so; nothing is broadcast and
+   **Last tx** does not change.
 
-Sending is now covered node-side by `e2e/`, but its confirmation dialog is not:
-the demo has no button that sends anything, so nothing here makes MetaMask draw
-a transaction prompt. When the demo grows past read-only, add "send to the
-second dev account, approve, and see it mined" and "reject the send" as steps 8
-and 9. Once signing (#14) lands, add "sign a message, approve, reject once" the
-same way — and the node-side half of it to `e2e/`.
+Steps 8 and 9 are the transaction half. The node-side half is already in
+`e2e/`, which proves the wire format a node accepts and that 4001 maps to
+`UserRejected`; what only the extension can prove is that its confirmation
+dialog shows the right recipient and amount. Once signing (#14) lands, add
+"sign a message, approve, reject once" the same way — and the node-side half of
+it to `e2e/`.
 
 ### Why no headless wallet
 

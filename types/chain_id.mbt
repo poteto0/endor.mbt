@@ -54,6 +54,12 @@ pub fn ChainId::polygon() -> ChainId {
 }
 
 ///|
+/// Polygon Amoy testnet (`80002`) — the PoS testnet that replaced Mumbai.
+pub fn ChainId::amoy() -> ChainId {
+  ChainId::{ value: 80002 }
+}
+
+///|
 /// Base mainnet (`8453`).
 pub fn ChainId::base() -> ChainId {
   ChainId::{ value: 8453 }
