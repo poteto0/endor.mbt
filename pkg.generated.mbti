@@ -14,6 +14,10 @@ import {
 // Type aliases
 pub using @types {type Address}
 
+pub using @types {type Block}
+
+pub using @types {type BlockHash}
+
 pub using @types {type BlockTag}
 
 pub using @types {type CallRequest}
@@ -28,9 +32,15 @@ pub using @types {type Fee}
 
 pub using @types {type Hex}
 
+pub using @types {type Log}
+
 pub using @types {type NativeCurrency}
 
 pub using @types {type Quantity}
+
+pub using @types {type ReceiptStatus}
+
+pub using @types {type TransactionReceipt}
 
 pub using @types {type TransactionRequest}
 

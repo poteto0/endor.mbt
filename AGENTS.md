@@ -14,12 +14,18 @@ are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
 `estimate_gas`, over a `CallRequest`), `eth_sendTransaction` (`send_transaction`,
 over a `TransactionRequest`, answering with a `TxHash`) and
 `wallet_switchEthereumChain` / `wallet_addEthereumChain` (`switch_chain`,
-`add_chain`, `switch_or_add_chain`). **Provider events are subscribed to** through
+`add_chain`, `switch_or_add_chain`). **What was mined is read back** through
+`eth_getTransactionReceipt` (`transaction_receipt`, and `wait_for_receipt`, which
+polls for one) and `eth_getBlockByNumber` / `eth_getBlockByHash`
+(`block_by_number`, `block_by_hash`) — all three answer with an option, because a
+node answers `null` for a receipt or block it does not have.
+**Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
-Blocks and receipts and message signing are planned but not implemented — do not
-describe them as available. There is no
-ABI layer yet either, so a call's `data` and its answer are raw `Hex`. Callers
+Message signing is planned but not implemented — do not describe it as
+available. There is no
+ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
+`data` are raw `Hex`. Callers
 reach unwrapped methods through the generic `Provider::request` escape hatch.
 
 **The SDK is stateless.** It caches no current account and no current chain:
@@ -43,8 +49,9 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
-- `types/` — `Address`, `Hex`, `TxHash`, `ChainId`, `Wei`, `Quantity`,
-  `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`, `ChainParams`, codecs
+- `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
+  `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
+  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
@@ -87,6 +94,15 @@ Layout:
   (`Address`, `Wei`, …), never raw JSON or raw hex strings. The generic
   escape hatch `Provider::request(method_name~, params~)` stays available but is
   not the recommended path.
+- **Requests are opaque, answers are open.** A type the caller *builds*
+  (`Address`, `CallRequest`, `TransactionRequest`, `ChainParams`, …) is a
+  `pub struct` with `priv` fields and a constructor that validates, so an
+  invalid value cannot be spelled. A type the caller only *reads back* off the
+  wire (`Block`, `TransactionReceipt`, `Log`) is a `pub(all) struct` whose
+  fields are the answer: it is built by its own `from_json` and nowhere else,
+  and putting an accessor in front of each field would add a method per field
+  and hide nothing.
+
 - **Errors are `suberror`, never panics.** EIP-1193 / EIP-1474 error codes
   (4001 user-rejected, 4902 unrecognized chain, …) map to a `ProviderError`
   suberror. Public API must not `abort`/`panic` on wallet-side failures. An

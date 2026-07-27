@@ -29,6 +29,29 @@ pub fn Address::to_json(Self) -> Json
 pub fn Address::to_string(Self) -> String
 pub impl Show for Address
 
+pub(all) struct Block {
+  number : UInt64?
+  hash : BlockHash?
+  parent_hash : BlockHash
+  timestamp : UInt64
+  miner : Address
+  gas_limit : Quantity
+  gas_used : Quantity
+  base_fee_per_gas : Wei?
+  transactions : Array[TxHash]
+} derive(Eq, @debug.Debug)
+pub fn Block::from_json(Json) -> Self raise CodecError
+pub impl Show for Block
+
+pub struct BlockHash {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn BlockHash::from_json(Json) -> Self raise CodecError
+pub fn BlockHash::from_string(String) -> Self raise CodecError
+pub fn BlockHash::to_json(Self) -> Json
+pub fn BlockHash::to_string(Self) -> String
+pub impl Show for BlockHash
+
 pub(all) enum BlockTag {
   Latest
   Pending
@@ -92,6 +115,20 @@ pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
 
+pub(all) struct Log {
+  address : Address
+  topics : Array[Hex]
+  data : Hex
+  block_number : UInt64
+  block_hash : BlockHash
+  transaction_hash : TxHash
+  transaction_index : UInt64
+  log_index : UInt64
+  removed : Bool
+} derive(Eq, @debug.Debug)
+pub fn Log::from_json(Json) -> Self raise CodecError
+pub impl Show for Log
+
 pub struct NativeCurrency {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -108,6 +145,29 @@ pub fn Quantity::to_hex(Self) -> String
 pub fn Quantity::to_json(Self) -> Json
 pub fn Quantity::to_uint64(Self) -> UInt64
 pub impl Show for Quantity
+
+pub(all) enum ReceiptStatus {
+  Success
+  Reverted
+} derive(Eq, @debug.Debug)
+pub impl Show for ReceiptStatus
+
+pub(all) struct TransactionReceipt {
+  transaction_hash : TxHash
+  transaction_index : UInt64
+  block_hash : BlockHash
+  block_number : UInt64
+  from : Address
+  to : Address?
+  contract_address : Address?
+  cumulative_gas_used : Quantity
+  gas_used : Quantity
+  effective_gas_price : Wei?
+  status : ReceiptStatus
+  logs : Array[Log]
+} derive(Eq, @debug.Debug)
+pub fn TransactionReceipt::from_json(Json) -> Self raise CodecError
+pub impl Show for TransactionReceipt
 
 pub struct TransactionRequest {
   // private fields

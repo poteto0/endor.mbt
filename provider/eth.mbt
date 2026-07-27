@@ -18,6 +18,20 @@ async fn[P : Provider, T] invoke_rpc(
 }
 
 ///|
+/// Decode an answer a node spells `null` when it has nothing: a receipt for a
+/// transaction it has not mined, a block it does not know. Absence is not a
+/// failure, so it decodes to `None` rather than raising.
+fn[T] decode_optional(
+  j : Json,
+  decode : (Json) -> T raise @types.CodecError,
+) -> T? raise @types.CodecError {
+  match j {
+    Null => None
+    _ => Some(decode(j))
+  }
+}
+
+///|
 /// The `[address, block]` parameter pair shared by the account reads.
 fn account_params(who : @types.Address, block : @types.BlockTag) -> Json {
   Json::array([who.to_json(), block.to_json()])
@@ -321,8 +335,8 @@ pub async fn[P : Provider] estimate_gas(
 /// (nonce, gas, fees) the wallet fills in.
 ///
 /// The hash comes back as soon as the transaction is *broadcast*, which is not
-/// the same as mined: it may still be dropped or replaced, and there is no
-/// receipt layer yet to wait on (#11).
+/// the same as mined: it may still be dropped or replaced. `wait_for_receipt`
+/// is what turns it into an answer about what the transaction did.
 ///
 /// ```
 /// async fn[P : @provider.Provider] tip(

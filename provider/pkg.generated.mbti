@@ -13,6 +13,10 @@ pub async fn[P : Provider] add_chain(P, @types.ChainParams) -> Unit raise Provid
 
 pub async fn[P : Provider] balance(P, @types.Address, block? : @types.BlockTag) -> @types.Wei raise ProviderError
 
+pub async fn[P : Provider] block_by_hash(P, @types.BlockHash) -> @types.Block? raise ProviderError
+
+pub async fn[P : Provider] block_by_number(P, block? : @types.BlockTag) -> @types.Block? raise ProviderError
+
 pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
 
 pub async fn[P : Provider] call(P, @types.CallRequest, block? : @types.BlockTag) -> @types.Hex raise ProviderError
@@ -45,6 +49,10 @@ pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit ra
 
 pub async fn[P : Provider] transaction_count(P, @types.Address, block? : @types.BlockTag) -> UInt64 raise ProviderError
 
+pub async fn[P : Provider] transaction_receipt(P, @types.TxHash) -> @types.TransactionReceipt? raise ProviderError
+
+pub async fn[P : Provider] wait_for_receipt(P, @types.TxHash, confirmations? : Int, timeout? : Int, poll_interval? : Int) -> @types.TransactionReceipt raise ProviderError
+
 // Errors
 pub(all) suberror ProviderError {
   UserRejected
@@ -55,6 +63,7 @@ pub(all) suberror ProviderError {
   UnrecognizedChain
   Rpc(code~ : Int, message~ : String)
   NotInstalled
+  Timeout(String)
 } derive(Eq, @debug.Debug)
 pub fn ProviderError::from_code(Int, String) -> Self
 pub fn ProviderError::internal(String) -> Self

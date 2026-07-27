@@ -125,8 +125,42 @@ carrying both. The default, `Auto`, sends no fee field at all: since London that
 means the node builds an EIP-1559 (type `0x02`) transaction, and `Legacy` is how
 you opt out of that on a chain that never forked.
 
-The `TxHash` you get back says the transaction was _broadcast_, not mined —
-waiting for a receipt is [#11](https://github.com/poteto0/endor.mbt/issues/11).
+The `TxHash` you get back says the transaction was _broadcast_, not mined. What
+it did is in its receipt.
+
+## Waiting for the receipt
+
+```
+async fn transfer(
+  wallet : @browser.BrowserProvider,
+  request : @endor.TransactionRequest,
+) -> Unit {
+  try {
+    let hash = @provider.send_transaction(wallet, request)
+    // polls eth_getTransactionReceipt until the transaction is mined
+    let receipt = @provider.wait_for_receipt(wallet, hash)
+    match receipt.status {
+      Success => println("mined in block \{receipt.block_number}")
+      // a reverted transaction is mined, and still paid for
+      Reverted => println("reverted, burning \{receipt.gas_used}")
+    }
+  } catch {
+    Timeout(why) => println("gave up waiting: \{why}")
+    e => println("error: \{e}")
+  }
+}
+```
+
+`wait_for_receipt` takes `confirmations` (1 by default — the receipt's own
+block), and `timeout` / `poll_interval` in milliseconds. Running out of time
+raises `Timeout`, which is deliberately not the same answer as the `None` that
+`transaction_receipt` gives for a transaction with no receipt _yet_.
+
+The receipt carries where the transaction landed (`block_number`, `block_hash`),
+what it cost (`gas_used`, `effective_gas_price`), what it emitted (`logs`) and,
+for a deployment, the `contract_address` the code now lives at. Blocks read back
+with `block_by_number` / `block_by_hash`, which answer `None` for a block the
+node does not know.
 
 ## Switching chains
 
@@ -201,10 +235,11 @@ state behind `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
 `eth_gasPrice` and `eth_getCode`. On top of those, `call` / `estimate_gas`
 evaluate a request without broadcasting it, `send_transaction` broadcasts one,
 `switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
-chains, and `on_accounts_changed` / `on_chain_changed` / `on_disconnect`
-subscribe to the provider events. Blocks and receipts and signing are planned but
-not implemented; until they land, `Provider::request` reaches any method with raw
-`Json`.
+chains, `transaction_receipt` / `wait_for_receipt` and `block_by_number` /
+`block_by_hash` read what was mined, and `on_accounts_changed` /
+`on_chain_changed` / `on_disconnect` subscribe to the provider events. Signing
+messages is planned but not implemented; until it lands, `Provider::request`
+reaches any method with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.

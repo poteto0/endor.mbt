@@ -35,7 +35,7 @@ unsubscribe ハンドルとして公開することで満たす — 購読側で
 | ------ | ---------------------------------------------------------------------- | ----------------------------------------------------- |
 | **M1** | `eth_call` / `eth_estimateGas`                                         | [#9](https://github.com/poteto0/endor.mbt/issues/9)   |
 | **M2** | `eth_sendTransaction` + `TransactionRequest` / `TxHash` 型             | [#10](https://github.com/poteto0/endor.mbt/issues/10) |
-| **M3** | ブロック / レシート + `wait_for_receipt`                               | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
+| **M3** | ブロック / レシート + `wait_for_receipt`（済）                          | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
 | **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`               | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
 | **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む  | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
 | **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect`（済） | [#16](https://github.com/poteto0/endor.mbt/issues/16) |

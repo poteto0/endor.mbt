@@ -23,13 +23,7 @@ pub struct TxHash {
 ///|
 /// Parse and validate a 32-byte hex transaction hash.
 pub fn TxHash::from_string(s : String) -> TxHash raise CodecError {
-  let n = normalize_hex(s)
-  guard n.length() == 66 else {
-    raise InvalidLength(
-      "transaction hash must be 32 bytes (64 hex digits): \{s}",
-    )
-  }
-  TxHash::{ inner: n }
+  TxHash::{ inner: parse_hash32(s, what="transaction hash") }
 }
 
 ///|

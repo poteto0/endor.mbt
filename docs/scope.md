@@ -2,9 +2,9 @@
 
 What `poteto0/endor` covers. It reads accounts, balances and the current chain,
 evaluates calls without broadcasting them, sends transactions, switches the
-wallet between chains through the `wallet_*` methods below, and subscribes to the
-provider events that say those answers went stale. It does not yet wait for a
-receipt, and it does not sign messages.
+wallet between chains through the `wallet_*` methods below, waits for what it
+sent to be mined, reads blocks and receipts, and subscribes to the provider
+events that say those answers went stale. It does not sign messages.
 
 The SDK is **stateless**: it caches no current account and no current chain.
 Every value comes from the wallet at the moment it is asked for, and events are
@@ -112,8 +112,7 @@ let hash = @provider.send_transaction(
 The answer is an `@endor.TxHash`: a `Hex` narrowed to exactly 32 bytes, so a
 wallet answering with something else is caught here rather than at whichever RPC
 is later handed the value. It means the transaction was *broadcast* — it can
-still be dropped or replaced, and waiting for it to be mined is
-[#11](https://github.com/poteto0/endor.mbt/issues/11).
+still be dropped or replaced, and what it actually did is in its receipt, below.
 
 #### Fees: `Auto`, EIP-1559, or legacy
 
@@ -134,6 +133,53 @@ no fee field to an EIP-1559 (dynamic-fee, type `0x02`) transaction — taking
 `2 * baseFee + tip` — and only builds a legacy transaction when `gasPrice` is
 given. So `Legacy` means "opt out of EIP-1559", for a chain that never forked to
 London; it is not the default and should not be reached for by habit.
+
+### Receipts and blocks
+
+| Function                                     | JSON-RPC method             | Returns                      |
+| -------------------------------------------- | --------------------------- | ---------------------------- |
+| `@provider.transaction_receipt(p, hash)`     | `eth_getTransactionReceipt` | `@endor.TransactionReceipt?` |
+| `@provider.wait_for_receipt(p, hash)`        | the same, polled            | `@endor.TransactionReceipt`  |
+| `@provider.block_by_number(p, block?)`       | `eth_getBlockByNumber`      | `@endor.Block?`              |
+| `@provider.block_by_hash(p, hash)`           | `eth_getBlockByHash`        | `@endor.Block?`              |
+
+The three `?` returns are all the same wire fact: a node answers `null` for a
+receipt that does not exist yet and for a block it does not have, and neither is
+an error.
+
+`wait_for_receipt` is the other half of `send_transaction` — it polls until the
+transaction is mined:
+
+```
+let hash = @provider.send_transaction(wallet, request)
+let receipt = @provider.wait_for_receipt(
+  wallet,
+  hash,
+  confirmations=1,      // the receipt's own block counts as the first
+  timeout=60_000,       // ms in total
+  poll_interval=1_000,  // ms between polls
+)
+```
+
+Asking for more than one confirmation waits for the head to move that far past
+the receipt's block, which is what makes a reorg unlikely to take it back out.
+Running out of time raises `ProviderError::Timeout`, deliberately distinct from
+the `None` of `transaction_receipt`: `None` says there is no receipt *right now*,
+`Timeout` says there was none for as long as the caller allowed.
+
+A transaction that **reverted still has a receipt**, so a successful wait is not
+a successful transaction — `receipt.status` is `Success` or `Reverted`, and it is
+the field to check. Beyond it a receipt carries `block_number` / `block_hash`,
+`gas_used` / `cumulative_gas_used` / `effective_gas_price`, `from` / `to`,
+`contract_address` (present exactly when `to` is absent, i.e. for a deployment)
+and `logs`, each an `@endor.Log` with its raw `topics` and `data` — there is no
+ABI layer yet, so decoding an event's arguments is still the caller's job.
+
+A `Block` carries the header (`number`, `hash`, `parent_hash`, `timestamp`,
+`miner`, `gas_limit`, `gas_used`, `base_fee_per_gas`) and `transactions` as a
+list of `TxHash`: the SDK asks for hashes rather than full transaction objects,
+and each hash is what a receipt is then fetched with. `number` and `hash` are
+absent for the *pending* block, which has not been sealed and so has neither.
 
 ### Chain switching
 
@@ -222,9 +268,10 @@ Alongside those:
   can be exercised without a browser. It is an `EventSource` too:
   `MockProvider::emit(event~, payload~)` fires an event at the subscribed
   handlers, so event handling is testable without a wallet
-- `@endor.Address` / `Hex` / `TxHash` / `ChainId` / `Wei` / `Quantity` /
-  `BlockTag` / `CallRequest` / `TransactionRequest` / `Fee` / `ChainParams` /
-  `NativeCurrency` — domain types with hex and JSON codecs
+- `@endor.Address` / `Hex` / `TxHash` / `BlockHash` / `ChainId` / `Wei` /
+  `Quantity` / `BlockTag` / `CallRequest` / `TransactionRequest` / `Fee` /
+  `ChainParams` / `NativeCurrency` / `Block` / `TransactionReceipt` /
+  `ReceiptStatus` / `Log` — domain types with hex and JSON codecs
 - `@provider.MockProvider::on_sequence` — canned answers one per call, for
   flows that retry (the 4902 fallback above is tested with it)
 - `@provider.ProviderError` — EIP-1193 / EIP-1474 codes mapped onto typed
@@ -233,7 +280,6 @@ Alongside those:
 
 ## Planned, not implemented yet
 
-- blocks and receipts (`eth_getBlockByNumber`, `eth_getTransactionReceipt`)
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
 - EIP-6963 — enumerating several injected providers instead of taking
   `globalThis.ethereum`
@@ -245,13 +291,14 @@ returns raw `Json` and gives up the typed surface, so prefer the helpers above
 wherever they exist:
 
 ```
-async fn block(
+async fn transaction(
   wallet : @browser.BrowserProvider,
-  at : @endor.BlockTag,
+  hash : @endor.TxHash,
 ) -> Json raise @provider.ProviderError {
+  // eth_getTransactionByHash is not wrapped; its receipt is
   wallet.request(
-    method_name="eth_getBlockByNumber",
-    params=Json::array([at.to_json(), Json::boolean(false)]),
+    method_name="eth_getTransactionByHash",
+    params=Json::array([hash.to_json()]),
   )
 }
 ```
