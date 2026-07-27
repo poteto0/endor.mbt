@@ -13,6 +13,7 @@ pub suberror CodecError {
   InvalidHex(String)
   InvalidLength(String)
   InvalidJson(String)
+  InvalidChecksum(String)
 } derive(Eq)
 pub impl Show for CodecError
 
@@ -23,6 +24,7 @@ pub struct Address {
 pub fn Address::array_from_json(Json) -> Array[Self] raise CodecError
 pub fn Address::from_json(Json) -> Self raise CodecError
 pub fn Address::from_string(String) -> Self raise CodecError
+pub fn Address::to_checksum_string(Self) -> String
 pub fn Address::to_json(Self) -> Json
 pub fn Address::to_string(Self) -> String
 pub impl Show for Address

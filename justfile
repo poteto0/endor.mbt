@@ -76,7 +76,7 @@ info-check: info
 archive-check:
   #!/usr/bin/env bash
   set -euo pipefail
-  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\nprovider\nffi'
+  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\nprovider\nffi'
   # the file list goes to stderr, interleaved with progress lines that all
   # contain spaces, unlike archive paths
   extra=$(moon package --list 2>&1 | grep -v ' ' | cut -d/ -f1 | sort -u \
@@ -95,7 +95,7 @@ ci: unit-test fmt check info archive-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check
+ci-check: fmt-check check build unit-test info-check archive-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release

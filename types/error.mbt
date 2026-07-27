@@ -16,6 +16,9 @@ pub suberror CodecError {
   InvalidLength(String)
   /// The JSON shape did not match what the decoder expected.
   InvalidJson(String)
+  /// The value carries a self-check that does not match its own contents —
+  /// an address whose casing is not its EIP-55 checksum, say.
+  InvalidChecksum(String)
 } derive(Eq)
 
 ///|
@@ -24,5 +27,6 @@ pub impl Show for CodecError with fn output(self, logger) {
     InvalidHex(s) => logger.write_string("InvalidHex(\{s})")
     InvalidLength(s) => logger.write_string("InvalidLength(\{s})")
     InvalidJson(s) => logger.write_string("InvalidJson(\{s})")
+    InvalidChecksum(s) => logger.write_string("InvalidChecksum(\{s})")
   }
 }
