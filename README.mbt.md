@@ -144,11 +144,12 @@ for where the unimplemented parts sit in the plan.
 | ------------------------ | ------------------------------------------------------------------------------------------ |
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                       |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs |
+| `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
 | `endor/provider`         | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                       |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                            |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`              |
 
-`endor`, `endor/types` and `endor/provider` are backend-agnostic;
+`endor`, `endor/crypto`, `endor/types` and `endor/provider` are backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
 whole point there is a browser-injected object.
 

@@ -36,6 +36,10 @@ Layout:
   `types/` backend-agnostic
 - `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`,
   `ChainParams`, codecs
+- `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
+  (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
+  package depending on nothing else in the module, so the layers above can use
+  it without a cycle
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;
