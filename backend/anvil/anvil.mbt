@@ -92,14 +92,13 @@ pub fn answer_contract_runtime() -> @types.Hex {
 /// Deploy `ANSWER_CONTRACT_CODE` from the unlocked dev account and return its
 /// address, once mined.
 ///
-/// The send is the typed `send_transaction`; waiting for the receipt still
-/// goes through `Provider::request`, because receipts are not wrapped yet
-/// (#11) and this is exactly the escape hatch that exists for methods the SDK
-/// has not typed. Generic over `Provider`, not tied to `BrowserProvider`:
-/// deploying a contract is a property of the chain, so a second backend (#19)
-/// reuses it as is.
+/// Both halves are the typed API — `send_transaction` then `wait_for_receipt`.
+/// Generic over `Provider`, not tied to `BrowserProvider`: deploying a contract
+/// is a property of the chain, so a second backend (#19) reuses it as is.
 ///
-/// TODO(#11): delete `wait_mined` in favour of the typed receipt layer.
+/// Anvil automines, so the receipt is normally there on the first poll; the
+/// interval is short and the timeout small so a node that is not mining fails
+/// the test rather than holding the suite for a minute.
 pub async fn[P : @provider.Provider] deploy_answer_contract(
   provider : P,
 ) -> @types.Address raise @provider.ProviderError {
@@ -111,37 +110,14 @@ pub async fn[P : @provider.Provider] deploy_answer_contract(
     provider,
     @types.TransactionRequest::new(dev_account(), data~),
   )
-  let receipt = wait_mined(provider, hash)
-  guard receipt is Object(fields) && fields.get("contractAddress") is Some(addr) else {
+  let receipt = @provider.wait_for_receipt(
+    provider,
+    hash,
+    timeout=5_000,
+    poll_interval=100,
+  )
+  guard receipt.contract_address is Some(deployed) else {
     raise @provider.ProviderError::internal("receipt has no contractAddress")
   }
-  @types.Address::from_json(addr) catch {
-    e => raise @provider.ProviderError::internal("bad contractAddress: \{e}")
-  }
-}
-
-///|
-/// Poll `eth_getTransactionReceipt` until the transaction is mined. Anvil
-/// automines, so the first poll normally answers.
-///
-/// TODO(#11): delete in favour of the typed receipt layer.
-async fn[P : @provider.Provider] wait_mined(
-  provider : P,
-  tx_hash : @types.TxHash,
-) -> Json raise @provider.ProviderError {
-  for _ in 0..<50 {
-    let receipt = provider.request(
-      method_name="eth_getTransactionReceipt",
-      params=Json::array([tx_hash.to_json()]),
-    )
-    if receipt is Object(_) {
-      return receipt
-    }
-    @async.sleep(100) catch {
-      e => raise @provider.ProviderError::internal("waiting to be mined: \{e}")
-    }
-  }
-  raise @provider.ProviderError::internal(
-    "transaction \{tx_hash} was not mined",
-  )
+  deployed
 }

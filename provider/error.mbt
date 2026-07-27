@@ -26,6 +26,12 @@ pub(all) suberror ProviderError {
   Rpc(code~ : Int, message~ : String)
   /// `globalThis.ethereum` is not present — no wallet extension is installed.
   NotInstalled
+  /// A wait the SDK gave up on: `wait_for_receipt` polled until its timeout
+  /// without the transaction reaching the confirmations asked for. The wallet
+  /// answered every question it was asked, so this is not a wallet-side
+  /// failure — it is the absence of an answer, and it is what tells a timeout
+  /// apart from the `None` a not-yet-mined transaction reads as.
+  Timeout(String)
 } derive(Eq, Debug)
 
 ///|

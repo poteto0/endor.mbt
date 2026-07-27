@@ -1,8 +1,8 @@
 import {
   "poteto0/endor/types",
   "moonbitlang/core/debug",
-}
-
-import {
+  // `wait_for_receipt` polls, and polling needs a clock and a sleep. The
+  // library is backend-agnostic (it has a JS event loop of its own), so this
+  // keeps the package buildable everywhere `types` is.
   "moonbitlang/async",
-} for "test"
+}

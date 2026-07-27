@@ -268,3 +268,133 @@ async test "a rejected send raises 4001" {
     }
   })
 }
+
+///|
+/// A hash of the right shape that no test ever sends, so the node genuinely
+/// knows nothing about it — the "never mined" case, told apart from a
+/// transaction that is merely still pending.
+fn unknown_hash() -> @types.TxHash {
+  @types.TxHash::from_string(
+    "0xe2e0000000000000000000000000000000000000000000000000000000000000",
+  ) catch {
+    e => abort("bad test hash: \{e}")
+  }
+}
+
+///|
+/// The receipt layer against a real node: what `send_transaction` broadcast is
+/// what `wait_for_receipt` reports on, and the block it names really contains
+/// it.
+async test "a receipt reports the transaction it was waited for" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(4),
+        value=@types.Wei::from_int(1),
+      ),
+    )
+    let receipt = @provider.wait_for_receipt(
+      provider,
+      hash,
+      timeout=5_000,
+      poll_interval=100,
+    )
+    assert_eq(receipt.transaction_hash, hash)
+    inspect(receipt.status, content="Success")
+    // a plain transfer executes nothing, so it costs exactly the base fee
+    inspect(receipt.gas_used, content="Quantity(21000)")
+    assert_eq(receipt.from, @anvil.dev_account())
+    assert_eq(receipt.to, Some(recipient(4)))
+    assert_true(receipt.contract_address is None)
+    assert_true(receipt.logs.is_empty())
+    // the same receipt is there without waiting, now that it is mined
+    assert_eq(@provider.transaction_receipt(provider, hash), Some(receipt))
+  })
+}
+
+///|
+/// A deployment is the case where the two address fields swap over, and the
+/// address the receipt names is where the code ended up.
+async test "a deployment receipt names the contract it created" {
+  @anvil.on(provider => {
+    let deployed = @anvil.deploy_answer_contract(provider)
+    inspect(@provider.is_contract(provider, deployed), content="true")
+  })
+}
+
+///|
+async test "a transaction the node never saw has no receipt" {
+  @anvil.on(provider => {
+    assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)
+    // and waiting for one runs out of time rather than answering
+    try
+      @provider.wait_for_receipt(
+        provider,
+        unknown_hash(),
+        timeout=200,
+        poll_interval=50,
+      )
+      |> ignore
+    catch {
+      @provider.ProviderError::Timeout(_) => ()
+      e => fail("expected Timeout, but \{e}")
+    } noraise {
+      _ => fail("expected Timeout, but a receipt appeared")
+    }
+  })
+}
+
+///|
+/// Blocks read back by both keys, and the two agree: the block a receipt names
+/// is the block that contains the transaction.
+async test "a block is read by number and by hash" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(5),
+        value=@types.Wei::from_int(1),
+      ),
+    )
+    let receipt = @provider.wait_for_receipt(
+      provider,
+      hash,
+      timeout=5_000,
+      poll_interval=100,
+    )
+    guard @provider.block_by_hash(provider, receipt.block_hash) is Some(by_hash) else {
+      fail("the block the receipt names is not there")
+    }
+    assert_eq(by_hash.number, Some(receipt.block_number))
+    assert_true(by_hash.transactions.contains(hash))
+    guard @provider.block_by_number(
+        provider,
+        block=Number(receipt.block_number),
+      )
+      is Some(by_number) else {
+      fail("the block at the receipt's height is not there")
+    }
+    assert_eq(by_number.hash, Some(receipt.block_hash))
+    assert_eq(by_number, by_hash)
+    // anvil mines on demand, so the head is at or past that block
+    guard @provider.block_by_number(provider) is Some(head) else {
+      fail("no head block")
+    }
+    assert_true(head.number is Some(_))
+    assert_true(head.gas_limit.to_uint64() > 0UL)
+  })
+}
+
+///|
+/// A height the chain has not reached is answered with `null`, which is the
+/// wire fact `block_by_number`'s `Block?` is typed for.
+async test "a block past the head reads as none" {
+  @anvil.on(provider => {
+    assert_true(
+      @provider.block_by_number(provider, block=Number(999_999_999)) is None,
+    )
+  })
+}

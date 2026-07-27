@@ -19,6 +19,18 @@ fn normalize_hex(s : String) -> String raise CodecError {
 }
 
 ///|
+/// Validate that `s` is a 32-byte hex value and return its normal form. Every
+/// identifier Ethereum hashes into is this shape, so `TxHash` and `BlockHash`
+/// share one parser and differ only in the `what` their errors name.
+fn parse_hash32(s : String, what~ : String) -> String raise CodecError {
+  let n = normalize_hex(s)
+  guard n.length() == 66 else {
+    raise InvalidLength("\{what} must be 32 bytes (64 hex digits): \{s}")
+  }
+  n
+}
+
+///|
 /// A raw `0x`-prefixed byte string as carried by JSON-RPC (e.g. `data`,
 /// signatures, transaction hashes). The body must have an even number of hex
 /// digits so it maps to whole bytes.

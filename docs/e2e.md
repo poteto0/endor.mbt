@@ -80,8 +80,8 @@ A contract is deployed from `ANSWER_CONTRACT_CODE`, twenty-odd bytes of hand
 written EVM whose runtime always returns the word `42`. It exists so `call`,
 `estimate_gas`, `code` and `is_contract` have real bytecode to talk to without
 the SDK needing an ABI layer (#18). Deployment is a `send_transaction` with no
-`to`; waiting for its receipt still goes through `Provider::request`, the escape
-hatch for methods not yet typed (#11).
+`to` followed by a `wait_for_receipt`, and the address it lands at is read off
+the receipt's `contract_address`.
 
 Tests share one chain and run concurrently, so assertions are about what a
 fresh chain guarantees (a nonce *grows*, it does not become exactly `n + 1`),
