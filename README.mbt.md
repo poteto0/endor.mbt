@@ -1,9 +1,9 @@
 # endor.mbt
 
-A MoonBit SDK for talking to browser wallets from a dapp. It wraps the
-[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider that extensions such
-as MetaMask inject as `globalThis.ethereum`, and exposes it as typed, async
-MoonBit functions.
+An Ethereum SDK for MoonBit. Currently focused on browser wallets via the
+[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider standard: it wraps
+the provider that extensions such as MetaMask inject as `globalThis.ethereum`,
+and exposes it as typed, async MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 

@@ -23,7 +23,7 @@ keywords = [ "ethereum", "metamask", "wallet", "eip-1193", "dapp", "web3" ]
 
 preferred_target = "js"
 
-description = "Typed, async MoonBit SDK for the EIP-1193 wallet providers that browser extensions such as MetaMask inject"
+description = "An Ethereum SDK for MoonBit. Currently focused on browser wallets via the EIP-1193 provider standard."
 
 import {
   "moonbitlang/async@0.20.3",
