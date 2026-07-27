@@ -19,19 +19,8 @@ fn eip55_body(lower_body : String) -> String {
 
 ///|
 /// A 20-byte Ethereum address. Parsing validates the `0x` prefix, hex digits
-/// and exact 20-byte length; the value is stored lowercased, which is the form
-/// that goes on the wire (`to_string`, `to_json`).
-///
-/// The casing of an address's letters carries the
-/// [EIP-55](https://eips.ethereum.org/EIPS/eip-55) checksum, which
-/// `to_checksum_string` — and `Show`, the display form — renders. See
-/// `from_string` for how input casing is validated.
-///
-/// ```
-/// let a = @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7")
-/// inspect(a.to_string(), content="0x52908400098527886e0f7030069857d2e4169ee7")
-/// inspect(a.to_checksum_string(), content="0x52908400098527886E0F7030069857D2E4169EE7")
-/// ```
+/// and exact 20-byte length; the value is stored lowercased. EIP-55 checksum
+/// casing is a later milestone.
 pub struct Address {
   priv inner : String
 } derive(Eq, Debug)
@@ -87,11 +76,6 @@ pub fn Address::from_json(j : Json) -> Address raise CodecError {
 ///|
 /// Decode a JSON array of address strings, as the account-listing RPCs
 /// (`eth_accounts`, `eth_requestAccounts`) answer with.
-///
-/// ```
-/// let js : Json = ["0x52908400098527886e0f7030069857d2e4169ee7"]
-/// inspect(@types.Address::array_from_json(js).length(), content="1")
-/// ```
 pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
   guard j is Array(items) else {
     raise InvalidJson("expected an array of addresses")

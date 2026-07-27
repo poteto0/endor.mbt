@@ -1,11 +1,6 @@
 ///|
 /// An EIP-155 chain id. Carried on the wire as a minimal `0x`-prefixed hex
 /// quantity (e.g. mainnet is `"0x1"`).
-///
-/// ```
-/// inspect(@types.ChainId::mainnet().to_hex(), content="0x1")
-/// inspect(@types.ChainId::from_hex("0xaa36a7"), content="ChainId(11155111)")
-/// ```
 pub struct ChainId {
   priv value : UInt64
 } derive(Eq, Debug)

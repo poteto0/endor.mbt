@@ -3,9 +3,11 @@
 /// EIP-1193 / EIP-1474 error codes onto typed variants. Wallet-side failures
 /// are always reported through this suberror; the public API never panics.
 ///
-/// ```
-/// let e = @provider.ProviderError::from_code(4001, "user rejected")
-/// inspect(e, content="UserRejected")
+/// ```mbt check
+/// test "doc: error code test example" {
+///   let e = @provider.ProviderError::from_code(4001, "user rejected")
+///   inspect(e, content="UserRejected")
+/// }
 /// ```
 pub(all) suberror ProviderError {
   /// 4001 — the user rejected the request.
@@ -37,14 +39,19 @@ pub impl Show for ProviderError with fn output(self, logger) {
 /// Map an EIP-1193 / EIP-1474 numeric error code (with its message) onto a
 /// `ProviderError` variant. Unknown codes fall through to `Rpc`.
 ///
-/// ```
-/// inspect(@provider.ProviderError::from_code(4902, "unknown chain"), content="UnrecognizedChain")
-/// inspect(
-///   @provider.ProviderError::from_code(-32603, "boom"),
-///   content=(
-///     #|Rpc(code=-32603, message="boom")
-///   ),
-/// )
+/// ```mbt check
+/// test "doc: error from code" {
+///   inspect(
+///     @provider.ProviderError::from_code(4902, "unknown chain"),
+///     content="UnrecognizedChain",
+///   )
+///   inspect(
+///     @provider.ProviderError::from_code(-32603, "boom"),
+///     content=(
+///       #|Rpc(code=-32603, message="boom")
+///     ),
+///   )
+/// }
 /// ```
 pub fn ProviderError::from_code(code : Int, message : String) -> ProviderError {
   match code {
@@ -63,13 +70,15 @@ pub fn ProviderError::from_code(code : Int, message : String) -> ProviderError {
 /// reported with the JSON-RPC internal-error code so the error surface stays
 /// exactly the set of variants above.
 ///
-/// ```
-/// inspect(
-///   @provider.ProviderError::internal("bad response"),
-///   content=(
-///     #|Rpc(code=-32603, message="bad response")
-///   ),
-/// )
+/// ```mbt check
+/// test "doc: error internal" {
+///   inspect(
+///     @provider.ProviderError::internal("bad response"),
+///     content=(
+///       #|Rpc(code=-32603, message="bad response")
+///     ),
+///   )
+/// }
 /// ```
 pub fn ProviderError::internal(message : String) -> ProviderError {
   Rpc(code=-32603, message~)
