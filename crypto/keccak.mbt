@@ -81,7 +81,7 @@ fn _do_theta_step(a : FixedArray[UInt64], c : FixedArray[UInt64]) -> Unit {
 
   for x in 0..<5 {
     // EX for x = 1
-    // 0010 xor 1001 => d := 1011
+    // 0010 xor 1001(rotated) => d := 1011
     let d = c[_left_idx(x)] ^ _rotl64(c[_right_idx(x)], 1)
     for y in 0..<5 {
       // embed c back to a
@@ -107,7 +107,7 @@ fn _do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
   for y in 0..<5 {
     let row = 5 * y
     for x in 0..<5 {
-      // reverse self lane if next lane = 0 & next-next lane = 1
+      // flip self lane if next lane = 0 & next-next lane = 1
       a[row + x] = b[row + x] ^
         (b[row + _right_idx(x)].lnot() & b[row + _right_idx(x, n=2)])
     }
