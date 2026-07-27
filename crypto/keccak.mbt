@@ -59,39 +59,74 @@ fn rotl64(x : UInt64, n : Int) -> UInt64 {
 }
 
 ///|
+fn _left_idx(x : Int, n? : Int = 1, len? : Int = 5) -> Int {
+  (x + (5 - n)) % len
+}
+
+///|
+fn _right_idx(x : Int, n? : Int = 1, len? : Int = 5) -> Int {
+  (x + n) % len
+}
+
+///|
+/// theta — fold each column into a parity lane, then spread it across the
+/// two neighbouring columns so a single bit reaches the whole state.
+fn do_theta_step(a : FixedArray[UInt64]) -> Unit {
+  let c = FixedArray::make(5, 0UL)
+  // parity bit
+  // EX for 4 bit
+  // c := [0010 1110 1100 1001 1111]
+  for x in 0..<5 {
+    c[x] = a[x] ^ a[x + 5] ^ a[x + 10] ^ a[x + 15] ^ a[x + 20]
+  }
+
+  for x in 0..<5 {
+    // EX for x = 1
+    // 0010 xor 1001 => d := 1011
+    let d = c[_left_idx(x)] ^ rotl64(c[_right_idx(x)], 1)
+    for y in 0..<5 {
+      // embed c back to a
+      a[x + 5 * y] = a[x + 5 * y] ^ d
+    }
+  }
+}
+
+///|
+/// rho (rotate each lane) and pi (move it elsewhere in the grid) — both are
+/// pure relocation, so one pass into a scratch grid does the two of them.
+fn do_rho_and_pi_step(a : FixedArray[UInt64]) -> FixedArray[UInt64] {
+  let b = FixedArray::make(LANES, 0UL)
+  for i in 0..<LANES {
+    b[pi_targets[i]] = rotl64(a[i], rho_offsets[i])
+  }
+
+  b
+}
+
+///|
+///  chi — the only non-linear step, mixing each lane with the next two in
+/// its row.
+/// make it irreversible
+/// 
+fn do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
+  for y in 0..<5 {
+    let row = 5 * y
+    for x in 0..<5 {
+      // reverse self lane if next lane = 0 & next-next lane = 1
+      a[row + x] = b[row + x] ^
+        (b[row + _right_idx(x)].lnot() & b[row + _right_idx(x, n=2)])
+    }
+  }
+}
+
+///|
 /// The `keccak-f[1600]` permutation: 24 rounds of theta, rho, pi, chi, iota,
 /// applied to `a` in place.
 fn permute(a : FixedArray[UInt64]) -> Unit {
-  let c = FixedArray::make(5, 0UL)
-  let b = FixedArray::make(LANES, 0UL)
   for round in 0..<round_constants.length() {
-    // theta — fold each column into a parity lane, then spread it across the
-    // two neighbouring columns so a single bit reaches the whole state.
-    for x in 0..<5 {
-      c[x] = a[x] ^ a[x + 5] ^ a[x + 10] ^ a[x + 15] ^ a[x + 20]
-    }
-    for x in 0..<5 {
-      let d = c[(x + 4) % 5] ^ rotl64(c[(x + 1) % 5], 1)
-      for y in 0..<5 {
-        a[x + 5 * y] = a[x + 5 * y] ^ d
-      }
-    }
-
-    // rho (rotate each lane) and pi (move it elsewhere in the grid) — both are
-    // pure relocation, so one pass into a scratch grid does the two of them.
-    for i in 0..<LANES {
-      b[pi_targets[i]] = rotl64(a[i], rho_offsets[i])
-    }
-
-    // chi — the only non-linear step, mixing each lane with the next two in
-    // its row.
-    for y in 0..<5 {
-      let row = 5 * y
-      for x in 0..<5 {
-        a[row + x] = b[row + x] ^
-          (b[row + (x + 1) % 5].lnot() & b[row + (x + 2) % 5])
-      }
-    }
+    do_theta_step(a)
+    let b = do_rho_and_pi_step(a)
+    do_chi_step(a, b)
 
     // iota
     a[0] = a[0] ^ round_constants[round]
