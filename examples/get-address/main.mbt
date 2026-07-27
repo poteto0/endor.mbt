@@ -106,7 +106,8 @@ async fn WalletView::show(
   wallet : @browser.BrowserProvider,
   addr : @endor.Address,
 ) -> Unit raise @provider.ProviderError {
-  self.address.set(addr.to_string())
+  // shown to a human, so the EIP-55 spelling rather than the wire form
+  self.address.set(addr.to_checksum_string())
   self.balance.set(@provider.balance(wallet, addr).to_bigint().to_string())
   let chain_id = @provider.chain_id(wallet)
   self.chain.set("\{chain_id.to_uint64()} (\{chain_id.to_hex()})")
