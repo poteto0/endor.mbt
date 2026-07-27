@@ -189,6 +189,10 @@ handler is the only place a new one arrives. Read the starting point with
 fails to decode is dropped rather than raised — an event arrives outside any call
 you made, so there is nowhere to raise to — and the subscription stays live.
 
+[`examples/get-address`](https://github.com/poteto0/endor.mbt/tree/main/examples/get-address)
+does exactly this against a real wallet: it holds the account and chain in
+signals, subscribes on connect, and unsubscribes when the wallet goes away.
+
 ## Scope
 
 The reads are wrapped in typed helpers: accounts (`eth_requestAccounts`,
