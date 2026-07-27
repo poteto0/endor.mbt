@@ -33,7 +33,8 @@ pub async fn[P : Provider] transaction_receipt(
 ///
 /// A receipt in the head block counts as one confirmation, so the default
 /// `confirmations=1` returns as soon as the transaction is mined at all. Ask for
-/// more to wait out the reorgs that can still take it back out.
+/// more to wait out the reorgs that can still take it back out; asking for
+/// fewer than one is a caller error and is raised rather than rounded up.
 ///
 /// Both remaining knobs are milliseconds: `timeout` is how long the wait may
 /// take in total, `poll_interval` how long to wait between polls.
@@ -61,8 +62,16 @@ pub async fn[P : Provider] wait_for_receipt(
   timeout? : Int = 60_000,
   poll_interval? : Int = 1_000,
 ) -> @types.TransactionReceipt raise ProviderError {
-  // fewer than one confirmation is not a weaker wait, it is no wait at all
-  let wanted = if confirmations < 1 { 1UL } else { confirmations.to_uint64() }
+  // fewer than one confirmation is not a weaker wait, it is no wait at all —
+  // and a negative one, converted unsigned, would be a wait for a height the
+  // chain never reaches. Neither is what any caller meant, so neither is
+  // silently corrected.
+  guard confirmations >= 1 else {
+    raise ProviderError::internal(
+      "wait_for_receipt: confirmations must be at least 1, got \{confirmations}",
+    )
+  }
+  let wanted = confirmations.to_uint64()
   let deadline = @async.now() + timeout.to_int64()
   // a receipt does not change once it exists, so it is fetched once and the
   // rest of the wait is a question about the head alone

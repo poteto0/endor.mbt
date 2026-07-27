@@ -163,6 +163,8 @@ let receipt = @provider.wait_for_receipt(
 
 Asking for more than one confirmation waits for the head to move that far past
 the receipt's block, which is what makes a reorg unlikely to take it back out.
+Asking for fewer than one is a caller error and raises rather than being read as
+one.
 Running out of time raises `ProviderError::Timeout`, deliberately distinct from
 the `None` of `transaction_receipt`: `None` says there is no receipt *right now*,
 `Timeout` says there was none for as long as the caller allowed.

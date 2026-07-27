@@ -227,3 +227,28 @@ async test "a reverted transaction still returns a receipt" {
     inspect(receipt.status, content="Reverted")
   })
 }
+
+///|
+/// Asking for no confirmations is a caller bug rather than a weaker wait, so
+/// it is reported instead of being quietly read as one.
+async test "a wait for fewer than one confirmation is rejected" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionReceipt",
+      response=a_receipt(),
+    )
+    for bad in [0, -1] {
+      try
+        @provider.wait_for_receipt(provider, test_tx_hash(), confirmations=bad)
+      catch {
+        @provider.ProviderError::Rpc(message~, ..) =>
+          assert_true(message.contains("confirmations must be at least 1"))
+        e => fail("expected an internal error, but not \{e}")
+      } noraise {
+        _ => fail("expected confirmations=\{bad} to be rejected")
+      }
+    }
+    // and nothing was asked of the node on the way out
+    assert_true(provider.calls().is_empty())
+  })
+}
