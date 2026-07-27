@@ -63,17 +63,42 @@
         padding: 0.4rem 0.9rem;
         cursor: pointer;
       }
+      .send {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+      .send input {
+        font-family: ui-monospace, monospace;
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      .send .to {
+        flex: 1 1 22rem;
+      }
+      .send .amount {
+        flex: 0 1 7rem;
+      }
     </style>
   </head>
   <body>
     <h1>endor.mbt — get wallet address</h1>
     <p>
-      This demo detects MetaMask, requests the connected wallet address, and
-      switches chains using the <code>endor</code> MoonBit SDK (compiled to
-      JavaScript). Everything
+      This demo detects MetaMask, requests the connected wallet address, sends
+      the chain's native currency, and switches chains using the
+      <code>endor</code> MoonBit SDK (compiled to JavaScript). Everything
       below the heading is rendered from MoonBit with
       <a href="https://github.com/mizchi/luna.mbt">luna.mbt</a>, so the wallet
       values appear on the page rather than in the console.
+    </p>
+
+    <p>
+      The send button spends real funds on whatever chain the wallet is on, so
+      point it at a testnet first — the <strong>Sepolia</strong> and
+      <strong>Polygon Amoy</strong> buttons switch to one, adding it to the
+      wallet if it has never seen it. Both have public faucets.
     </p>
 
     <!-- Luna renders the wallet card into this element; see main.mbt. -->

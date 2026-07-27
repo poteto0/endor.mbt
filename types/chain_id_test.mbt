@@ -23,6 +23,7 @@ test "common chain ids" {
   assert_eq(@types.ChainId::optimism().to_uint64(), 10)
   assert_eq(@types.ChainId::arbitrum().to_uint64(), 42161)
   assert_eq(@types.ChainId::polygon().to_uint64(), 137)
+  assert_eq(@types.ChainId::amoy().to_uint64(), 80002)
   assert_eq(@types.ChainId::base().to_uint64(), 8453)
 }
 

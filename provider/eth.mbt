@@ -1,11 +1,11 @@
 ///|
-/// Perform one JSON-RPC read and decode its result. A malformed response is
+/// Perform one JSON-RPC call and decode its result. A malformed response is
 /// the SDK's own problem, so it surfaces as `ProviderError::internal` naming
 /// the method that answered; wallet-side errors propagate untouched.
 ///
 /// Every typed helper below is this function plus a `decode`, which is what
 /// keeps their error behaviour identical.
-async fn[P : Provider, T] read(
+async fn[P : Provider, T] invoke_rpc(
   provider : P,
   method_name~ : String,
   params~ : Json,
@@ -38,7 +38,7 @@ fn account_params(who : @types.Address, block : @types.BlockTag) -> Json {
 pub async fn[P : Provider] request_accounts(
   provider : P,
 ) -> Array[@types.Address] raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_requestAccounts",
     params=Json::array([]),
@@ -73,7 +73,7 @@ pub async fn[P : Provider] require_account(
 pub async fn[P : Provider] accounts(
   provider : P,
 ) -> Array[@types.Address] raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_accounts",
     params=Json::array([]),
@@ -94,7 +94,7 @@ pub async fn[P : Provider] accounts(
 pub async fn[P : Provider] chain_id(
   provider : P,
 ) -> @types.ChainId raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_chainId",
     params=Json::array([]),
@@ -121,7 +121,7 @@ pub async fn[P : Provider] balance(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> @types.Wei raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getBalance",
     params=account_params(who, block),
@@ -142,7 +142,7 @@ pub async fn[P : Provider] balance(
 pub async fn[P : Provider] block_number(
   provider : P,
 ) -> UInt64 raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_blockNumber",
     params=Json::array([]),
@@ -171,7 +171,7 @@ pub async fn[P : Provider] transaction_count(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> UInt64 raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getTransactionCount",
     params=account_params(who, block),
@@ -192,7 +192,7 @@ pub async fn[P : Provider] transaction_count(
 pub async fn[P : Provider] gas_price(
   provider : P,
 ) -> @types.Wei raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_gasPrice",
     params=Json::array([]),
@@ -217,7 +217,7 @@ pub async fn[P : Provider] code(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> @types.Hex raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getCode",
     params=account_params(who, block),
@@ -271,7 +271,7 @@ pub async fn[P : Provider] call(
   request : @types.CallRequest,
   block? : @types.BlockTag = Latest,
 ) -> @types.Hex raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_call",
     params=Json::array([request.to_json(), block.to_json()]),
@@ -302,10 +302,48 @@ pub async fn[P : Provider] estimate_gas(
   provider : P,
   request : @types.CallRequest,
 ) -> @types.Quantity raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_estimateGas",
     params=Json::array([request.to_json()]),
     decode=@types.Quantity::from_json,
+  )
+}
+
+///|
+/// Ask the wallet to sign `request` and broadcast it (`eth_sendTransaction`),
+/// returning the hash of the transaction it accepted.
+///
+/// This is the first call in the SDK that spends the user's money, so it is
+/// also the first that always prompts: the wallet — not the dapp — holds the
+/// key, and a user who declines the prompt is reported as
+/// `ProviderError::UserRejected` (4001). Everything the request leaves absent
+/// (nonce, gas, fees) the wallet fills in.
+///
+/// The hash comes back as soon as the transaction is *broadcast*, which is not
+/// the same as mined: it may still be dropped or replaced, and there is no
+/// receipt layer yet to wait on (#11).
+///
+/// ```
+/// async fn[P : @provider.Provider] tip(
+///   p : P,
+///   from : @types.Address,
+///   to : @types.Address,
+/// ) -> @types.TxHash raise @provider.ProviderError {
+///   @provider.send_transaction(
+///     p,
+///     @types.TransactionRequest::new(from, to~, value=@types.Wei::from_int(1000)),
+///   )
+/// }
+/// ```
+pub async fn[P : Provider] send_transaction(
+  provider : P,
+  request : @types.TransactionRequest,
+) -> @types.TxHash raise ProviderError {
+  invoke_rpc(
+    provider,
+    method_name="eth_sendTransaction",
+    params=Json::array([request.to_json()]),
+    decode=@types.TxHash::from_json,
   )
 }

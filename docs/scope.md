@@ -1,10 +1,9 @@
 # Scope
 
-What `poteto0/endor` covers. Chain state is read-only at this
-version — it reads accounts, balances and the current chain, evaluates calls
-without broadcasting them, and does not yet send transactions or sign. What it
-does change is which chain the wallet is on, through the `wallet_*` methods
-below.
+What `poteto0/endor` covers. It reads accounts, balances and the current chain,
+evaluates calls without broadcasting them, sends transactions, and switches the
+wallet between chains through the `wallet_*` methods below. It does not yet wait
+for a receipt, and it does not sign messages.
 
 ## Wrapped in typed helpers
 
@@ -80,6 +79,57 @@ answer. That is what makes `estimate_gas` a cheap pre-flight check before asking
 the user to sign anything. The estimate itself is measured against current state,
 so treat it as an upper bound rather than a guarantee.
 
+### Sending transactions
+
+| Function                             | JSON-RPC method       | Returns         |
+| ------------------------------------ | --------------------- | --------------- |
+| `@provider.send_transaction(p, req)` | `eth_sendTransaction` | `@endor.TxHash` |
+
+It takes an `@endor.TransactionRequest` — the same transaction shape as a
+`CallRequest`, except that this one is signed and broadcast, so it always
+prompts the user and raises `UserRejected` (4001) when they decline. `from` is
+required and comes first: it is the account that signs. Everything else is
+optional and stays out of the request when absent, which is how the wallet is
+told to work it out itself.
+
+```
+let hash = @provider.send_transaction(
+  wallet,
+  @endor.TransactionRequest::new(
+    from,                                 // the signer (required)
+    to~,                                  // absent ⇒ deploy `data`
+    value=@endor.Wei::from_int(1000),     // wei to send
+    // data=, gas=, nonce=, fee= are optional too
+  ),
+)
+```
+
+The answer is an `@endor.TxHash`: a `Hex` narrowed to exactly 32 bytes, so a
+wallet answering with something else is caught here rather than at whichever RPC
+is later handed the value. It means the transaction was *broadcast* — it can
+still be dropped or replaced, and waiting for it to be mined is
+[#11](https://github.com/poteto0/endor.mbt/issues/11).
+
+#### Fees: `Auto`, EIP-1559, or legacy
+
+`fee=` is an `@endor.Fee` rather than three optional fields, because the two fee
+markets are mutually exclusive on the wire — geth rejects a request carrying
+both `gasPrice` and `maxFeePerGas` / `maxPriorityFeePerGas` — and an enum cannot
+spell that combination:
+
+| `Fee`                                                  | On the wire                             |
+| ------------------------------------------------------ | --------------------------------------- |
+| `Auto` (default)                                       | no fee field; the wallet decides        |
+| `Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)` | `maxFeePerGas`, `maxPriorityFeePerGas`  |
+| `Legacy(gas_price~)`                                   | `gasPrice`                              |
+
+`Auto` is what a dapp normally wants. Since London, geth defaults a request with
+no fee field to an EIP-1559 (dynamic-fee, type `0x02`) transaction — taking
+`maxPriorityFeePerGas` from its own tip oracle and `maxFeePerGas` from
+`2 * baseFee + tip` — and only builds a legacy transaction when `gasPrice` is
+given. So `Legacy` means "opt out of EIP-1559", for a chain that never forked to
+London; it is not the default and should not be reached for by habit.
+
 ### Chain switching
 
 | Function                                   | JSON-RPC method              |
@@ -126,9 +176,9 @@ Alongside those:
   identifies itself as MetaMask
 - `@provider.MockProvider` — an in-memory `Provider` for tests, so the RPC layer
   can be exercised without a browser
-- `@endor.Address` / `Hex` / `ChainId` / `Wei` / `Quantity` / `BlockTag` /
-  `CallRequest` / `ChainParams` / `NativeCurrency` — domain types with hex and
-  JSON codecs
+- `@endor.Address` / `Hex` / `TxHash` / `ChainId` / `Wei` / `Quantity` /
+  `BlockTag` / `CallRequest` / `TransactionRequest` / `Fee` / `ChainParams` /
+  `NativeCurrency` — domain types with hex and JSON codecs
 - `@provider.MockProvider::on_sequence` — canned answers one per call, for
   flows that retry (the 4902 fallback above is tested with it)
 - `@provider.ProviderError` — EIP-1193 / EIP-1474 codes mapped onto typed
@@ -138,7 +188,6 @@ Alongside those:
 ## Planned, not implemented yet
 
 - blocks and receipts (`eth_getBlockByNumber`, `eth_getTransactionReceipt`)
-- sending transactions (`eth_sendTransaction`)
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
 - provider events (`accountsChanged`, `chainChanged`, `disconnect`)
 

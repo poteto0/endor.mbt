@@ -867,3 +867,83 @@ async test "error gas estimate reverted" {
     }
   })
 }
+
+///|
+/// A transaction from `test_address()` to itself, which is the shape the
+/// send tests below broadcast.
+fn transaction_request() -> @types.TransactionRequest {
+  @types.TransactionRequest::new(
+    test_address(),
+    to=test_address(),
+    value=@types.Wei::from_int(1000),
+  )
+}
+
+///|
+const TX_HASH : String = "0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b"
+
+///|
+async test "can send a transaction" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_sendTransaction",
+      response=TX_HASH.to_json(),
+    )
+    let req = transaction_request()
+
+    let hash = @provider.send_transaction(provider, req) catch {
+      e => fail("unexpected error \{e}")
+    }
+
+    assert_eq(hash.to_string(), TX_HASH)
+    // one params element, the transaction object itself
+    assert_eq(
+      provider.last_call(),
+      Some(("eth_sendTransaction", Json::array([req.to_json()]))),
+    )
+  })
+}
+
+///|
+/// Declining the wallet prompt is the expected outcome of a send, not an
+/// exceptional one: it has to arrive as `UserRejected` rather than as a
+/// generic RPC error, so callers can tell "the user said no" from "the node
+/// said no".
+async test "error send rejected by the user" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on_error(
+      method_name="eth_sendTransaction",
+      error=@provider.ProviderError::from_code(4001, "user rejected"),
+    )
+
+    try @provider.send_transaction(provider, transaction_request()) catch {
+      @provider.ProviderError::UserRejected => ()
+      e => fail("expected UserRejected, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
+
+///|
+/// A wallet answering with something that is not a 32-byte hash is the SDK's
+/// own problem, so it surfaces as an internal error rather than as a `TxHash`
+/// nobody can use.
+async test "error send answered with a malformed hash" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_sendTransaction",
+      response="0xdeadbeef".to_json(),
+    )
+
+    try @provider.send_transaction(provider, transaction_request()) catch {
+      @provider.ProviderError::Rpc(code~, message~) => {
+        assert_eq(code, -32603)
+        assert_true(message.contains("eth_sendTransaction"))
+      }
+      e => fail("expected an internal error, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}

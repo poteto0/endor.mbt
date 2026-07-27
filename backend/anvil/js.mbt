@@ -2,7 +2,8 @@
 /// Install a fake injected wallet at `globalThis.ethereum` forwarding EIP-1193
 /// requests to Anvil over HTTP JSON-RPC. Anvil's dev accounts are unlocked, so
 /// the node answers everything except `wallet_*` methods, which have no
-/// node-side counterpart and are emulated here.
+/// node-side counterpart and are emulated here — as is refusing to sign, which
+/// the shim does with 4001 for sends from `reject_from`.
 ///
 /// Why a shim rather than a headless extension, and what that does and does not
 /// prove: `docs/e2e.md`.
@@ -10,8 +11,8 @@
 /// This is the one `extern "js"` outside `ffi/js`: that package binds the
 /// wallet a browser really injected, while this fabricates one. Test-only, and
 /// excluded from the published archive — see `docs/e2e.md`.
-extern "js" fn install_wallet(rpc_url : String) -> Unit =
-  #| (rpcUrl) => {
+extern "js" fn install_wallet(rpc_url : String, reject_from : String) -> Unit =
+  #| (rpcUrl, rejectFrom) => {
   #|   // tests share one JS context and run concurrently, so the wallet is
   #|   // installed once and never removed
   #|   if (globalThis.ethereum) return
@@ -53,6 +54,11 @@ extern "js" fn install_wallet(rpc_url : String) -> Unit =
   #|         case 'eth_requestAccounts':
   #|           return call('eth_accounts', [])
   #|         case 'eth_sendTransaction':
+  #|           // the one thing a node cannot do: refuse on the user's behalf.
+  #|           // a send from `reject_account()` stands in for declining it
+  #|           if (args[0]?.from?.toLowerCase() === rejectFrom) {
+  #|             throw { code: 4001, message: 'User rejected the request.' }
+  #|           }
   #|           return send(method, args)
   #|         case 'wallet_addEthereumChain':
   #|           added.add(BigInt(args[0].chainId).toString())

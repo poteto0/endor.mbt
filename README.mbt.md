@@ -7,9 +7,10 @@ and exposes it as typed, async MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> reads, calls (`eth_call` / `eth_estimateGas`) and chain switching
-> (`wallet_switchEthereumChain` / `wallet_addEthereumChain`, 4902 fallback
-> included) are wrapped; sending transactions and signing are not yet. See
+> reads, calls (`eth_call` / `eth_estimateGas`), sending transactions
+> (`eth_sendTransaction`) and chain switching (`wallet_switchEthereumChain` /
+> `wallet_addEthereumChain`, 4902 fallback included) are wrapped; receipts and
+> signing are not yet. See
 > [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
 > — anything unwrapped is still reachable through `Provider::request`.
 
@@ -94,6 +95,42 @@ field of a `CallRequest` — `from`, `data` and `value` are optional and omitted
 from the request when absent. A call that reverts comes back as a `ProviderError`,
 which makes `estimate_gas` a cheap pre-flight check before asking anyone to sign.
 
+## Sending a transaction
+
+```
+async fn tip(
+  wallet : @browser.BrowserProvider,
+  from : @endor.Address,
+  to : @endor.Address,
+) -> Unit {
+  try {
+    let hash = @provider.send_transaction(
+      wallet,
+      @endor.TransactionRequest::new(from, to~, value=@endor.Wei::from_int(1000)),
+    ) // eth_sendTransaction
+    println("broadcast as \{hash}")
+  } catch {
+    UserRejected => println("the user declined")
+    e => println("error: \{e}")
+  }
+}
+```
+
+This is the first call that spends the user's money, so it is the first that
+always prompts: `from` is required — it is the account that signs — and a user
+who declines comes back as `UserRejected`. Everything the request leaves out
+(`nonce`, `gas`, the fees) the wallet fills in, and leaving `to` out is how a
+transaction *deploys* the contract in `data`.
+
+The fees are a `Fee` rather than three optional fields, because `gasPrice` and
+the EIP-1559 pair are mutually exclusive on the wire — geth rejects a request
+carrying both. The default, `Auto`, sends no fee field at all: since London that
+means the node builds an EIP-1559 (type `0x02`) transaction, and `Legacy` is how
+you opt out of that on a chain that never forked.
+
+The `TxHash` you get back says the transaction was *broadcast*, not mined —
+waiting for a receipt is [#11](https://github.com/poteto0/endor.mbt/issues/11).
+
 ## Switching chains
 
 ```
@@ -127,9 +164,9 @@ The reads are wrapped in typed helpers: accounts (`eth_requestAccounts`,
 `eth_accounts`), the current chain (`eth_chainId`), and the account and chain
 state behind `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
 `eth_gasPrice` and `eth_getCode`. On top of those, `call` / `estimate_gas`
-evaluate a request without broadcasting it, and `switch_chain` / `add_chain` /
-`switch_or_add_chain` move the wallet between chains. Blocks and receipts,
-sending transactions, signing, and provider events are planned but not
+evaluate a request without broadcasting it, `send_transaction` broadcasts one,
+and `switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
+chains. Blocks and receipts, signing, and provider events are planned but not
 implemented; until they land, `Provider::request` reaches any method with raw
 `Json`.
 

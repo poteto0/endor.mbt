@@ -36,12 +36,16 @@ only the transport underneath the injected object differs from a browser.
 ### What is real and what is emulated
 
 Real — answered by Anvil's EVM: every helper in
-[`docs/scope.md`](./scope.md) (the reads, plus `call` / `estimate_gas` against
-a contract the suite deploys), and — once #10 lands — `eth_sendTransaction`
-and receipts.
+[`docs/scope.md`](./scope.md) — the reads, `call` / `estimate_gas` against a
+contract the suite deploys, and `send_transaction`, whose transactions the node
+really mines and prices (which is how the suite pins that `Fee::Auto` produces
+a type-`0x02` transaction).
 
 Emulated by the shim, because a node has no counterpart: the two `wallet_*`
-methods. `wallet_switchEthereumChain` succeeds for the chain the node is
+methods, and one rejection. A node cannot decline on the user's behalf, so a
+send from `@anvil.reject_account()` is refused with **4001** instead of being
+forwarded — enough to prove the code reaches `UserRejected` through the real FFI
+boundary, not that an extension would raise it. `wallet_switchEthereumChain` succeeds for the chain the node is
 already on (or one previously added) and raises **4902** otherwise;
 `wallet_addEthereumChain` records the chain and succeeds. That is enough to
 exercise `switch_or_add_chain`'s fallback wiring, but the node keeps serving
@@ -75,8 +79,9 @@ until something answers on the port.
 A contract is deployed from `ANSWER_CONTRACT_CODE`, twenty-odd bytes of hand
 written EVM whose runtime always returns the word `42`. It exists so `call`,
 `estimate_gas`, `code` and `is_contract` have real bytecode to talk to without
-the SDK needing an ABI layer (#18). Deployment goes through
-`Provider::request` — the escape hatch for methods not yet typed.
+the SDK needing an ABI layer (#18). Deployment is a `send_transaction` with no
+`to`; waiting for its receipt still goes through `Provider::request`, the escape
+hatch for methods not yet typed (#11).
 
 Tests share one chain and run concurrently, so assertions are about what a
 fresh chain guarantees (a nonce *grows*, it does not become exactly `n + 1`),
@@ -98,7 +103,7 @@ approval path once per release:
 3. Run the demo per [`examples/README.md`](../examples/README.md) — it
    documents what each field should show.
 
-Then walk the four paths only an extension can exercise:
+Then walk the six paths only an extension can exercise:
 
 4. **Approve** the connect prompt → the card fills in, chain id `31337
    (0x7a69)`, a non-zero balance.
@@ -108,10 +113,19 @@ Then walk the four paths only an extension can exercise:
    and re-reads the balance.
 7. **Reject** a chain switch → the status line shows it and the card stays on
    the previous chain.
+8. **Approve** a send → switch to **Sepolia** or **Polygon Amoy** (a faucet
+   funds the account), put another address and `0.001` in the Send row, and
+   confirm in the wallet. The **Last tx** field fills in with the hash, and the
+   explorer shows it mined.
+9. **Reject** the send → the status line says so; nothing is broadcast and
+   **Last tx** does not change.
 
-Once transactions (#10) and signing (#14) land, add "send a transaction to the
-second dev account, approve, and see it mined" and "sign a message, approve,
-reject once" to this list — and the node-side half of both to `e2e/`.
+Steps 8 and 9 are the transaction half. The node-side half is already in
+`e2e/`, which proves the wire format a node accepts and that 4001 maps to
+`UserRejected`; what only the extension can prove is that its confirmation
+dialog shows the right recipient and amount. Once signing (#14) lands, add
+"sign a message, approve, reject once" the same way — and the node-side half of
+it to `e2e/`.
 
 ### Why no headless wallet
 

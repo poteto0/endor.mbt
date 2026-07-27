@@ -52,6 +52,7 @@ pub fn CallRequest::to_json(Self) -> Json
 pub struct ChainId {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn ChainId::amoy() -> Self
 pub fn ChainId::arbitrum() -> Self
 pub fn ChainId::base() -> Self
 pub fn ChainId::from_hex(String) -> Self raise CodecError
@@ -73,6 +74,12 @@ pub struct ChainParams {
 pub fn ChainParams::chain_id(Self) -> ChainId
 pub fn ChainParams::new(ChainId, chain_name~ : String, rpc_urls~ : Array[String], native_currency~ : NativeCurrency, block_explorer_urls? : Array[String]) -> Self
 pub fn ChainParams::to_json(Self) -> Json
+
+pub(all) enum Fee {
+  Auto
+  Eip1559(max_fee_per_gas~ : Wei, max_priority_fee_per_gas~ : Wei)
+  Legacy(gas_price~ : Wei)
+} derive(Eq, @debug.Debug)
 
 pub struct Hex {
   // private fields
@@ -101,6 +108,21 @@ pub fn Quantity::to_hex(Self) -> String
 pub fn Quantity::to_json(Self) -> Json
 pub fn Quantity::to_uint64(Self) -> UInt64
 pub impl Show for Quantity
+
+pub struct TransactionRequest {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TransactionRequest::new(Address, to? : Address, value? : Wei, data? : Hex, gas? : Quantity, nonce? : Quantity, fee? : Fee) -> Self
+pub fn TransactionRequest::to_json(Self) -> Json
+
+pub struct TxHash {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TxHash::from_json(Json) -> Self raise CodecError
+pub fn TxHash::from_string(String) -> Self raise CodecError
+pub fn TxHash::to_json(Self) -> Json
+pub fn TxHash::to_string(Self) -> String
+pub impl Show for TxHash
 
 pub struct Wei {
   // private fields

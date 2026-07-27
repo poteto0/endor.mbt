@@ -137,3 +137,124 @@ async test "switch_or_add_chain adds the chain the wallet does not know" {
     @provider.switch_or_add_chain(provider, params)
   })
 }
+
+///|
+/// A recipient the test numbered `id` has to itself. Tests share one chain and
+/// run concurrently, so a test that asserts on a balance needs an address no
+/// other test sends to. Not a dev account either: it never sends, so it never
+/// pays gas.
+fn recipient(id : Int) -> @types.Address {
+  @types.Address::from_string("0x00000000000000000000000000000000e2e0000\{id}") catch {
+    e => abort("bad recipient: \{e}")
+  }
+}
+
+///|
+/// The transaction `hash` identifies, once anvil has mined it. Anvil automines,
+/// so by the time `eth_sendTransaction` answers the transaction is on chain.
+async fn[P : @provider.Provider] transaction_by_hash(
+  provider : P,
+  hash : @types.TxHash,
+) -> Map[String, Json] raise @provider.ProviderError {
+  let tx = provider.request(
+    method_name="eth_getTransactionByHash",
+    params=Json::array([hash.to_json()]),
+  )
+  guard tx is Object(fields) else {
+    raise @provider.ProviderError::internal("no transaction for \{hash}")
+  }
+  fields
+}
+
+///|
+async test "sending value moves it to the recipient" {
+  @anvil.on(provider => {
+    let before = @provider.balance(provider, recipient(1))
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(1),
+        value=@types.Wei::from_int(1000),
+      ),
+    )
+    let after = @provider.balance(provider, recipient(1))
+    assert_eq(after.to_bigint(), before.to_bigint() + 1000N)
+    // the hash the wallet answered with identifies that very transaction
+    let tx = transaction_by_hash(provider, hash)
+    assert_eq(tx.get("from"), Some(@anvil.dev_account().to_json()))
+    assert_eq(tx.get("to"), Some(recipient(1).to_json()))
+  })
+}
+
+///|
+/// What the fee mode actually produces on chain. `Auto` sends no fee field and
+/// the node defaults it, which since London means an EIP-1559 (type `0x02`)
+/// transaction — the behaviour `Fee` documents, asserted against a real node
+/// rather than against the docs.
+async test "fee mode decides the transaction type on chain" {
+  @anvil.on(provider => {
+    assert_eq(tx_type(provider, Auto), Some(Json::string("0x2")))
+    assert_eq(
+      tx_type(
+        provider,
+        Eip1559(
+          max_fee_per_gas=@types.Wei::from_bigint(20_000_000_000N),
+          max_priority_fee_per_gas=@types.Wei::from_bigint(1_000_000_000N),
+        ),
+      ),
+      Some(Json::string("0x2")),
+    )
+    assert_eq(
+      tx_type(
+        provider,
+        Legacy(gas_price=@types.Wei::from_bigint(20_000_000_000N)),
+      ),
+      Some(Json::string("0x0")),
+    )
+  })
+}
+
+///|
+/// Send one wei paying for gas the way `fee` says, and report the transaction
+/// type the node recorded for it.
+async fn[P : @provider.Provider] tx_type(
+  provider : P,
+  fee : @types.Fee,
+) -> Json? raise @provider.ProviderError {
+  let hash = @provider.send_transaction(
+    provider,
+    @types.TransactionRequest::new(
+      @anvil.dev_account(),
+      to=recipient(2),
+      value=@types.Wei::from_int(1),
+      fee~,
+    ),
+  )
+  transaction_by_hash(provider, hash).get("type")
+}
+
+///|
+/// A wallet that refuses is the normal failure of a send, and 4001 has to reach
+/// the caller as `UserRejected` through the real FFI boundary, not just through
+/// the mock.
+async test "a rejected send raises 4001" {
+  @anvil.on(provider => {
+    try
+      @provider.send_transaction(
+        provider,
+        @types.TransactionRequest::new(
+          @anvil.reject_account(),
+          to=recipient(3),
+          value=@types.Wei::from_int(1),
+        ),
+      )
+      |> ignore
+    catch {
+      @provider.ProviderError::UserRejected => ()
+      e => fail("expected UserRejected, but \{e}")
+    } noraise {
+      _ => fail("expected UserRejected, but the send succeeded")
+    }
+  })
+}
