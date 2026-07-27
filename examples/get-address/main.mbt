@@ -33,6 +33,10 @@ struct WalletView {
   /// yet.
   to_input : @signals.Signal[String]
   amount_input : @signals.Signal[String]
+  /// The event subscriptions this page holds while connected. The SDK keeps no
+  /// state, so the page is what turns "the wallet changed" into new signal
+  /// values — and what stops listening again.
+  mut watching : Array[@provider.Subscription]
 }
 
 ///|
@@ -49,11 +53,13 @@ fn WalletView::new() -> WalletView {
     tx: signal(PLACEHOLDER),
     to_input: signal(""),
     amount_input: signal(""),
+    watching: [],
   }
 }
 
 ///|
 fn WalletView::clear(self : WalletView, status~ : String) -> Unit {
+  self.stop_watching()
   self.status.set(status)
   self.provider_name.set(PLACEHOLDER)
   self.address.set(PLACEHOLDER)
@@ -127,6 +133,71 @@ async fn WalletView::show(
 }
 
 ///|
+/// Re-read the account after the wallet moved under us. An event is nobody's
+/// click, so a failure here is reported in the status line rather than raised.
+async fn WalletView::resync(
+  self : WalletView,
+  wallet : @browser.BrowserProvider,
+  addr : @endor.Address,
+) -> Unit {
+  self.show(wallet, addr) catch {
+    e => self.status.set("Error: \{e}")
+  }
+}
+
+///|
+/// Subscribe to what the wallet does on its own: the account the user picks in
+/// the extension, the chain they switch to elsewhere, the provider going away.
+///
+/// This is what the SDK being stateless means in practice — the current account
+/// and chain live in these signals, and the events are the only thing that keeps
+/// them true. `Subscription` is a plain handle with no framework attached, so
+/// wrapping it in this page's lifecycle is the page's business: here that is an
+/// array unsubscribed on the next connect or disconnect.
+fn WalletView::watch(
+  self : WalletView,
+  wallet : @browser.BrowserProvider,
+) -> Unit {
+  self.stop_watching()
+  self.watching = [
+    @provider.on_accounts_changed(wallet, accounts => {
+      match accounts.get(0) {
+        // most recently selected first: the user picked another account
+        Some(addr) => {
+          self.status.set("Account changed in the wallet.")
+          @js.spawn(() => self.resync(wallet, addr))
+        }
+        // empty ⇒ the user revoked this dapp's access, which is not `disconnect`
+        None => self.clear(status="The wallet revoked this dapp's access.")
+      }
+    }),
+    @provider.on_chain_changed(wallet, chain => {
+      // everything on screen was read from the old chain, so re-read it all
+      self.status.set("Chain changed to \{chain.to_uint64()}.")
+      @js.spawn(() => {
+        // `accounts` never prompts, so re-reading costs no popup
+        let accounts = @provider.accounts(wallet) catch { _ => [] }
+        if accounts.get(0) is Some(addr) {
+          self.resync(wallet, addr)
+        }
+      })
+    }),
+    @provider.on_disconnect(wallet, error => {
+      self.clear(status="The wallet disconnected: \{error}")
+    }),
+  ]
+}
+
+///|
+/// Stop listening — every subscription this page holds, cancelled once.
+fn WalletView::stop_watching(self : WalletView) -> Unit {
+  for sub in self.watching {
+    sub.unsubscribe()
+  }
+  self.watching = []
+}
+
+///|
 /// Connect to the injected wallet and publish what it reports.
 ///
 /// This is the end-to-end path the SDK exists for: `BrowserProvider` finds
@@ -145,7 +216,16 @@ async fn WalletView::connect(self : WalletView) -> Unit {
     )
     let addr = @provider.require_account(wallet)
     self.show(wallet, addr)
-    self.status.set("Connected.")
+    self.watch(wallet)
+    self.status.set(
+      if wallet.has_events() {
+        "Connected. Watching the wallet for changes."
+      } else {
+        // subscribing to such a wallet is inert, not fatal — say why nothing
+        // will update on its own
+        "Connected. This wallet pushes no events, so the fields only update on a click."
+      },
+    )
   } catch {
     NotInstalled =>
       self.clear(status="MetaMask not detected — install it and reload.")

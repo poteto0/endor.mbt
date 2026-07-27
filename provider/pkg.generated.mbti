@@ -27,6 +27,12 @@ pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
 
 pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockTag) -> Bool raise ProviderError
 
+pub fn[E : EventSource] on_accounts_changed(E, (Array[@types.Address]) -> Unit) -> Subscription
+
+pub fn[E : EventSource] on_chain_changed(E, (@types.ChainId) -> Unit) -> Subscription
+
+pub fn[E : EventSource] on_disconnect(E, (ProviderError) -> Unit) -> Subscription
+
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
 
 pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderError
@@ -64,16 +70,28 @@ pub struct MockProvider {
   // private fields
 }
 pub fn MockProvider::calls(Self) -> Array[(String, Json)]
+pub fn MockProvider::emit(Self, event~ : String, payload~ : Json) -> Unit
 pub fn MockProvider::last_call(Self) -> (String, Json)?
 pub fn MockProvider::new() -> Self
 pub fn MockProvider::on(Self, method_name~ : String, response~ : Json) -> Self
 pub fn MockProvider::on_error(Self, method_name~ : String, error~ : ProviderError) -> Self
 pub fn MockProvider::on_sequence(Self, method_name~ : String, answers~ : Array[Answer]) -> Self
+pub impl EventSource for MockProvider
 pub impl Provider for MockProvider
+
+pub struct Subscription {
+  // private fields
+}
+pub fn Subscription::new(() -> Unit) -> Self
+pub fn Subscription::unsubscribe(Self) -> Unit
 
 // Type aliases
 
 // Traits
+pub(open) trait EventSource {
+  fn subscribe(Self, event~ : String, handler~ : (Json) -> Unit) -> Subscription
+}
+
 pub(open) trait Provider {
   async fn request(Self, method_name~ : String, params~ : Json) -> Json raise ProviderError
 }

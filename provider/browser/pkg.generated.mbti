@@ -14,8 +14,10 @@ pub struct BrowserProvider {
   // private fields
 }
 pub fn BrowserProvider::detect() -> Self?
+pub fn BrowserProvider::has_events(Self) -> Bool
 pub fn BrowserProvider::is_metamask(Self) -> Bool
 pub fn BrowserProvider::require() -> Self raise @provider.ProviderError
+pub impl @provider.EventSource for BrowserProvider
 pub impl @provider.Provider for BrowserProvider
 
 // Type aliases

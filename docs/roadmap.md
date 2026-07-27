@@ -38,7 +38,7 @@ unsubscribe ハンドルとして公開することで満たす — 購読側で
 | **M3** | ブロック / レシート + `wait_for_receipt`                               | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
 | **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`               | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
 | **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む  | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
-| **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect` | [#16](https://github.com/poteto0/endor.mbt/issues/16) |
+| **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect`（済） | [#16](https://github.com/poteto0/endor.mbt/issues/16) |
 | **M7** | EIP-6963 — 複数の injected provider を列挙する                         | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
 
 M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も承認 UI も要らないので
@@ -73,7 +73,11 @@ JS への FFI は選ばず、leaf パッケージに置いたので backend-agno
 
 **イベントの FFI 設計（[#16](https://github.com/poteto0/endor.mbt/issues/16)）** —
 JS コールバックの寿命と MoonBit async の橋渡しに加えて、「SDK が現在の account /
-chain を保持するのか」まで決まってしまう。書き始める前に決める対象。
+chain を保持するのか」まで決まってしまう論点だった。決着済み: **SDK はステートレス**
+— account も chain もキャッシュせず、値はコールバックにだけ流す。API はプレーンな
+コールバック + `Subscription` ハンドルで、UI ライブラリには依存しない。`Provider`
+とは別の `EventSource` trait に切り、`ffi/js` は `eth.on` が返したラッパ関数を
+`Listener` ハンドルとして持ち回って `removeListener` に同一参照を渡す。
 
 **書き込みパスの検証手段（[#12](https://github.com/poteto0/endor.mbt/issues/12)）** —
 決着済み: Anvil + 手動 QA の二段構え（[`docs/e2e.md`](./e2e.md)）。Anvil の dev
