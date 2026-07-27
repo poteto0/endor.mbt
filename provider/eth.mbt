@@ -5,7 +5,7 @@
 ///
 /// Every typed helper below is this function plus a `decode`, which is what
 /// keeps their error behaviour identical.
-async fn[P : Provider, T] read(
+async fn[P : Provider, T] invoke_rpc(
   provider : P,
   method_name~ : String,
   params~ : Json,
@@ -38,7 +38,7 @@ fn account_params(who : @types.Address, block : @types.BlockTag) -> Json {
 pub async fn[P : Provider] request_accounts(
   provider : P,
 ) -> Array[@types.Address] raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_requestAccounts",
     params=Json::array([]),
@@ -73,7 +73,7 @@ pub async fn[P : Provider] require_account(
 pub async fn[P : Provider] accounts(
   provider : P,
 ) -> Array[@types.Address] raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_accounts",
     params=Json::array([]),
@@ -94,7 +94,7 @@ pub async fn[P : Provider] accounts(
 pub async fn[P : Provider] chain_id(
   provider : P,
 ) -> @types.ChainId raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_chainId",
     params=Json::array([]),
@@ -121,7 +121,7 @@ pub async fn[P : Provider] balance(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> @types.Wei raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getBalance",
     params=account_params(who, block),
@@ -142,7 +142,7 @@ pub async fn[P : Provider] balance(
 pub async fn[P : Provider] block_number(
   provider : P,
 ) -> UInt64 raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_blockNumber",
     params=Json::array([]),
@@ -171,7 +171,7 @@ pub async fn[P : Provider] transaction_count(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> UInt64 raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getTransactionCount",
     params=account_params(who, block),
@@ -192,7 +192,7 @@ pub async fn[P : Provider] transaction_count(
 pub async fn[P : Provider] gas_price(
   provider : P,
 ) -> @types.Wei raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_gasPrice",
     params=Json::array([]),
@@ -217,7 +217,7 @@ pub async fn[P : Provider] code(
   who : @types.Address,
   block? : @types.BlockTag = Latest,
 ) -> @types.Hex raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_getCode",
     params=account_params(who, block),
@@ -271,7 +271,7 @@ pub async fn[P : Provider] call(
   request : @types.CallRequest,
   block? : @types.BlockTag = Latest,
 ) -> @types.Hex raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_call",
     params=Json::array([request.to_json(), block.to_json()]),
@@ -302,7 +302,7 @@ pub async fn[P : Provider] estimate_gas(
   provider : P,
   request : @types.CallRequest,
 ) -> @types.Quantity raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_estimateGas",
     params=Json::array([request.to_json()]),
@@ -340,7 +340,7 @@ pub async fn[P : Provider] send_transaction(
   provider : P,
   request : @types.TransactionRequest,
 ) -> @types.TxHash raise ProviderError {
-  read(
+  invoke_rpc(
     provider,
     method_name="eth_sendTransaction",
     params=Json::array([request.to_json()]),

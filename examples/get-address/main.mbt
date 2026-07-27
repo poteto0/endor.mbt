@@ -99,16 +99,6 @@ fn chains() -> Array[Chain] {
       ),
     },
     {
-      label: "Polygon Amoy",
-      params: @endor.ChainParams::new(
-        @endor.ChainId::amoy(),
-        chain_name="Polygon Amoy Testnet",
-        rpc_urls=["https://rpc-amoy.polygon.technology"],
-        native_currency=pol,
-        block_explorer_urls=["https://amoy.polygonscan.com"],
-      ),
-    },
-    {
       label: "Polygon",
       params: @endor.ChainParams::new(
         @endor.ChainId::polygon(),
