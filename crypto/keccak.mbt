@@ -50,7 +50,7 @@ let pi_targets : FixedArray[Int] = FixedArray::makei(LANES, fn(i) {
 ///|
 /// Rotate left within 64 bits. `n` is always in `0..<64`; a shift of exactly 64
 /// is not well defined, so a zero rotation returns the input untouched.
-fn rotl64(x : UInt64, n : Int) -> UInt64 {
+fn _rotl64(x : UInt64, n : Int) -> UInt64 {
   if n == 0 {
     x
   } else {
@@ -59,20 +59,19 @@ fn rotl64(x : UInt64, n : Int) -> UInt64 {
 }
 
 ///|
-fn _left_idx(x : Int, n? : Int = 1, len? : Int = 5) -> Int {
-  (x + (5 - n)) % len
+fn _left_idx(x : Int, n? : Int = 1) -> Int {
+  (x + (5 - n)) % 5
 }
 
 ///|
-fn _right_idx(x : Int, n? : Int = 1, len? : Int = 5) -> Int {
-  (x + n) % len
+fn _right_idx(x : Int, n? : Int = 1) -> Int {
+  (x + n) % 5
 }
 
 ///|
 /// theta — fold each column into a parity lane, then spread it across the
 /// two neighbouring columns so a single bit reaches the whole state.
-fn do_theta_step(a : FixedArray[UInt64]) -> Unit {
-  let c = FixedArray::make(5, 0UL)
+fn _do_theta_step(a : FixedArray[UInt64], c : FixedArray[UInt64]) -> Unit {
   // parity bit
   // EX for 4 bit
   // c := [0010 1110 1100 1001 1111]
@@ -83,7 +82,7 @@ fn do_theta_step(a : FixedArray[UInt64]) -> Unit {
   for x in 0..<5 {
     // EX for x = 1
     // 0010 xor 1001 => d := 1011
-    let d = c[_left_idx(x)] ^ rotl64(c[_right_idx(x)], 1)
+    let d = c[_left_idx(x)] ^ _rotl64(c[_right_idx(x)], 1)
     for y in 0..<5 {
       // embed c back to a
       a[x + 5 * y] = a[x + 5 * y] ^ d
@@ -94,21 +93,17 @@ fn do_theta_step(a : FixedArray[UInt64]) -> Unit {
 ///|
 /// rho (rotate each lane) and pi (move it elsewhere in the grid) — both are
 /// pure relocation, so one pass into a scratch grid does the two of them.
-fn do_rho_and_pi_step(a : FixedArray[UInt64]) -> FixedArray[UInt64] {
-  let b = FixedArray::make(LANES, 0UL)
+fn _do_rho_and_pi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
   for i in 0..<LANES {
-    b[pi_targets[i]] = rotl64(a[i], rho_offsets[i])
+    b[pi_targets[i]] = _rotl64(a[i], rho_offsets[i])
   }
-
-  b
 }
 
 ///|
 ///  chi — the only non-linear step, mixing each lane with the next two in
 /// its row.
-/// make it irreversible
 /// 
-fn do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
+fn _do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
   for y in 0..<5 {
     let row = 5 * y
     for x in 0..<5 {
@@ -122,11 +117,13 @@ fn do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
 ///|
 /// The `keccak-f[1600]` permutation: 24 rounds of theta, rho, pi, chi, iota,
 /// applied to `a` in place.
-fn permute(a : FixedArray[UInt64]) -> Unit {
+fn _permute(a : FixedArray[UInt64]) -> Unit {
+  let c = FixedArray::make(5, 0UL)
+  let b = FixedArray::make(LANES, 0UL)
   for round in 0..<round_constants.length() {
-    do_theta_step(a)
-    let b = do_rho_and_pi_step(a)
-    do_chi_step(a, b)
+    _do_theta_step(a, c)
+    _do_rho_and_pi_step(a, b)
+    _do_chi_step(a, b)
 
     // iota
     a[0] = a[0] ^ round_constants[round]
@@ -139,11 +136,11 @@ fn permute(a : FixedArray[UInt64]) -> Unit {
 /// The unchecked read is sound by construction: `from` only ever names the
 /// start of a whole block, so every lane lies within `from ..< from + RATE`,
 /// and the caller never passes a block that stops short of that.
-fn absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
+fn _absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
   for lane in 0..<(RATE / 8) {
     a[lane] = a[lane] ^ block.unsafe_read_uint64_le(from + lane * 8)
   }
-  permute(a)
+  _permute(a)
 }
 
 ///|
@@ -161,7 +158,7 @@ fn absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
 /// )
 /// ```
 pub fn keccak256(input : Bytes) -> Bytes {
-  sponge(input, KECCAK_PAD)
+  _sponge(input, KECCAK_PAD)
 }
 
 ///|
@@ -171,11 +168,11 @@ pub fn keccak256(input : Bytes) -> Bytes {
 /// parameter so the tests can drive this against SHA3-256's published vectors,
 /// which is the only external authority available — no standard library ships
 /// keccak256 itself.
-fn sponge(input : Bytes, pad : Byte) -> Bytes {
+fn _sponge(input : Bytes, pad : Byte) -> Bytes {
   let a = FixedArray::make(LANES, 0UL)
   let full_blocks = input.length() / RATE
   for block in 0..<full_blocks {
-    absorb(a, input, block * RATE)
+    _absorb(a, input, block * RATE)
   }
 
   // The tail always needs one more block, even when the input divides evenly
@@ -197,7 +194,7 @@ fn sponge(input : Bytes, pad : Byte) -> Bytes {
       byte
     }
   })
-  absorb(a, tail, 0)
+  _absorb(a, tail, 0)
 
   // Squeeze. The digest is shorter than `RATE`, so it comes straight off the
   // front of the state with no further permutation.

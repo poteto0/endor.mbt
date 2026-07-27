@@ -45,7 +45,7 @@ test "matches sha3-256 vectors when given sha3's pad byte" {
   ]
   for vector in vectors {
     let (input, expected) = vector
-    assert_eq(sponge(input, SHA3_PAD), expected)
+    assert_eq(_sponge(input, SHA3_PAD), expected)
   }
 }
 
@@ -53,5 +53,5 @@ test "matches sha3-256 vectors when given sha3's pad byte" {
 /// The distinction the whole file rests on: one byte of padding, and the two
 /// digests share nothing.
 test "keccak256 and sha3-256 disagree on the same input" {
-  assert_not_eq(sponge(b"abc", KECCAK_PAD), sponge(b"abc", SHA3_PAD))
+  assert_not_eq(_sponge(b"abc", KECCAK_PAD), _sponge(b"abc", SHA3_PAD))
 }
