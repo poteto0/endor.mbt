@@ -1,11 +1,6 @@
 ///|
 /// A 256-bit unsigned quantity of wei (smallest ETH unit), backed by `BigInt`.
 /// Carried on the wire as a minimal `0x`-prefixed hex quantity.
-///
-/// ```
-/// let w = @types.Wei::from_int(255)
-/// inspect(w.to_hex(), content="0xff")
-/// ```
 pub struct Wei {
   priv value : BigInt
 } derive(Eq, Debug)

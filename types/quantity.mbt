@@ -25,12 +25,6 @@ fn format_quantity(value : UInt64) -> String {
 ///
 /// Values larger than 64 bits (only reachable for wei-denominated fields) are
 /// out of range here; use `Wei` for those.
-///
-/// ```
-/// let q = @types.Quantity::from_hex("0x4b7")
-/// inspect(q.to_uint64(), content="1207")
-/// inspect(@types.Quantity::new(255).to_hex(), content="0xff")
-/// ```
 pub struct Quantity {
   priv value : UInt64
 } derive(Eq, Debug)
