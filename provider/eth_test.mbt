@@ -47,6 +47,41 @@ async test "can get accounts" {
 }
 
 ///|
+async test "require first account" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_requestAccounts",
+      response=Json::array([
+        "0x52908400098527886E0F7030069857D2E4169EE7".to_json(),
+      ]),
+    )
+
+    let acc = @provider.require_account(provider) catch {
+      e => fail("unexpected error \{e}")
+    }
+
+    inspect(
+      acc.to_checksum_string(),
+      content="0x52908400098527886E0F7030069857D2E4169EE7",
+    )
+  })
+
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_requestAccounts",
+      response=Json::array([
+      ]),
+    )
+
+    ignore(@provider.require_account(provider)) catch {
+      _ => ()
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
+
+///|
 async test "error invalid accounts" {
   @async.with_task_group(_ => {
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(

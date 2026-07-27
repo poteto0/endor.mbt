@@ -29,6 +29,8 @@ pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockT
 
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
 
+pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderError
+
 pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise ProviderError
 
 pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit raise ProviderError
