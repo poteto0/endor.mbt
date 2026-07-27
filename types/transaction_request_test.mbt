@@ -69,8 +69,8 @@ test "transaction request without a recipient is a deployment" {
 /// the one combination geth rejects, and `Fee` cannot express it.
 test "fee mode decides which fee fields go on the wire" {
   let auto = @types.TransactionRequest::new(sender()).to_json().stringify()
-  assert_false(auto.contains("gasPrice"))
-  assert_false(auto.contains("maxFeePerGas"))
+  inspect(auto.contains("gasPrice"), content="false")
+  inspect(auto.contains("maxFeePerGas"), content="false")
   inspect(
     @types.TransactionRequest::new(
       sender(),
@@ -91,6 +91,6 @@ test "fee mode decides which fee fields go on the wire" {
     )
     .to_json()
     .stringify()
-  assert_false(legacy.contains("maxFeePerGas"))
-  assert_true(legacy.contains("\"gasPrice\":\"0x64\""))
+  inspect(legacy.contains("maxFeePerGas"), content="false")
+  inspect(legacy.contains("\"gasPrice\":\"0x64\""), content="true")
 }

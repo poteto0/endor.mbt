@@ -13,15 +13,15 @@ async test "mock provider returns canned response" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(result, "0x1".to_json())
+    inspect(result.stringify(), content="\"0x1\"")
 
     let calls = provider.calls()
-    assert_eq(calls.length(), 1)
+    inspect(calls.length(), content="1")
 
     match calls[0] {
       (eth_method, params) => {
-        assert_eq(eth_method, "eth_chainId")
-        assert_eq(params, Json::array([]))
+        inspect(eth_method, content="eth_chainId")
+        inspect(params.stringify(), content="[]")
       }
     }
   })
@@ -80,14 +80,14 @@ async test "mock provider records calls in order" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(provider.calls().length(), 2)
+    inspect(provider.calls().length(), content="2")
 
     match provider.calls()[0] {
-      (eth_method, _) => assert_eq(eth_method, "eth_chainId")
+      (eth_method, _) => inspect(eth_method, content="eth_chainId")
     }
 
     match provider.calls()[1] {
-      (eth_method, _) => assert_eq(eth_method, "eth_accounts")
+      (eth_method, _) => inspect(eth_method, content="eth_accounts")
     }
   })
 }
@@ -112,8 +112,8 @@ async test "mock provider returns last call" {
 
     match provider.last_call() {
       Some((eth_method, params)) => {
-        assert_eq(eth_method, "eth_chainId")
-        assert_eq(params, Json::array([]))
+        inspect(eth_method, content="eth_chainId")
+        inspect(params.stringify(), content="[]")
       }
       None => fail("expected last call")
     }

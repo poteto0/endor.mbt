@@ -1,13 +1,13 @@
 ///|
 /// Named tags travel as their bare names, numbers as hex quantities.
 test "can convert to wire form" {
-  assert_eq(@types.BlockTag::Latest.to_string(), "latest")
-  assert_eq(@types.BlockTag::Pending.to_string(), "pending")
-  assert_eq(@types.BlockTag::Earliest.to_string(), "earliest")
-  assert_eq(@types.BlockTag::Safe.to_string(), "safe")
-  assert_eq(@types.BlockTag::Finalized.to_string(), "finalized")
-  assert_eq(@types.BlockTag::Number(0).to_string(), "0x0")
-  assert_eq(@types.BlockTag::Number(16).to_string(), "0x10")
+  inspect(@types.BlockTag::Latest.to_string(), content="latest")
+  inspect(@types.BlockTag::Pending.to_string(), content="pending")
+  inspect(@types.BlockTag::Earliest.to_string(), content="earliest")
+  inspect(@types.BlockTag::Safe.to_string(), content="safe")
+  inspect(@types.BlockTag::Finalized.to_string(), content="finalized")
+  inspect(@types.BlockTag::Number(0).to_string(), content="0x0")
+  inspect(@types.BlockTag::Number(16).to_string(), content="0x10")
 }
 
 ///|
@@ -53,14 +53,14 @@ test "invalid if block number exceeds uint64" {
 
 ///|
 test "can convert to json" {
-  assert_eq(@types.BlockTag::Latest.to_json(), "latest")
-  assert_eq(@types.BlockTag::Number(16).to_json(), "0x10")
+  inspect(@types.BlockTag::Latest.to_json().stringify(), content="\"latest\"")
+  inspect(@types.BlockTag::Number(16).to_json().stringify(), content="\"0x10\"")
 }
 
 ///|
 test "can create from json" {
-  assert_eq(@types.BlockTag::from_json("pending"), @types.BlockTag::Pending)
-  assert_eq(@types.BlockTag::from_json("0x10"), @types.BlockTag::Number(16))
+  inspect(@types.BlockTag::from_json("pending"), content="pending")
+  inspect(@types.BlockTag::from_json("0x10"), content="0x10")
 }
 
 ///|
@@ -75,6 +75,6 @@ test "error if not string json" {
 
 ///|
 test "show block tag" {
-  assert_eq("\{@types.BlockTag::Number(16)}", "0x10")
-  assert_eq("\{@types.BlockTag::Safe}", "safe")
+  inspect("\{@types.BlockTag::Number(16)}", content="0x10")
+  inspect("\{@types.BlockTag::Safe}", content="safe")
 }

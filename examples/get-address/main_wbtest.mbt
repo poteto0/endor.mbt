@@ -31,6 +31,6 @@ test "amounts that are not decimals are rejected" {
       // 19 decimals: finer than a wei
        "0.0000000000000000001",
     ] {
-    assert_true(wei_of_ether(bad) is None)
+    inspect(wei_of_ether(bad) is None, content="true")
   }
 }

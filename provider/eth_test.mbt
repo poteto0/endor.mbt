@@ -43,7 +43,7 @@ async test "can get accounts" {
     }
   })
 
-  assert_eq(accounts.length(), 3)
+  inspect(accounts.length(), content="3")
 }
 
 ///|
@@ -137,7 +137,7 @@ async test "can get chain id" {
     chain_ids.push(id)
   })
 
-  assert_eq(chain_ids.length(), 2)
+  inspect(chain_ids.length(), content="2")
 }
 
 ///|
@@ -175,7 +175,7 @@ async test "can get accounts without prompt" {
     }
   })
 
-  assert_eq(accounts.length(), 2)
+  inspect(accounts.length(), content="2")
 }
 
 ///|
@@ -225,10 +225,20 @@ async test "can get balance" {
     balances.push(wei)
 
     // the address and the default block tag reach the wallet as sent
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(
-        ("eth_getBalance", Json::array([who.to_json(), Json::string("latest")])),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getBalance",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("latest"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
 
@@ -244,9 +254,9 @@ async test "can get balance" {
     balances.push(wei)
   })
 
-  assert_eq(balances.length(), 2)
-  assert_eq(balances[0], @types.Wei::from_bigint(2000000000000000000N))
-  assert_eq(balances[1], @types.Wei::zero())
+  inspect(balances.length(), content="2")
+  inspect(balances[0], content="Wei(2000000000000000000)")
+  inspect(balances[1], content="Wei(0)")
 }
 
 ///|
@@ -262,11 +272,16 @@ async test "can get balance at an explicit block" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(wei, @types.Wei::from_int(255))
-    assert_eq(
+    inspect(wei, content="Wei(255)")
+    debug_inspect(
       provider.last_call(),
-      Some(
-        ("eth_getBalance", Json::array([who.to_json(), Json::string("0x10")])),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getBalance",
+        #|    Array([String("0x52908400098527886e0f7030069857d2e4169ee7"), String("0x10")]),
+        #|  ),
+        #|)
       ),
     )
   })
@@ -354,8 +369,13 @@ async test "can get block number" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(n, 21962336)
-    assert_eq(provider.last_call(), Some(("eth_blockNumber", Json::array([]))))
+    inspect(n, content="21962336")
+    debug_inspect(
+      provider.last_call(),
+      content=(
+        #|Some(("eth_blockNumber", Array([])))
+      ),
+    )
   })
 }
 
@@ -369,7 +389,7 @@ async test "error invalid block number" {
     )
 
     try @provider.block_number(provider) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -403,15 +423,22 @@ async test "can get transaction count" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(nonce, 42)
+    inspect(nonce, content="42")
     // the default block tag reaches the wallet as "latest"
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(
-        (
-          "eth_getTransactionCount",
-          Json::array([who.to_json(), Json::string("latest")]),
-        ),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getTransactionCount",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("latest"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
 
@@ -420,14 +447,21 @@ async test "can get transaction count" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(nonce, 42)
-    assert_eq(
+    inspect(nonce, content="42")
+    debug_inspect(
       provider.last_call(),
-      Some(
-        (
-          "eth_getTransactionCount",
-          Json::array([who.to_json(), Json::string("pending")]),
-        ),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getTransactionCount",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("pending"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
   })
@@ -443,7 +477,7 @@ async test "error invalid transaction count" {
     )
 
     try @provider.transaction_count(provider, who) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -483,8 +517,13 @@ async test "can get gas price" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(price, @types.Wei::from_bigint(1000000000N))
-    assert_eq(provider.last_call(), Some(("eth_gasPrice", Json::array([]))))
+    inspect(price, content="Wei(1000000000)")
+    debug_inspect(
+      provider.last_call(),
+      content=(
+        #|Some(("eth_gasPrice", Array([])))
+      ),
+    )
   })
 }
 
@@ -497,7 +536,7 @@ async test "error invalid gas price" {
     )
 
     try @provider.gas_price(provider) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -535,11 +574,21 @@ async test "can get code" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(bytecode.to_string(), "0x60806040")
-    assert_eq(
+    inspect(bytecode.to_string(), content="0x60806040")
+    debug_inspect(
       provider.last_call(),
-      Some(
-        ("eth_getCode", Json::array([who.to_json(), Json::string("latest")])),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getCode",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("latest"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
 
@@ -553,10 +602,17 @@ async test "can get code" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(bytecode.to_string(), "0x")
-    assert_eq(
+    inspect(bytecode.to_string(), content="0x")
+    debug_inspect(
       provider.last_call(),
-      Some(("eth_getCode", Json::array([who.to_json(), Json::string("0x10")]))),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getCode",
+        #|    Array([String("0x52908400098527886e0f7030069857d2e4169ee7"), String("0x10")]),
+        #|  ),
+        #|)
+      ),
     )
   })
 }
@@ -573,7 +629,7 @@ async test "error invalid code" {
     )
 
     try @provider.code(provider, who) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -608,7 +664,7 @@ async test "can tell a contract from a wallet" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_true(yes)
+    inspect(yes, content="true")
 
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(
       method_name="eth_getCode",
@@ -619,11 +675,21 @@ async test "can tell a contract from a wallet" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_false(no)
-    assert_eq(
+    inspect(no, content="false")
+    debug_inspect(
       provider.last_call(),
-      Some(
-        ("eth_getCode", Json::array([who.to_json(), Json::string("finalized")])),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getCode",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("finalized"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
   })
@@ -661,14 +727,21 @@ async test "can get balance at a named block tag" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(wei, @types.Wei::from_int(255))
-    assert_eq(
+    inspect(wei, content="Wei(255)")
+    debug_inspect(
       provider.last_call(),
-      Some(
-        (
-          "eth_getBalance",
-          Json::array([who.to_json(), Json::string("pending")]),
-        ),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_getBalance",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("pending"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
   })
@@ -705,26 +778,32 @@ async test "can call" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(
+    inspect(
       ret.to_string(),
-      "0x00000000000000000000000000000000000000000000000000000000000003e8",
+      content="0x00000000000000000000000000000000000000000000000000000000000003e8",
     )
     // the call object and the default block tag reach the node as sent
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(
-        (
-          "eth_call",
-          Json::array([
-            {
-              "to": test_address().to_json(),
-              "from": test_address().to_json(),
-              "data": Json::string("0x70a08231"),
-              "value": Json::string("0x1"),
-            },
-            Json::string("latest"),
-          ]),
-        ),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_call",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "to": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "from": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "data": String("0x70a08231"),
+        #|            "value": String("0x1"),
+        #|          },
+        #|        ),
+        #|        String("latest"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
       ),
     )
 
@@ -733,10 +812,29 @@ async test "can call" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(ret.byte_length(), 32)
-    assert_eq(
+    inspect(ret.byte_length(), content="32")
+    debug_inspect(
       provider.last_call(),
-      Some(("eth_call", Json::array([req.to_json(), Json::string("0x10")]))),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_call",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "to": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "from": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "data": String("0x70a08231"),
+        #|            "value": String("0x1"),
+        #|          },
+        #|        ),
+        #|        String("0x10"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
     )
   })
 }
@@ -755,7 +853,7 @@ async test "can call with an empty answer" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_true(ret.is_empty())
+    inspect(ret.is_empty(), content="true")
   })
 }
 
@@ -769,7 +867,7 @@ async test "error invalid call result" {
     )
 
     try @provider.call(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -801,7 +899,7 @@ async test "error call reverted" {
     )
 
     try @provider.call(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, 3)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="3")
       e => fail("expected an rpc error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -822,11 +920,27 @@ async test "can estimate gas" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(gas, @types.Quantity::new(21000))
+    inspect(gas, content="Quantity(21000)")
     // no block parameter: the estimate is against current state
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(("eth_estimateGas", Json::array([req.to_json()]))),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_estimateGas",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "to": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "data": String("0x70a08231"),
+        #|          },
+        #|        ),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
     )
   })
 }
@@ -841,7 +955,7 @@ async test "error invalid gas estimate" {
     )
 
     try @provider.estimate_gas(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, -32603)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
       e => fail("expected provider error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -860,7 +974,7 @@ async test "error gas estimate reverted" {
     )
 
     try @provider.estimate_gas(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => assert_eq(code, 3)
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="3")
       e => fail("expected an rpc error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
@@ -895,11 +1009,28 @@ async test "can send a transaction" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(hash.to_string(), TX_HASH)
+    inspect(hash.to_string(), content=TX_HASH)
     // one params element, the transaction object itself
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(("eth_sendTransaction", Json::array([req.to_json()]))),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_sendTransaction",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "from": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "to": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "value": String("0x3e8"),
+        #|          },
+        #|        ),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
     )
   })
 }
@@ -938,8 +1069,8 @@ async test "error send answered with a malformed hash" {
 
     try @provider.send_transaction(provider, transaction_request()) catch {
       @provider.ProviderError::Rpc(code~, message~) => {
-        assert_eq(code, -32603)
-        assert_true(message.contains("eth_sendTransaction"))
+        inspect(code, content="-32603")
+        inspect(message.contains("eth_sendTransaction"), content="true")
       }
       e => fail("expected an internal error, but not \{e}")
     } noraise {

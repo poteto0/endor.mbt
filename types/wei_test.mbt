@@ -1,17 +1,17 @@
 ///|
 /// Wei can be built from small integers and encodes to minimal hex quantities.
 test "can convert to hex from num" {
-  assert_eq(@types.Wei::from_int(1).to_hex(), "0x1")
-  assert_eq(@types.Wei::from_int(0).to_hex(), "0x0")
-  assert_eq(@types.Wei::from_int(255).to_hex(), "0xff")
-  assert_eq(@types.Wei::zero().to_hex(), "0x0")
-  assert_eq(@types.Wei::from_bigint(255).to_hex(), "0xff")
+  inspect(@types.Wei::from_int(1).to_hex(), content="0x1")
+  inspect(@types.Wei::from_int(0).to_hex(), content="0x0")
+  inspect(@types.Wei::from_int(255).to_hex(), content="0xff")
+  inspect(@types.Wei::zero().to_hex(), content="0x0")
+  inspect(@types.Wei::from_bigint(255).to_hex(), content="0xff")
 }
 
 ///|
 test "can convert to bigint from hex" {
-  assert_eq(@types.Wei::from_hex("0xff").to_bigint(), 255)
-  assert_eq(@types.Wei::from_hex("0x0").to_bigint(), 0)
+  inspect(@types.Wei::from_hex("0xff").to_bigint(), content="255")
+  inspect(@types.Wei::from_hex("0x0").to_bigint(), content="0")
 }
 
 ///|
@@ -33,12 +33,15 @@ test "can invalid hex on empty" {
 
 ///|
 test "can convert to json hex" {
-  assert_eq(@types.Wei::from_hex("0xff").to_json(), "0xff")
+  inspect(
+    @types.Wei::from_hex("0xff").to_json().stringify(),
+    content="\"0xff\"",
+  )
 }
 
 ///|
 test "can create from json" {
-  assert_eq(@types.Wei::from_json("0xff").to_hex(), "0xff")
+  inspect(@types.Wei::from_json("0xff").to_hex(), content="0xff")
 }
 
 ///|
@@ -54,5 +57,5 @@ test "error if not string json" {
 ///|
 test "debug Wei(value)" {
   let wei = @types.Wei::from_int(123)
-  assert_eq(wei.to_string(), "Wei(123)")
+  inspect(wei.to_string(), content="Wei(123)")
 }

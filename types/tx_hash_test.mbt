@@ -6,9 +6,9 @@ test "transaction hash parses, lowercases and round-trips through json" {
   let h = @types.TxHash::from_string(
     "0x88DF016429689C079F3B2F6AD39FA052532C56795B733DA78A91EBE6A713944B",
   )
-  assert_eq(h.to_string(), A_HASH)
-  assert_eq(h.to_json(), Json::string(A_HASH))
-  assert_eq(@types.TxHash::from_json(h.to_json()), h)
+  inspect(h.to_string(), content=A_HASH)
+  inspect(h.to_json().stringify(), content="\"\{A_HASH}\"")
+  inspect(@types.TxHash::from_json(h.to_json()), content=A_HASH)
   inspect(h, content=A_HASH)
 }
 
