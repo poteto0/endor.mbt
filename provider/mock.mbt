@@ -10,11 +10,20 @@
 /// )
 /// ignore(mock)
 /// ```
+///
+/// It is also an `EventSource`: `emit` fires an EIP-1193 event at whatever
+/// `subscribe` (or a typed helper such as `on_accounts_changed`) registered, so
+/// event handling is testable without a wallet.
 pub struct MockProvider {
   priv responses : Map[String, Json]
   priv errors : Map[String, ProviderError]
   priv sequences : Map[String, Array[Answer]]
   priv calls : Array[(String, Json)]
+  /// Registered event listeners, per event name. The `Int` is the id
+  /// `unsubscribe` removes by, so cancelling one of several listeners on the
+  /// same event removes exactly that one.
+  priv listeners : Map[String, Array[(Int, (Json) -> Unit)]]
+  priv mut next_listener_id : Int
 }
 
 ///|
@@ -34,6 +43,8 @@ pub fn MockProvider::new() -> MockProvider {
     errors: Map([]),
     sequences: Map([]),
     calls: [],
+    listeners: Map([]),
+    next_listener_id: 0,
   }
 }
 
@@ -118,5 +129,48 @@ pub impl Provider for MockProvider with fn request(self, method_name~, params~) 
         code=-32601,
         message="MockProvider: no response for \{method_name}",
       )
+  }
+}
+
+///|
+/// Register a listener in memory. Each one gets an id, so the returned
+/// `Subscription` removes exactly the listener it belongs to and leaves the
+/// others on the same event registered.
+pub impl EventSource for MockProvider with fn subscribe(self, event~, handler~) {
+  let id = self.next_listener_id
+  self.next_listener_id = id + 1
+  let registered = self.listeners.get_or_init(event, () => [])
+  registered.push((id, handler))
+  // The array's identity is stable, so cancelling needs neither the event name
+  // nor the provider itself.
+  Subscription::new(() => registered.retain(entry => entry.0 != id))
+}
+
+///|
+/// Fire `event` at every listener subscribed to it, in registration order —
+/// what a wallet does when the user switches account or chain.
+///
+/// The payload is the raw JSON EIP-1193 would carry, so a test can hand a
+/// malformed one over and assert the typed helper dropped it.
+///
+/// ```mbt check
+/// test "doc: mock emits an event" {
+///   let mock = @provider.MockProvider::new()
+///   let seen = []
+///   let _ = @provider.on_chain_changed(mock, chain => seen.push(chain))
+///   mock.emit(event="chainChanged", payload="0x1".to_json())
+///   inspect(seen[0], content="ChainId(1)")
+/// }
+/// ```
+pub fn MockProvider::emit(
+  self : MockProvider,
+  event~ : String,
+  payload~ : Json,
+) -> Unit {
+  guard self.listeners.get(event) is Some(registered) else { return }
+  // Iterate a copy: a handler is allowed to unsubscribe itself, and that
+  // mutates the array being walked.
+  for entry in registered.copy() {
+    (entry.1)(payload)
   }
 }

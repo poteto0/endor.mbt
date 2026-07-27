@@ -155,6 +155,40 @@ answers 4902 — it does not know that chain — adds it with
 fallback is the part every dapp otherwise writes by hand; `switch_chain` and
 `add_chain` are the individual steps when you want them.
 
+## Reacting to wallet changes
+
+```
+fn watch(wallet : @browser.BrowserProvider) -> @provider.Subscription {
+  // accountsChanged: the user switched account, or revoked the dapp's access
+  let sub = @provider.on_accounts_changed(wallet, accounts => {
+    match accounts.get(0) {
+      Some(addr) => println("now \{addr}") // most recently selected first
+      None => println("disconnected") // an empty array ⇒ permission revoked
+    }
+  })
+  // chainChanged: everything read from the old chain is about another one now
+  let _ = @provider.on_chain_changed(wallet, chain => {
+    println("chain \{chain.to_hex()}")
+  })
+  // disconnect: a ProviderRpcError, mapped like any other wallet-side failure
+  let _ = @provider.on_disconnect(wallet, error => println("gone: \{error}"))
+  sub // `sub.unsubscribe()` stops that one handler; calling it twice is safe
+}
+```
+
+Every read above answers for the wallet's state _at that moment_, and the user
+can change it from under you at any time — so these three EIP-1193 events are how
+you learn your answers went stale. Each takes a plain callback and hands back a
+`Subscription`: no UI framework, nothing to wire up, just a thunk your own
+lifecycle can call when it tears down.
+
+The SDK is stateless, which is the part worth knowing: it caches no current
+account and no current chain, so subscribing reads no initial value and the
+handler is the only place a new one arrives. Read the starting point with
+`@provider.accounts` / `@provider.chain_id` and hold it yourself. A payload that
+fails to decode is dropped rather than raised — an event arrives outside any call
+you made, so there is nowhere to raise to — and the subscription stays live.
+
 ## Scope
 
 The reads are wrapped in typed helpers: accounts (`eth_requestAccounts`,
@@ -162,9 +196,10 @@ The reads are wrapped in typed helpers: accounts (`eth_requestAccounts`,
 state behind `eth_getBalance`, `eth_blockNumber`, `eth_getTransactionCount`,
 `eth_gasPrice` and `eth_getCode`. On top of those, `call` / `estimate_gas`
 evaluate a request without broadcasting it, `send_transaction` broadcasts one,
-and `switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
-chains. Blocks and receipts, signing, and provider events are planned but not
-implemented; until they land, `Provider::request` reaches any method with raw
+`switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
+chains, and `on_accounts_changed` / `on_chain_changed` / `on_disconnect`
+subscribe to the provider events. Blocks and receipts and signing are planned but
+not implemented; until they land, `Provider::request` reaches any method with raw
 `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
@@ -179,9 +214,9 @@ for where the unimplemented parts sit in the plan.
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                                        |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs   |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
-| `endor/provider`         | `Provider` trait, `ProviderError`, typed RPC helpers, `MockProvider`                                        |
+| `endor/provider`         | `Provider` / `EventSource` traits, `ProviderError`, typed RPC and event helpers, `MockProvider`             |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                                             |
-| `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `spawn`                               |
+| `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `on` / `removeListener`, `spawn`      |
 
 `endor`, `endor/crypto`, `endor/types` and `endor/provider` are backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the

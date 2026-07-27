@@ -66,6 +66,20 @@ pub fn ProviderError::from_code(code : Int, message : String) -> ProviderError {
 }
 
 ///|
+/// Decode the `ProviderRpcError` object EIP-1193 carries — `{ code, message }` —
+/// through the same code mapping as `from_code`. `None` when the payload is not
+/// that shape, which is how an event with nowhere to raise to drops it.
+fn ProviderError::from_json(payload : Json) -> ProviderError? {
+  guard payload is Object(fields) else { return None }
+  guard fields.get("code") is Some(Number(code, ..)) else { return None }
+  let message = match fields.get("message") {
+    Some(String(s)) => s
+    _ => ""
+  }
+  Some(ProviderError::from_code(code.to_int(), message))
+}
+
+///|
 /// The SDK's own failures — a malformed response, a broken FFI boundary — are
 /// reported with the JSON-RPC internal-error code so the error surface stays
 /// exactly the set of variants above.

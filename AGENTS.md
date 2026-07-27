@@ -14,11 +14,18 @@ are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
 `estimate_gas`, over a `CallRequest`), `eth_sendTransaction` (`send_transaction`,
 over a `TransactionRequest`, answering with a `TxHash`) and
 `wallet_switchEthereumChain` / `wallet_addEthereumChain` (`switch_chain`,
-`add_chain`, `switch_or_add_chain`). Blocks and receipts, message signing, and
-provider events are planned but not implemented — do not describe them as
-available. There is no
+`add_chain`, `switch_or_add_chain`). **Provider events are subscribed to** through
+a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
+`on_disconnect` take a plain callback and answer with a `Subscription` handle.
+Blocks and receipts and message signing are planned but not implemented — do not
+describe them as available. There is no
 ABI layer yet either, so a call's `data` and its answer are raw `Hex`. Callers
 reach unwrapped methods through the generic `Provider::request` escape hatch.
+
+**The SDK is stateless.** It caches no current account and no current chain:
+events are delivered to callbacks and nowhere else, and every read goes to the
+wallet. A dapp that wants "the current account" holds it itself. Do not add a
+cache, and do not add a `connect()` that would need one.
 
 ## Project Structure
 
@@ -82,7 +89,15 @@ Layout:
   not the recommended path.
 - **Errors are `suberror`, never panics.** EIP-1193 / EIP-1474 error codes
   (4001 user-rejected, 4902 unrecognized chain, …) map to a `ProviderError`
-  suberror. Public API must not `abort`/`panic` on wallet-side failures.
+  suberror. Public API must not `abort`/`panic` on wallet-side failures. An
+  *event* has nowhere to raise to — it arrives outside any call the dapp made —
+  so a payload that fails to decode is dropped: the handler is not called and
+  nothing is raised.
+- **Events are plain callbacks.** The event API is a callback plus an
+  `unsubscribe` handle (`Subscription`) and nothing more, so a UI layer can wrap
+  it into its own lifecycle without the SDK depending on that layer. Event
+  delivery lives in the `EventSource` trait, kept apart from `Provider` because a
+  transport can answer RPC without being able to push anything back.
 - **Quantities are hex on the wire.** JSON-RPC quantities are `0x`-prefixed
   hex; encode/decode in `types/`, keep the rest of the code in domain types.
 

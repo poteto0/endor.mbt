@@ -1,9 +1,14 @@
 # Scope
 
 What `poteto0/endor` covers. It reads accounts, balances and the current chain,
-evaluates calls without broadcasting them, sends transactions, and switches the
-wallet between chains through the `wallet_*` methods below. It does not yet wait
-for a receipt, and it does not sign messages.
+evaluates calls without broadcasting them, sends transactions, switches the
+wallet between chains through the `wallet_*` methods below, and subscribes to the
+provider events that say those answers went stale. It does not yet wait for a
+receipt, and it does not sign messages.
+
+The SDK is **stateless**: it caches no current account and no current chain.
+Every value comes from the wallet at the moment it is asked for, and events are
+delivered to callbacks and nowhere else.
 
 ## Wrapped in typed helpers
 
@@ -167,6 +172,45 @@ Adding a chain is also how a wallet switches to it, so `switch_or_add_chain`'s
 second switch is redundant on wallets that do both — it is there for the ones
 that add without switching.
 
+### Provider events
+
+| Function                                       | EIP-1193 event    | Handler receives         |
+| ---------------------------------------------- | ----------------- | ------------------------ |
+| `@provider.on_accounts_changed(e, handler)`    | `accountsChanged` | `Array[@endor.Address]`  |
+| `@provider.on_chain_changed(e, handler)`       | `chainChanged`    | `@endor.ChainId`         |
+| `@provider.on_disconnect(e, handler)`          | `disconnect`      | `@provider.ProviderError` |
+
+All three take an `@provider.EventSource` — a provider that can push, which
+`BrowserProvider` and `MockProvider` both are — and return an
+`@provider.Subscription`, a plain value with no framework attached whose
+`unsubscribe()` stops that one handler and is safe to call twice. The
+[README](../README.md#reacting-to-wallet-changes) has the worked example.
+
+`EventSource` is deliberately a **separate trait** from `Provider`: a transport
+can answer RPC without being able to push anything back, and the typed RPC
+helpers stay usable against one that cannot. Anything the three helpers do not
+cover is reachable with the raw `EventSource::subscribe(event~, handler~)`, which
+hands the payload over as `Json`.
+
+Because the SDK is stateless, subscribing does not read an initial value:
+`on_accounts_changed` fires when the account *changes*, so a dapp reads its
+starting point with `@provider.accounts` / `@provider.chain_id` and holds it.
+A payload that fails to decode — a `chainChanged` that is not a hex quantity, a
+`disconnect` with no numeric `code` — is **dropped**: the handler is not called
+and nothing is raised, since an event arrives outside any call the dapp made and
+has nowhere to raise to. The subscription stays live and the next well-formed
+event is delivered normally.
+
+`accountsChanged` with an empty array is how EIP-1193 says the user revoked the
+dapp's permission — it is not `disconnect`, which is the provider losing its
+connection to every chain and carries a `ProviderRpcError` (`{code, message}`)
+mapped through `ProviderError::from_code`, typically to `Disconnected` (4900).
+
+Not every wallet implements the event API. `@browser.BrowserProvider::has_events()`
+reports whether the injected object exposes `on` / `removeListener`; subscribing
+to one that does not is inert rather than fatal — the handler simply never fires
+and `unsubscribe` is still safe.
+
 Alongside those:
 
 - `@browser.BrowserProvider::detect()` / `::require()` — find
@@ -175,7 +219,9 @@ Alongside those:
 - `@browser.BrowserProvider::is_metamask()` — whether the injected provider
   identifies itself as MetaMask
 - `@provider.MockProvider` — an in-memory `Provider` for tests, so the RPC layer
-  can be exercised without a browser
+  can be exercised without a browser. It is an `EventSource` too:
+  `MockProvider::emit(event~, payload~)` fires an event at the subscribed
+  handlers, so event handling is testable without a wallet
 - `@endor.Address` / `Hex` / `TxHash` / `ChainId` / `Wei` / `Quantity` /
   `BlockTag` / `CallRequest` / `TransactionRequest` / `Fee` / `ChainParams` /
   `NativeCurrency` — domain types with hex and JSON codecs
@@ -189,7 +235,8 @@ Alongside those:
 
 - blocks and receipts (`eth_getBlockByNumber`, `eth_getTransactionReceipt`)
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
-- provider events (`accountsChanged`, `chainChanged`, `disconnect`)
+- EIP-6963 — enumerating several injected providers instead of taking
+  `globalThis.ethereum`
 
 ## Reaching anything not wrapped
 
