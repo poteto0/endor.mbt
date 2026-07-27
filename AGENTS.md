@@ -11,10 +11,12 @@ typed, async MoonBit API.
 `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `eth_getBalance`,
 `eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`
 are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
-`estimate_gas`, over a `CallRequest`) and `wallet_switchEthereumChain` /
-`wallet_addEthereumChain` (`switch_chain`, `add_chain`, `switch_or_add_chain`).
-Blocks and receipts, transaction sending, message signing, and provider events
-are planned but not implemented — do not describe them as available. There is no
+`estimate_gas`, over a `CallRequest`), `eth_sendTransaction` (`send_transaction`,
+over a `TransactionRequest`, answering with a `TxHash`) and
+`wallet_switchEthereumChain` / `wallet_addEthereumChain` (`switch_chain`,
+`add_chain`, `switch_or_add_chain`). Blocks and receipts, message signing, and
+provider events are planned but not implemented — do not describe them as
+available. There is no
 ABI layer yet either, so a call's `data` and its answer are raw `Hex`. Callers
 reach unwrapped methods through the generic `Provider::request` escape hatch.
 
@@ -34,8 +36,8 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
-- `types/` — `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`,
-  `ChainParams`, codecs
+- `types/` — `Address`, `Hex`, `TxHash`, `ChainId`, `Wei`, `Quantity`,
+  `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`, `ChainParams`, codecs
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use

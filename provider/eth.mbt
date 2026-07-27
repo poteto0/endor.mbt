@@ -1,5 +1,5 @@
 ///|
-/// Perform one JSON-RPC read and decode its result. A malformed response is
+/// Perform one JSON-RPC call and decode its result. A malformed response is
 /// the SDK's own problem, so it surfaces as `ProviderError::internal` naming
 /// the method that answered; wallet-side errors propagate untouched.
 ///
@@ -294,5 +294,43 @@ pub async fn[P : Provider] estimate_gas(
     method_name="eth_estimateGas",
     params=Json::array([request.to_json()]),
     decode=@types.Quantity::from_json,
+  )
+}
+
+///|
+/// Ask the wallet to sign `request` and broadcast it (`eth_sendTransaction`),
+/// returning the hash of the transaction it accepted.
+///
+/// This is the first call in the SDK that spends the user's money, so it is
+/// also the first that always prompts: the wallet — not the dapp — holds the
+/// key, and a user who declines the prompt is reported as
+/// `ProviderError::UserRejected` (4001). Everything the request leaves absent
+/// (nonce, gas, fees) the wallet fills in.
+///
+/// The hash comes back as soon as the transaction is *broadcast*, which is not
+/// the same as mined: it may still be dropped or replaced, and there is no
+/// receipt layer yet to wait on (#11).
+///
+/// ```
+/// async fn[P : @provider.Provider] tip(
+///   p : P,
+///   from : @types.Address,
+///   to : @types.Address,
+/// ) -> @types.TxHash raise @provider.ProviderError {
+///   @provider.send_transaction(
+///     p,
+///     @types.TransactionRequest::new(from, to~, value=@types.Wei::from_int(1000)),
+///   )
+/// }
+/// ```
+pub async fn[P : Provider] send_transaction(
+  provider : P,
+  request : @types.TransactionRequest,
+) -> @types.TxHash raise ProviderError {
+  read(
+    provider,
+    method_name="eth_sendTransaction",
+    params=Json::array([request.to_json()]),
+    decode=@types.TxHash::from_json,
   )
 }

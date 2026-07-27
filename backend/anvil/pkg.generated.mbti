@@ -22,6 +22,8 @@ pub async fn on(async (@browser.BrowserProvider) -> Unit) -> Unit
 
 pub fn other_account() -> @types.Address
 
+pub fn reject_account() -> @types.Address
+
 // Errors
 
 // Types and methods
