@@ -32,7 +32,7 @@ fn account_params(who : @types.Address, block : @types.BlockTag) -> Json {
 /// async fn[P : @provider.Provider] connect(
 ///   p : P,
 /// ) -> @types.Address raise @provider.ProviderError {
-///   @provider.request_accounts(p)[0]
+///   let addr = @provider.require_account(p)
 /// }
 /// ```
 pub async fn[P : Provider] request_accounts(
@@ -44,6 +44,19 @@ pub async fn[P : Provider] request_accounts(
     params=Json::array([]),
     decode=@types.Address::array_from_json,
   )
+}
+
+///|
+/// Prompts for connection and returns one currently selected account (the first item of `eth_requestAccounts`).
+///
+/// This method is contracted to raise an error upon rejection, so returning an empty array is a breach of contract by the wallet
+pub async fn[P : Provider] require_account(
+  provider : P,
+) -> @types.Address raise ProviderError {
+  guard request_accounts(provider).get(0) is Some(addr) else {
+    raise ProviderError::internal("wallet returned no accounts")
+  }
+  addr
 }
 
 ///|

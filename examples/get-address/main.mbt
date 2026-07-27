@@ -153,11 +153,7 @@ async fn WalletView::connect(self : WalletView) -> Unit {
         "EIP-1193 provider"
       },
     )
-    // `request_accounts` prompts and raises rather than returning an empty
-    // array, so an empty one means the wallet broke its own contract.
-    guard @provider.request_accounts(wallet).get(0) is Some(addr) else {
-      raise @provider.ProviderError::internal("wallet returned no accounts")
-    }
+    let addr = @provider.require_account(wallet)
     self.show(wallet, addr)
     self.status.set("Connected.")
   } catch {
