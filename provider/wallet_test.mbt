@@ -13,12 +13,6 @@ fn polygon_params() -> @types.ChainParams {
 }
 
 ///|
-/// The `[{ "chainId": "0x…" }]` params a switch is expected to send.
-fn switch_params(chain : @types.ChainId) -> Json {
-  Json::array([{ "chainId": chain.to_json() }])
-}
-
-///|
 async test "can switch chain" {
   @async.with_task_group(_ => {
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(
@@ -31,10 +25,15 @@ async test "can switch chain" {
     }
 
     // the chain id reaches the wallet as a hex quantity inside an object
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(
-        ("wallet_switchEthereumChain", switch_params(@types.ChainId::mainnet())),
+      content=(
+        #|Some(
+        #|  (
+        #|    "wallet_switchEthereumChain",
+        #|    Array([Object({ "chainId": String("0x1") })]),
+        #|  ),
+        #|)
       ),
     )
   })
@@ -73,9 +72,34 @@ async test "can add chain" {
     }
 
     // the whole EIP-3085 description reaches the wallet as one object
-    assert_eq(
+    debug_inspect(
       provider.last_call(),
-      Some(("wallet_addEthereumChain", Json::array([params.to_json()]))),
+      content=(
+        #|Some(
+        #|  (
+        #|    "wallet_addEthereumChain",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "chainId": String("0x89"),
+        #|            "chainName": String("Polygon Mainnet"),
+        #|            "rpcUrls": Array([String("https://polygon-rpc.com")]),
+        #|            "nativeCurrency": Object(
+        #|              {
+        #|                "name": String("POL"),
+        #|                "symbol": String("POL"),
+        #|                "decimals": Number(18),
+        #|              },
+        #|            ),
+        #|            "blockExplorerUrls": Array([String("https://polygonscan.com")]),
+        #|          },
+        #|        ),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
     )
   })
 }
@@ -115,12 +139,43 @@ async test "can switch to a chain the wallet has to learn first" {
       e => fail("unexpected error \{e}")
     }
 
-    let switched = switch_params(params.chain_id())
-    assert_eq(provider.calls(), [
-      ("wallet_switchEthereumChain", switched),
-      ("wallet_addEthereumChain", Json::array([params.to_json()])),
-      ("wallet_switchEthereumChain", switched),
-    ])
+    debug_inspect(
+      provider.calls(),
+      content=(
+        #|[
+        #|  (
+        #|    "wallet_switchEthereumChain",
+        #|    Array([Object({ "chainId": String("0x89") })]),
+        #|  ),
+        #|  (
+        #|    "wallet_addEthereumChain",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "chainId": String("0x89"),
+        #|            "chainName": String("Polygon Mainnet"),
+        #|            "rpcUrls": Array([String("https://polygon-rpc.com")]),
+        #|            "nativeCurrency": Object(
+        #|              {
+        #|                "name": String("POL"),
+        #|                "symbol": String("POL"),
+        #|                "decimals": Number(18),
+        #|              },
+        #|            ),
+        #|            "blockExplorerUrls": Array([String("https://polygonscan.com")]),
+        #|          },
+        #|        ),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|  (
+        #|    "wallet_switchEthereumChain",
+        #|    Array([Object({ "chainId": String("0x89") })]),
+        #|  ),
+        #|]
+      ),
+    )
   })
 }
 
@@ -139,9 +194,17 @@ async test "can switch to a known chain without adding it" {
       e => fail("unexpected error \{e}")
     }
 
-    assert_eq(provider.calls(), [
-      ("wallet_switchEthereumChain", switch_params(params.chain_id())),
-    ])
+    debug_inspect(
+      provider.calls(),
+      content=(
+        #|[
+        #|  (
+        #|    "wallet_switchEthereumChain",
+        #|    Array([Object({ "chainId": String("0x89") })]),
+        #|  ),
+        #|]
+      ),
+    )
   })
 }
 
@@ -167,7 +230,7 @@ async test "error switch or add chain rejected at the add step" {
       _ => fail("expected fail, but success")
     }
 
-    assert_eq(provider.calls().length(), 2)
+    inspect(provider.calls().length(), content="2")
   })
 }
 
@@ -187,6 +250,6 @@ async test "error switch or add chain rejected at the first switch" {
       _ => fail("expected fail, but success")
     }
 
-    assert_eq(provider.calls().length(), 1)
+    inspect(provider.calls().length(), content="1")
   })
 }

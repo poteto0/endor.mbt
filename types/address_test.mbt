@@ -1,9 +1,9 @@
 ///|
 /// Address normalizes to lowercase.
 test "can normalize address" {
-  assert_eq(
+  inspect(
     @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7").to_string(),
-    "0x52908400098527886e0f7030069857d2e4169ee7",
+    content="0x52908400098527886e0f7030069857d2e4169ee7",
   )
 }
 
@@ -58,7 +58,10 @@ test "can convert to json" {
   let address = @types.Address::from_string(
     "0x52908400098527886e0f7030069857d2e4169ee7",
   )
-  assert_eq(address.to_json(), "0x52908400098527886e0f7030069857d2e4169ee7")
+  inspect(
+    address.to_json().stringify(),
+    content="\"0x52908400098527886e0f7030069857d2e4169ee7\"",
+  )
 }
 
 ///|
@@ -66,7 +69,10 @@ test "can create from json" {
   let address = @types.Address::from_json(
     "0x52908400098527886e0f7030069857d2e4169ee7",
   )
-  assert_eq(address.to_string(), "0x52908400098527886e0f7030069857d2e4169ee7")
+  inspect(
+    address.to_string(),
+    content="0x52908400098527886e0f7030069857d2e4169ee7",
+  )
 }
 
 ///|
@@ -84,7 +90,10 @@ test "debug address" {
   let address = @types.Address::from_string(
     "0x52908400098527886e0f7030069857d2e4169ee7",
   )
-  assert_eq(address.to_string(), "0x52908400098527886e0f7030069857d2e4169ee7")
+  inspect(
+    address.to_string(),
+    content="0x52908400098527886e0f7030069857d2e4169ee7",
+  )
 }
 
 ///|
@@ -93,12 +102,15 @@ test "can create many from json" {
   let addresses = @types.Address::array_from_json([
     "0x52908400098527886E0F7030069857D2E4169EE7", "0x52908400098527886E0F7030069857D2E4169EE8",
   ])
-  assert_eq(addresses.length(), 2)
-  assert_eq(
+  inspect(addresses.length(), content="2")
+  inspect(
     addresses[0].to_string(),
-    "0x52908400098527886e0f7030069857d2e4169ee7",
+    content="0x52908400098527886e0f7030069857d2e4169ee7",
   )
-  assert_eq(@types.Address::array_from_json(Json::array([])).length(), 0)
+  inspect(
+    @types.Address::array_from_json(Json::array([])).length(),
+    content="0",
+  )
 }
 
 ///|
@@ -152,8 +164,11 @@ test "wire form stays lowercase, display is checksummed" {
   let a = @types.Address::from_string(
     "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
   )
-  assert_eq(a.to_string(), "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
-  assert_eq(a.to_json(), "0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
+  inspect(a.to_string(), content="0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
+  inspect(
+    a.to_json().stringify(),
+    content="\"0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed\"",
+  )
   inspect(a, content="0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
 }
 

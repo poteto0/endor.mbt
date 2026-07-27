@@ -8,11 +8,11 @@
 ///|
 async test "wallet is detected and answers as the injected provider" {
   @anvil.on(provider => {
-    assert_true(provider.is_metamask())
+    inspect(provider.is_metamask(), content="true")
     let accounts = @provider.request_accounts(provider)
-    assert_eq(accounts.length(), 10)
-    assert_eq(accounts[0], @anvil.dev_account())
-    assert_eq(accounts[1], @anvil.other_account())
+    inspect(accounts.length(), content="10")
+    inspect(accounts[0], content="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266")
+    inspect(accounts[1], content="0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
     assert_eq(@provider.accounts(provider), accounts)
   })
 }
@@ -20,7 +20,7 @@ async test "wallet is detected and answers as the injected provider" {
 ///|
 async test "chain id is anvil's" {
   @anvil.on(provider => {
-    assert_eq(@provider.chain_id(provider), @anvil.chain_id())
+    inspect(@provider.chain_id(provider), content="ChainId(31337)")
   })
 }
 
@@ -29,7 +29,7 @@ async test "dev accounts are funded" {
   @anvil.on(provider => {
     // anvil funds each dev account with 10000 ETH
     let balance = @provider.balance(provider, @anvil.dev_account())
-    assert_true(balance.to_bigint() > 0N)
+    inspect(balance.to_bigint() > 0N, content="true")
   })
 }
 
@@ -38,7 +38,7 @@ async test "mining advances the block number" {
   @anvil.on(provider => {
     let before = @provider.block_number(provider)
     let _ = provider.request(method_name="evm_mine", params=Json::array([]))
-    assert_true(@provider.block_number(provider) > before)
+    inspect(@provider.block_number(provider) > before, content="true")
   })
 }
 
@@ -49,8 +49,9 @@ async test "nonce grows with each transaction from the account" {
     let _ = @anvil.deploy_answer_contract(provider)
     // strictly greater, not `before + 1`: the tests share one chain and run
     // concurrently, so another test's transaction may land in between
-    assert_true(
+    inspect(
       @provider.transaction_count(provider, @anvil.dev_account()) > before,
+      content="true",
     )
   })
 }
@@ -59,21 +60,27 @@ async test "nonce grows with each transaction from the account" {
 async test "gas price is reported" {
   @anvil.on(provider => {
     let price = @provider.gas_price(provider)
-    assert_true(price.to_bigint() > 0N)
+    inspect(price.to_bigint() > 0N, content="true")
   })
 }
 
 ///|
 async test "code distinguishes an account from a contract" {
   @anvil.on(provider => {
-    assert_true(@provider.code(provider, @anvil.dev_account()).is_empty())
-    assert_false(@provider.is_contract(provider, @anvil.dev_account()))
-    let deployed = @anvil.deploy_answer_contract(provider)
-    assert_eq(
-      @provider.code(provider, deployed),
-      @anvil.answer_contract_runtime(),
+    inspect(
+      @provider.code(provider, @anvil.dev_account()).is_empty(),
+      content="true",
     )
-    assert_true(@provider.is_contract(provider, deployed))
+    inspect(
+      @provider.is_contract(provider, @anvil.dev_account()),
+      content="false",
+    )
+    let deployed = @anvil.deploy_answer_contract(provider)
+    inspect(
+      @provider.code(provider, deployed),
+      content="\{@anvil.answer_contract_runtime()}",
+    )
+    inspect(@provider.is_contract(provider, deployed), content="true")
   })
 }
 
@@ -83,12 +90,15 @@ async test "call runs deployed code and estimate_gas prices it" {
     let deployed = @anvil.deploy_answer_contract(provider)
     let request = @types.CallRequest::new(deployed, from=@anvil.dev_account())
     // the contract returns 42 as a single 32-byte word
-    assert_eq(
+    inspect(
       @provider.call(provider, request).to_string(),
-      "0x000000000000000000000000000000000000000000000000000000000000002a",
+      content="0x000000000000000000000000000000000000000000000000000000000000002a",
     )
     // a call that executes anything costs more than the 21000 base fee
-    assert_true(@provider.estimate_gas(provider, request).to_uint64() > 21000UL)
+    inspect(
+      @provider.estimate_gas(provider, request).to_uint64() > 21000UL,
+      content="true",
+    )
   })
 }
 
@@ -99,7 +109,7 @@ async test "call against a non-contract returns empty data" {
       @anvil.other_account(),
       from=@anvil.dev_account(),
     )
-    assert_true(@provider.call(provider, request).is_empty())
+    inspect(@provider.call(provider, request).is_empty(), content="true")
   })
 }
 
@@ -107,7 +117,7 @@ async test "call against a non-contract returns empty data" {
 async test "switching to the chain the wallet is on succeeds" {
   @anvil.on(provider => {
     @provider.switch_chain(provider, @anvil.chain_id())
-    assert_eq(@provider.chain_id(provider), @anvil.chain_id())
+    inspect(@provider.chain_id(provider), content="ChainId(31337)")
   })
 }
 
@@ -194,8 +204,8 @@ async test "sending value moves it to the recipient" {
 /// rather than against the docs.
 async test "fee mode decides the transaction type on chain" {
   @anvil.on(provider => {
-    assert_eq(tx_type(provider, Auto), Some(Json::string("0x2")))
-    assert_eq(
+    debug_inspect(tx_type(provider, Auto), content="Some(String(\"0x2\"))")
+    debug_inspect(
       tx_type(
         provider,
         Eip1559(
@@ -203,14 +213,14 @@ async test "fee mode decides the transaction type on chain" {
           max_priority_fee_per_gas=@types.Wei::from_bigint(1_000_000_000N),
         ),
       ),
-      Some(Json::string("0x2")),
+      content="Some(String(\"0x2\"))",
     )
-    assert_eq(
+    debug_inspect(
       tx_type(
         provider,
         Legacy(gas_price=@types.Wei::from_bigint(20_000_000_000N)),
       ),
-      Some(Json::string("0x0")),
+      content="Some(String(\"0x0\"))",
     )
   })
 }

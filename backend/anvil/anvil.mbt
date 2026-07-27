@@ -25,7 +25,7 @@ impl @backend.Backend for Anvil with fn install(_, endpoint) {
 /// ```mbt check
 /// async test "doc: chain id" {
 ///   @anvil.on(provider => {
-///     assert_eq(@provider.chain_id(provider), @anvil.chain_id())
+///     inspect(@provider.chain_id(provider), content="ChainId(31337)")
 ///   })
 /// }
 /// ```

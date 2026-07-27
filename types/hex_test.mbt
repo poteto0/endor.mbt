@@ -1,9 +1,9 @@
 ///|
 /// Hex normalizes to lowercase.
 test "can normalize hex" {
-  assert_eq(@types.Hex::from_string("0xAB01").to_string(), "0xab01")
-  assert_eq(@types.Hex::from_string("0xab01").to_string(), "0xab01")
-  assert_eq(@types.Hex::from_string("0x").to_string(), "0x")
+  inspect(@types.Hex::from_string("0xAB01").to_string(), content="0xab01")
+  inspect(@types.Hex::from_string("0xab01").to_string(), content="0xab01")
+  inspect(@types.Hex::from_string("0x").to_string(), content="0x")
 }
 
 ///|
@@ -41,12 +41,15 @@ test "invalid if odd length" {
 
 ///|
 test "can convert to json" {
-  assert_eq(@types.Hex::from_string("0xAB01").to_json(), "0xab01")
+  inspect(
+    @types.Hex::from_string("0xAB01").to_json().stringify(),
+    content="\"0xab01\"",
+  )
 }
 
 ///|
 test "can create from json" {
-  assert_eq(@types.Hex::from_json("0xAB01").to_string(), "0xab01")
+  inspect(@types.Hex::from_json("0xAB01").to_string(), content="0xab01")
 }
 
 ///|
@@ -62,15 +65,15 @@ test "error if not string json" {
 ///|
 test "debug hex" {
   let hex = @types.Hex::from_string("0xAB01")
-  assert_eq(hex.to_string(), "0xab01")
+  inspect(hex.to_string(), content="0xab01")
 }
 
 ///|
 /// Byte length counts whole bytes, and empty is the `"0x"` an account with no
 /// contract code answers with.
 test "can measure hex length" {
-  assert_eq(@types.Hex::from_string("0x").byte_length(), 0)
-  assert_eq(@types.Hex::from_string("0xab01").byte_length(), 2)
-  assert_true(@types.Hex::from_string("0x").is_empty())
-  assert_false(@types.Hex::from_string("0x00").is_empty())
+  inspect(@types.Hex::from_string("0x").byte_length(), content="0")
+  inspect(@types.Hex::from_string("0xab01").byte_length(), content="2")
+  inspect(@types.Hex::from_string("0x").is_empty(), content="true")
+  inspect(@types.Hex::from_string("0x00").is_empty(), content="false")
 }

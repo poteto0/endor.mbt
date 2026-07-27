@@ -1,30 +1,30 @@
 ///|
 /// ChainId can be built from numbers and encodes to minimal hex quantities.
 test "can convert to hex from uint64" {
-  assert_eq(@types.ChainId::new(1).to_hex(), "0x1")
-  assert_eq(@types.ChainId::new(0).to_hex(), "0x0")
-  assert_eq(@types.ChainId::new(255).to_hex(), "0xff")
+  inspect(@types.ChainId::new(1).to_hex(), content="0x1")
+  inspect(@types.ChainId::new(0).to_hex(), content="0x0")
+  inspect(@types.ChainId::new(255).to_hex(), content="0xff")
 }
 
 ///|
 /// Parse a hex quantity into a chain id.
 test "can convert from hex" {
-  assert_eq(@types.ChainId::from_hex("0x1").to_uint64(), 1)
-  assert_eq(@types.ChainId::from_hex("0x0").to_uint64(), 0)
-  assert_eq(@types.ChainId::from_hex("0xff").to_uint64(), 255)
+  inspect(@types.ChainId::from_hex("0x1").to_uint64(), content="1")
+  inspect(@types.ChainId::from_hex("0x0").to_uint64(), content="0")
+  inspect(@types.ChainId::from_hex("0xff").to_uint64(), content="255")
 }
 
 ///|
 /// Common chain ids.
 test "common chain ids" {
-  assert_eq(@types.ChainId::mainnet().to_uint64(), 1)
-  assert_eq(@types.ChainId::sepolia().to_uint64(), 11155111)
-  assert_eq(@types.ChainId::holesky().to_uint64(), 17000)
-  assert_eq(@types.ChainId::optimism().to_uint64(), 10)
-  assert_eq(@types.ChainId::arbitrum().to_uint64(), 42161)
-  assert_eq(@types.ChainId::polygon().to_uint64(), 137)
-  assert_eq(@types.ChainId::amoy().to_uint64(), 80002)
-  assert_eq(@types.ChainId::base().to_uint64(), 8453)
+  inspect(@types.ChainId::mainnet().to_uint64(), content="1")
+  inspect(@types.ChainId::sepolia().to_uint64(), content="11155111")
+  inspect(@types.ChainId::holesky().to_uint64(), content="17000")
+  inspect(@types.ChainId::optimism().to_uint64(), content="10")
+  inspect(@types.ChainId::arbitrum().to_uint64(), content="42161")
+  inspect(@types.ChainId::polygon().to_uint64(), content="137")
+  inspect(@types.ChainId::amoy().to_uint64(), content="80002")
+  inspect(@types.ChainId::base().to_uint64(), content="8453")
 }
 
 ///|
@@ -56,12 +56,12 @@ test "invalid if value exceeds uint64" {
 
 ///|
 test "can convert to json" {
-  assert_eq(@types.ChainId::new(8453).to_json(), "0x2105")
+  inspect(@types.ChainId::new(8453).to_json().stringify(), content="\"0x2105\"")
 }
 
 ///|
 test "can create from json" {
-  assert_eq(@types.ChainId::from_json("0x2105").to_uint64(), 8453)
+  inspect(@types.ChainId::from_json("0x2105").to_uint64(), content="8453")
 }
 
 ///|
@@ -77,5 +77,5 @@ test "error if not string json" {
 ///|
 test "debug chain id" {
   let chain_id = @types.ChainId::new(123)
-  assert_eq(chain_id.to_string(), "ChainId(123)")
+  inspect(chain_id.to_string(), content="ChainId(123)")
 }

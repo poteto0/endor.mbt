@@ -1,23 +1,23 @@
 ///|
 /// Quantities encode to minimal hex, including at both ends of the range.
 test "can convert to hex from uint64" {
-  assert_eq(@types.Quantity::new(0).to_hex(), "0x0")
-  assert_eq(@types.Quantity::new(255).to_hex(), "0xff")
-  assert_eq(
+  inspect(@types.Quantity::new(0).to_hex(), content="0x0")
+  inspect(@types.Quantity::new(255).to_hex(), content="0xff")
+  inspect(
     @types.Quantity::new(18446744073709551615).to_hex(),
-    "0xffffffffffffffff",
+    content="0xffffffffffffffff",
   )
 }
 
 ///|
 /// Parse a hex quantity, leading zeros and uppercase digits included.
 test "can convert from hex" {
-  assert_eq(@types.Quantity::from_hex("0x0").to_uint64(), 0)
-  assert_eq(@types.Quantity::from_hex("0x00ff").to_uint64(), 255)
-  assert_eq(@types.Quantity::from_hex("0xFF").to_uint64(), 255)
-  assert_eq(
+  inspect(@types.Quantity::from_hex("0x0").to_uint64(), content="0")
+  inspect(@types.Quantity::from_hex("0x00ff").to_uint64(), content="255")
+  inspect(@types.Quantity::from_hex("0xFF").to_uint64(), content="255")
+  inspect(
     @types.Quantity::from_hex("0xffffffffffffffff").to_uint64(),
-    18446744073709551615,
+    content="18446744073709551615",
   )
 }
 
@@ -56,12 +56,12 @@ test "invalid if value exceeds uint64" {
 
 ///|
 test "can convert to json" {
-  assert_eq(@types.Quantity::new(1207).to_json(), "0x4b7")
+  inspect(@types.Quantity::new(1207).to_json().stringify(), content="\"0x4b7\"")
 }
 
 ///|
 test "can create from json" {
-  assert_eq(@types.Quantity::from_json("0x4b7").to_uint64(), 1207)
+  inspect(@types.Quantity::from_json("0x4b7").to_uint64(), content="1207")
 }
 
 ///|
@@ -76,5 +76,5 @@ test "error if not string json" {
 
 ///|
 test "debug quantity" {
-  assert_eq(@types.Quantity::new(123).to_string(), "Quantity(123)")
+  inspect(@types.Quantity::new(123).to_string(), content="Quantity(123)")
 }
