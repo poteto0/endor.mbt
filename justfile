@@ -76,7 +76,7 @@ info-check: info
 archive-check:
   #!/usr/bin/env bash
   set -euo pipefail
-  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\nprovider\nffi'
+  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\nprovider\nffi'
   # the file list goes to stderr, interleaved with progress lines that all
   # contain spaces, unlike archive paths
   extra=$(moon package --list 2>&1 | grep -v ' ' | cut -d/ -f1 | sort -u \

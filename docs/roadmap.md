@@ -65,9 +65,11 @@ M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も�
 破壊的変更になるので、**L2 を目標に入れるなら v0.1.0 を出す前に判断する**。
 
 **keccak256（[#13](https://github.com/poteto0/endor.mbt/issues/13)）** —
-リポジトリ内に keccak も EIP-55 チェックサムも無い。L1 の関数セレクタとイベント
-topic、EIP-712 の typed data hashing、チェックサム付きアドレスが**すべてこれ待ち**。
-MoonBit で実装するか JS に FFI するかで、backend-agnostic を保てるかが変わる。
+決着済み: `crypto/` に MoonBit で自前実装（[#28](https://github.com/poteto0/endor.mbt/issues/28)）。
+JS への FFI は選ばず、leaf パッケージに置いたので backend-agnostic のまま上の層から
+使える。これに乗って EIP-55 チェックサム付きアドレスは
+[#29](https://github.com/poteto0/endor.mbt/issues/29) で入った。残りは L1 の関数
+セレクタとイベント topic、EIP-712 の typed data hashing。
 
 **イベントの FFI 設計（[#16](https://github.com/poteto0/endor.mbt/issues/16)）** —
 JS コールバックの寿命と MoonBit async の橋渡しに加えて、「SDK が現在の account /
