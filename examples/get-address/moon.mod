@@ -14,7 +14,7 @@ preferred_target = "js"
 description = "Browser demo: connect MetaMask and render the wallet info with Luna"
 
 import {
-  "poteto0/endor@0.2.0",
+  "poteto0/endor@0.3.0",
   "mizchi/luna@0.23.3",
   "mizchi/signals@0.6.5",
   "mizchi/js_browser@0.12.1",
