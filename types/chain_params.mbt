@@ -2,14 +2,16 @@
 /// The native currency of a chain, as `wallet_addEthereumChain` describes it
 /// (EIP-3085): the token used to pay for gas there.
 ///
-/// ```
-/// let pol = @types.NativeCurrency::new(name="POL", symbol="POL")
-/// inspect(
-///   pol.to_json().stringify(),
-///   content=(
-///     #|{"name":"POL","symbol":"POL","decimals":18}
-///   ),
-/// )
+/// ```mbt check
+/// test "doc: native currency" {
+///   let pol = @types.NativeCurrency::new(name="POL", symbol="POL")
+///   inspect(
+///     pol.to_json().stringify(),
+///     content=(
+///       #|{"name":"POL","symbol":"POL","decimals":18}
+///     ),
+///   )
+/// }
 /// ```
 pub struct NativeCurrency {
   priv name : String
@@ -43,14 +45,16 @@ pub fn NativeCurrency::to_json(self : NativeCurrency) -> Json {
 /// (EIP-3085 / `wallet_addEthereumChain`), which is also what
 /// `@provider.switch_or_add_chain` falls back to on a 4902.
 ///
-/// ```
-/// let params = @types.ChainParams::new(
-///   @types.ChainId::polygon(),
-///   chain_name="Polygon Mainnet",
-///   rpc_urls=["https://polygon-rpc.com"],
-///   native_currency=@types.NativeCurrency::new(name="POL", symbol="POL"),
-/// )
-/// inspect(params.chain_id(), content="ChainId(137)")
+/// ```mbt check
+/// test "doc: chain params" {
+///   let params = @types.ChainParams::new(
+///     @types.ChainId::polygon(),
+///     chain_name="Polygon Mainnet",
+///     rpc_urls=["https://polygon-rpc.com"],
+///     native_currency=@types.NativeCurrency::new(name="POL", symbol="POL"),
+///   )
+///   inspect(params.chain_id(), content="ChainId(137)")
+/// }
 /// ```
 pub struct ChainParams {
   priv chain_id : ChainId

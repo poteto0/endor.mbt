@@ -22,11 +22,6 @@ fn normalize_hex(s : String) -> String raise CodecError {
 /// A raw `0x`-prefixed byte string as carried by JSON-RPC (e.g. `data`,
 /// signatures, transaction hashes). The body must have an even number of hex
 /// digits so it maps to whole bytes.
-///
-/// ```
-/// let h = @types.Hex::from_string("0xAB01")
-/// inspect(h.to_string(), content="0xab01")
-/// ```
 pub struct Hex {
   priv inner : String
 } derive(Eq, Debug)

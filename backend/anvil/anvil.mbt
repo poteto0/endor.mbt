@@ -22,12 +22,11 @@ impl @backend.Backend for Anvil with fn install(_, endpoint) {
 /// Run `body` against a `BrowserProvider` backed by Anvil, or skip when
 /// `ENDOR_E2E_RPC_URL` is unset.
 ///
-/// ```
-/// async test "chain id" {
-///   @anvil.on(provider => assert_eq(
-///     @provider.chain_id(provider),
-///     @anvil.chain_id(),
-///   ))
+/// ```mbt check
+/// async test "doc: chain id" {
+///   @anvil.on(provider => {
+///     assert_eq(@provider.chain_id(provider), @anvil.chain_id())
+///   })
 /// }
 /// ```
 pub async fn on(body : async (@browser.BrowserProvider) -> Unit) -> Unit {

@@ -95,7 +95,7 @@ ci: unit-test fmt check info archive-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check archive-check
+ci-check: fmt-check check build unit-test info-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release

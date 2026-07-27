@@ -151,11 +151,13 @@ fn _absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
 /// appends — `0x01` here against SHA3's `0x06`. That single byte makes every
 /// output differ, so a SHA3-256 routine can never stand in for this one.
 ///
-/// ```
-/// assert_eq(
-///   @crypto.keccak256(b"abc"),
-///   b"\x4e\x03\x65\x7a\xea\x45\xa9\x4f\xc7\xd4\x7b\xa8\x26\xc8\xd6\x67\xc0\xd1\xe6\xe3\x3a\x64\xa0\x36\xec\x44\xf5\x8f\xa1\x2d\x6c\x45",
-/// )
+/// ```mbt check
+/// test "doc: test keccak256" {
+///   assert_eq(
+///     @crypto.keccak256(b"abc"),
+///     b"\x4e\x03\x65\x7a\xea\x45\xa9\x4f\xc7\xd4\x7b\xa8\x26\xc8\xd6\x67\xc0\xd1\xe6\xe3\x3a\x64\xa0\x36\xec\x44\xf5\x8f\xa1\x2d\x6c\x45",
+///   )
+/// }
 /// ```
 pub fn keccak256(input : Bytes) -> Bytes {
   _sponge(input, KECCAK_PAD)
@@ -206,9 +208,11 @@ fn _sponge(input : Bytes, pad : Byte) -> Bytes {
 /// take: a function selector is the first four bytes of the hash of a
 /// signature, and an event topic is the whole hash of one.
 ///
-/// ```
-/// let selector = @crypto.keccak256_string("transfer(address,uint256)")[0:4]
-/// assert_eq(selector, b"\xa9\x05\x9c\xbb"[:])
+/// ```mbt check
+/// test "doc: keccack string" {
+///   let selector = @crypto.keccak256_string("transfer(address,uint256)")[0:4]
+///   assert_eq(selector, b"\xa9\x05\x9c\xbb"[:])
+/// }
 /// ```
 pub fn keccak256_string(input : String) -> Bytes {
   keccak256(@utf8.encode(input))

@@ -10,17 +10,19 @@
 /// `msg.sender` reads as, which matters for anything permissioned, and `value`
 /// is the wei the call pretends to carry.
 ///
-/// ```
-/// let req = @types.CallRequest::new(
-///   @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7"),
-///   data=@types.Hex::from_string("0x70a08231"),
-/// )
-/// inspect(
-///   req.to_json().stringify(),
-///   content=(
-///     #|{"to":"0x52908400098527886e0f7030069857d2e4169ee7","data":"0x70a08231"}
-///   ),
-/// )
+/// ```mbt check
+/// test "doc: call request json" {
+///   let req = @types.CallRequest::new(
+///     @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7"),
+///     data=@types.Hex::from_string("0x70a08231"),
+///   )
+///   inspect(
+///     req.to_json().stringify(),
+///     content=(
+///       #|{"to":"0x52908400098527886e0f7030069857d2e4169ee7","data":"0x70a08231"}
+///     ),
+///   )
+/// }
 /// ```
 pub struct CallRequest {
   priv to : Address

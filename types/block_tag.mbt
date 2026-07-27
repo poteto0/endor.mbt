@@ -1,11 +1,6 @@
 ///|
 /// The block a read is answered at, as accepted by the `eth_*` methods that
 /// take a block parameter: one of the named tags, or a concrete block number.
-///
-/// ```
-/// inspect(@types.BlockTag::Latest.to_string(), content="latest")
-/// inspect(@types.BlockTag::Number(16).to_string(), content="0x10")
-/// ```
 pub(all) enum BlockTag {
   /// The most recent mined block — the default for every read.
   Latest

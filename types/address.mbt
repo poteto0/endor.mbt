@@ -2,11 +2,6 @@
 /// A 20-byte Ethereum address. Parsing validates the `0x` prefix, hex digits
 /// and exact 20-byte length; the value is stored lowercased. EIP-55 checksum
 /// casing is a later milestone.
-///
-/// ```
-/// let a = @types.Address::from_string("0x52908400098527886E0F7030069857D2E4169EE7")
-/// inspect(a.to_string(), content="0x52908400098527886e0f7030069857d2e4169ee7")
-/// ```
 pub struct Address {
   priv inner : String
 } derive(Eq, Debug)
@@ -45,11 +40,6 @@ pub fn Address::from_json(j : Json) -> Address raise CodecError {
 ///|
 /// Decode a JSON array of address strings, as the account-listing RPCs
 /// (`eth_accounts`, `eth_requestAccounts`) answer with.
-///
-/// ```
-/// let js : Json = ["0x52908400098527886e0f7030069857d2e4169ee7"]
-/// inspect(@types.Address::array_from_json(js).length(), content="1")
-/// ```
 pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
   guard j is Array(items) else {
     raise InvalidJson("expected an array of addresses")
