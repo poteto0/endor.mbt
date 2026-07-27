@@ -69,11 +69,10 @@ async test "require first account" {
   @async.with_task_group(_ => {
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(
       method_name="eth_requestAccounts",
-      response=Json::array([
-      ]),
+      response=Json::array([]),
     )
 
-    ignore(@provider.require_account(provider)) catch {
+    try ignore(@provider.require_account(provider)) catch {
       _ => ()
     } noraise {
       _ => fail("expected fail, but success")
