@@ -46,6 +46,12 @@ pub using @types {type TransactionRequest}
 
 pub using @types {type TxHash}
 
+pub using @types {type TypedData}
+
+pub using @types {type TypedDataDomain}
+
+pub using @types {type TypedDataField}
+
 pub using @types {type Wei}
 
 // Traits

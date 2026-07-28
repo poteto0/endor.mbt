@@ -112,7 +112,7 @@ let hash = @provider.send_transaction(
 
 The answer is an `@endor.TxHash`: a `Hex` narrowed to exactly 32 bytes, so a
 wallet answering with something else is caught here rather than at whichever RPC
-is later handed the value. It means the transaction was *broadcast* — it can
+is later handed the value. It means the transaction was _broadcast_ — it can
 still be dropped or replaced, and what it actually did is in its receipt, below.
 
 #### Fees: `Auto`, EIP-1559, or legacy
@@ -122,11 +122,11 @@ markets are mutually exclusive on the wire — geth rejects a request carrying
 both `gasPrice` and `maxFeePerGas` / `maxPriorityFeePerGas` — and an enum cannot
 spell that combination:
 
-| `Fee`                                                  | On the wire                             |
-| ------------------------------------------------------ | --------------------------------------- |
-| `Auto` (default)                                       | no fee field; the wallet decides        |
-| `Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)` | `maxFeePerGas`, `maxPriorityFeePerGas`  |
-| `Legacy(gas_price~)`                                   | `gasPrice`                              |
+| `Fee`                                                  | On the wire                            |
+| ------------------------------------------------------ | -------------------------------------- |
+| `Auto` (default)                                       | no fee field; the wallet decides       |
+| `Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)` | `maxFeePerGas`, `maxPriorityFeePerGas` |
+| `Legacy(gas_price~)`                                   | `gasPrice`                             |
 
 `Auto` is what a dapp normally wants. Since London, geth defaults a request with
 no fee field to an EIP-1559 (dynamic-fee, type `0x02`) transaction — taking
@@ -137,12 +137,12 @@ London; it is not the default and should not be reached for by habit.
 
 ### Receipts and blocks
 
-| Function                                     | JSON-RPC method             | Returns                      |
-| -------------------------------------------- | --------------------------- | ---------------------------- |
-| `@provider.transaction_receipt(p, hash)`     | `eth_getTransactionReceipt` | `@endor.TransactionReceipt?` |
-| `@provider.wait_for_receipt(p, hash)`        | the same, polled            | `@endor.TransactionReceipt`  |
-| `@provider.block_by_number(p, block?)`       | `eth_getBlockByNumber`      | `@endor.Block?`              |
-| `@provider.block_by_hash(p, hash)`           | `eth_getBlockByHash`        | `@endor.Block?`              |
+| Function                                 | JSON-RPC method             | Returns                      |
+| ---------------------------------------- | --------------------------- | ---------------------------- |
+| `@provider.transaction_receipt(p, hash)` | `eth_getTransactionReceipt` | `@endor.TransactionReceipt?` |
+| `@provider.wait_for_receipt(p, hash)`    | the same, polled            | `@endor.TransactionReceipt`  |
+| `@provider.block_by_number(p, block?)`   | `eth_getBlockByNumber`      | `@endor.Block?`              |
+| `@provider.block_by_hash(p, hash)`       | `eth_getBlockByHash`        | `@endor.Block?`              |
 
 The three `?` returns are all the same wire fact: a node answers `null` for a
 receipt that does not exist yet and for a block it does not have, and neither is
@@ -167,7 +167,7 @@ the receipt's block, which is what makes a reorg unlikely to take it back out.
 Asking for fewer than one is a caller error and raises rather than being read as
 one.
 Running out of time raises `ProviderError::Timeout`, deliberately distinct from
-the `None` of `transaction_receipt`: `None` says there is no receipt *right now*,
+the `None` of `transaction_receipt`: `None` says there is no receipt _right now_,
 `Timeout` says there was none for as long as the caller allowed.
 
 A transaction that **reverted still has a receipt**, so a successful wait is not
@@ -185,7 +185,92 @@ A `Block` carries the header (`number`, `hash`, `parent_hash`, `timestamp`,
 `miner`, `gas_limit`, `gas_used`, `base_fee_per_gas`) and `transactions` as a
 list of `TxHash`: the SDK asks for hashes rather than full transaction objects,
 and each hash is what a receipt is then fetched with. `number` and `hash` are
-absent for the *pending* block, which has not been sealed and so has neither.
+absent for the _pending_ block, which has not been sealed and so has neither.
+
+### Signing messages
+
+| Function                                  | JSON-RPC method        | Returns      |
+| ----------------------------------------- | ---------------------- | ------------ |
+| `@provider.sign_message(p, who, message)` | `personal_sign`        | `@endor.Hex` |
+| `@provider.sign_typed_data(p, who, doc)`  | `eth_signTypedData_v4` | `@endor.Hex` |
+
+Both prompt the user — signing is the wallet's job, and the key never leaves it
+— so both raise `UserRejected` (4001) when they decline and `Unauthorized`
+(4100) for an account the dapp was never authorized for. The answer is the
+signature as raw `Hex`, 65 bytes of `r ‖ s ‖ v`; the SDK does not recover the
+signer from it, since that needs the ABI/crypto layer that is not there yet.
+
+```
+let signature = @provider.sign_message(wallet, who, "login to example.com")
+```
+
+`sign_message` is EIP-191 personal signing: the wallet prefixes the message with
+`"\x19Ethereum Signed Message:\n" + length` before hashing it, which is what
+keeps a signature produced this way from ever being a valid transaction. The
+message goes over the wire as its UTF-8 bytes in hex (`@endor.Hex::from_utf8`,
+which is public for a caller who needs it), so the wallet can show the user the
+text they are signing. Note the parameter order EIP-191 fixed: the message comes
+first and the address second — the opposite way round from the typed-data call,
+which is why both are wrapped rather than left to `Provider::request`.
+
+`sign_typed_data` is EIP-712, and takes an `@endor.TypedData` — the
+`{ types, primaryType, domain, message }` document as a validated value rather
+than as raw `Json`. The wallet receives it serialized, since v4 takes the
+document as a string rather than as a nested object. A wallet that does not
+implement the method at all answers `UnsupportedMethod` (4200).
+
+```
+let permit = @endor.TypedData::new(
+  @endor.TypedDataDomain::new(
+    name="Endor",
+    version="1",
+    chain_id=@endor.ChainId::mainnet(),
+    verifying_contract=token,
+  ),
+  primary_type="Permit",
+  types={
+    "Permit": [
+      @endor.TypedDataField::new("holder", "address"),
+      @endor.TypedDataField::new("value", "uint256"),
+    ],
+  },
+  message={ "holder": holder.to_json(), "value": "1000000000000000000" },
+)
+let signature = @provider.sign_typed_data(wallet, who, permit)
+```
+
+Building the document is what validates it, so a document a wallet would reject
+is refused here — where the error can name the field — rather than coming back
+as an opaque wallet-side failure:
+
+- `primaryType` has to be one of the declared types
+- every type a field refers to has to be elementary (`address`, `bool`,
+  `string`, `bytes`, `bytes1`…`bytes32`, `uint8`…`uint256`, `int8`…`int256`,
+  and arrays of those) or a struct the document defines
+- the message has to match the type it claims to be, member for member: a
+  declared member that is missing is an error, and so is one no type declares —
+  the latter would not be signed, so carrying it means believing something the
+  signature will not say
+- a value has to fit its declared type: an `address` that is not 20 bytes, a
+  `bytes32` that is not 32, a `uint8` of 256 are all refused. A `uint256` past
+  2^53 has to be carried as a decimal (or `0x`) **string**, because a JSON
+  number has already lost precision by then — passing one is an error rather
+  than a signature over a value the caller did not write
+
+`EIP712Domain` is **derived** from `@endor.TypedDataDomain` and must not be
+declared in `types`: only the domain fields actually present take part in the
+domain separator, and the entry is generated in EIP-712's own field order, so
+the type and the value cannot disagree.
+
+The message stays `Json`, because a value is only meaningful against the type
+it is declared as and that declaration lives in `types` — checking the two
+against each other is what `TypedData::new` does.
+
+Nothing is hashed locally. The **wallet** computes the digest, which is why
+signing needs no keccak256 here even though `crypto/` has it; computing the
+domain separator and `hashStruct` locally is
+[#45](https://github.com/poteto0/endor.mbt/issues/45), and the thing that will
+need it is EIP-1271, not this.
 
 ### Chain switching
 
@@ -226,10 +311,10 @@ that add without switching.
 
 ### Calling a contract
 
-| Function                                  | Underneath            | Returns                 |
-| ----------------------------------------- | --------------------- | ----------------------- |
-| `Contract::call(p, name~, …)`             | `eth_call`            | `Array[@abi.AbiValue]`  |
-| `Contract::send(p, from~, name~, …)`      | `eth_sendTransaction` | `@endor.TxHash`         |
+| Function                             | Underneath            | Returns                |
+| ------------------------------------ | --------------------- | ---------------------- |
+| `Contract::call(p, name~, …)`        | `eth_call`            | `Array[@abi.AbiValue]` |
+| `Contract::send(p, from~, name~, …)` | `eth_sendTransaction` | `@endor.TxHash`        |
 
 `@contract.Contract` is the ABI layer over the two helpers above: `call` encodes
 the arguments, evaluates the call and decodes the answer as `outputs`; `send`
@@ -277,14 +362,14 @@ whose success is in the receipt.
 
 `@abi` is the encoding underneath, usable without a provider:
 
-| Function                                | Answers                                    |
-| --------------------------------------- | ------------------------------------------ |
-| `@abi.encode(types, values)`            | the values, ABI-encoded, as `@endor.Hex`   |
-| `@abi.decode(types, data)`              | `Array[@abi.AbiValue]`                     |
-| `@abi.encode_call(name~, inputs~, args~)` | selector plus arguments — calldata        |
-| `@abi.signature(name~, inputs~)`        | `"transfer(address,uint256)"`              |
-| `@abi.selector(signature)`              | the 4 bytes calldata starts with           |
-| `@abi.event_topic(signature)`           | the 32-byte topic an event is logged under |
+| Function                                  | Answers                                    |
+| ----------------------------------------- | ------------------------------------------ |
+| `@abi.encode(types, values)`              | the values, ABI-encoded, as `@endor.Hex`   |
+| `@abi.decode(types, data)`                | `Array[@abi.AbiValue]`                     |
+| `@abi.encode_call(name~, inputs~, args~)` | selector plus arguments — calldata         |
+| `@abi.signature(name~, inputs~)`          | `"transfer(address,uint256)"`              |
+| `@abi.selector(signature)`                | the 4 bytes calldata starts with           |
+| `@abi.event_topic(signature)`             | the 32-byte topic an event is logged under |
 
 `@abi.AbiType` describes a parameter — `Uint(256)`, `Address`, `FixedBytes(32)`,
 `Array(String)`, `FixedArray(t, k)`, `Tuple([…])` — and `@abi.AbiValue` carries
@@ -301,11 +386,11 @@ indexed arguments, and EIP-712 typed-data hashing.
 
 ### Provider events
 
-| Function                                       | EIP-1193 event    | Handler receives         |
-| ---------------------------------------------- | ----------------- | ------------------------ |
-| `@provider.on_accounts_changed(e, handler)`    | `accountsChanged` | `Array[@endor.Address]`  |
-| `@provider.on_chain_changed(e, handler)`       | `chainChanged`    | `@endor.ChainId`         |
-| `@provider.on_disconnect(e, handler)`          | `disconnect`      | `@provider.ProviderError` |
+| Function                                    | EIP-1193 event    | Handler receives          |
+| ------------------------------------------- | ----------------- | ------------------------- |
+| `@provider.on_accounts_changed(e, handler)` | `accountsChanged` | `Array[@endor.Address]`   |
+| `@provider.on_chain_changed(e, handler)`    | `chainChanged`    | `@endor.ChainId`          |
+| `@provider.on_disconnect(e, handler)`       | `disconnect`      | `@provider.ProviderError` |
 
 All three take an `@provider.EventSource` — a provider that can push, which
 `BrowserProvider` and `MockProvider` both are — and return an
@@ -320,7 +405,7 @@ cover is reachable with the raw `EventSource::subscribe(event~, handler~)`, whic
 hands the payload over as `Json`.
 
 Because the SDK is stateless, subscribing does not read an initial value:
-`on_accounts_changed` fires when the account *changes*, so a dapp reads its
+`on_accounts_changed` fires when the account _changes_, so a dapp reads its
 starting point with `@provider.accounts` / `@provider.chain_id` and holds it.
 A payload that fails to decode — a `chainChanged` that is not a hex quantity, a
 `disconnect` with no numeric `code` — is **dropped**: the handler is not called
@@ -363,8 +448,14 @@ Alongside those:
 
 ## Planned, not implemented yet
 
+<<<<<<< HEAD
+
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
-- decoding a log into an event's arguments, indexed topics included
+- # decoding a log into an event's arguments, indexed topics included
+- computing the EIP-712 digest locally
+  ([#45](https://github.com/poteto0/endor.mbt/issues/45)) — needed by EIP-1271,
+  not by signing
+  > > > > > > > main
 - EIP-6963 — enumerating several injected providers instead of taking
   `globalThis.ethereum`
 

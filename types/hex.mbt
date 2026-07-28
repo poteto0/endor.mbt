@@ -71,6 +71,13 @@ pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
 }
 
 ///|
+/// Encode a string's UTF-8 bytes as hex — how a human-readable message is
+/// handed to `personal_sign`, which takes the message as a hex byte string.
+pub fn Hex::from_utf8(s : String) -> Hex {
+  Hex::from_bytes(@utf8.encode(s))
+}
+
+///|
 /// The canonical `0x`-prefixed lowercase string form.
 pub fn Hex::to_string(self : Hex) -> String {
   self.inner
