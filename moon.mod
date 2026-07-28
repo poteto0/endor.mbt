@@ -45,5 +45,6 @@ options(
     "justfile",
     "AGENTS.md",
     "docs",
+    "fixtures",
   ],
 )
