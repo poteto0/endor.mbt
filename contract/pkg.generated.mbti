@@ -10,15 +10,15 @@ import {
 }
 
 // Values
-pub fn address_answer(Array[@abi.AbiValue], what~ : String) -> @types.Address raise ContractError
+pub fn address_answer(Array[@types.AbiValue], what~ : String) -> @types.Address raise ContractError
 
-pub fn bool_answer(Array[@abi.AbiValue], what~ : String) -> Bool raise ContractError
+pub fn bool_answer(Array[@types.AbiValue], what~ : String) -> Bool raise ContractError
 
-pub fn int_answer(Array[@abi.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
+pub fn int_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
 
-pub fn string_answer(Array[@abi.AbiValue], what~ : String) -> String raise ContractError
+pub fn string_answer(Array[@types.AbiValue], what~ : String) -> String raise ContractError
 
-pub fn uint_answer(Array[@abi.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
+pub fn uint_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
 
 // Errors
 pub(all) suberror ContractError {
