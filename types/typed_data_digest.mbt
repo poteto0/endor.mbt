@@ -24,7 +24,9 @@ pub fn TypedData::type_hash(self : TypedData, type_name : String) -> Hex {
 ///|
 /// `hashStruct(s)` for the message, at whatever type it declares itself as.
 pub fn TypedData::hash_struct(self : TypedData) -> Hex raise CodecError {
-  Hex::from_bytes(hash_struct(self.types, self.primary_type, self.message))
+  Hex::from_bytes(
+    @crypto.keccak256(encode_data(self.types, self.primary_type, self.message)),
+  )
 }
 
 ///|
@@ -40,7 +42,9 @@ pub fn TypedData::domain_separator(self : TypedData) -> Hex raise CodecError {
 /// EIP-1271 contract wallet takes.
 pub fn TypedData::digest(self : TypedData) -> Hex raise CodecError {
   let domain_sep = domain_separator_bytes(self.domain)
-  let message_hash = hash_struct(self.types, self.primary_type, self.message)
+  let message_hash = @crypto.keccak256(
+    encode_data(self.types, self.primary_type, self.message),
+  )
   let signed = Bytes::makei(66, i => {
     if i == 0 {
       b'\x19'
@@ -60,7 +64,7 @@ fn domain_separator_bytes(domain : TypedDataDomain) -> Bytes raise CodecError {
   let types : Map[String, Array[TypedDataField]] = Map([
     (DOMAIN_TYPE, domain.fields()),
   ])
-  hash_struct(types, DOMAIN_TYPE, domain.to_json())
+  @crypto.keccak256(encode_data(types, DOMAIN_TYPE, domain.to_json()))
 }
 
 ///|
@@ -157,18 +161,10 @@ fn encode_data(
 }
 
 ///|
-fn hash_struct(
-  types : Map[String, Array[TypedDataField]],
-  type_name : String,
-  value : Json,
-) -> Bytes raise CodecError {
-  @crypto.keccak256(encode_data(types, type_name, value))
-}
-
-///|
 /// One field's value, as the 32-byte word `encodeData` packs it into: an
-/// array is the hash of its encoded elements, a struct is `hashStruct`, and
-/// anything else is atomic.
+/// array is the hash of its encoded elements, a struct is `hashStruct` —
+/// `keccak256(encodeData(...))`, same as the top-level call — and anything
+/// else is atomic.
 fn encode_value(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
@@ -181,7 +177,7 @@ fn encode_value(
     let words = items.map(item => encode_value(types, element, item))
     @crypto.keccak256(concat_words(words))
   } else if types.get(type_name) is Some(_) {
-    hash_struct(types, type_name, value)
+    @crypto.keccak256(encode_data(types, type_name, value))
   } else {
     encode_atomic(type_name, value)
   }

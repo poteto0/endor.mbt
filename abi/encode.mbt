@@ -114,12 +114,12 @@ fn _encode_value(t : AbiType, v : AbiValue) -> String raise AbiError {
     (FixedArray(elem, size), Array(xs)) => {
       guard xs.length() == _validate_array_size(size) else {
         raise InvalidValue(
-          "\{t.name()} needs \{size} elements, got \{xs.length()}",
+          "\{_name(t)} needs \{size} elements, got \{xs.length()}",
         )
       }
       _encode_block(Array::make(size, elem), xs)
     }
     (Tuple(elems), Tuple(vs)) => _encode_block(elems, vs)
-    _ => raise InvalidValue("\{v} is not a \{t.name()}")
+    _ => raise InvalidValue("\{v} is not a \{_name(t)}")
   }
 }
