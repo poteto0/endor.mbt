@@ -1,5 +1,9 @@
 # endor.mbt
 
+[![mooncakes.io](https://img.shields.io/badge/mooncakes.io-poteto0%2Fendor-blue)](https://mooncakes.io/docs/poteto0/endor)
+[![CI](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml/badge.svg)](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/poteto0/endor.mbt/blob/main/LICENSE)
+
 An Ethereum SDK for MoonBit. Currently focused on browser wallets via the
 [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider standard: it wraps
 the provider that extensions such as MetaMask inject as `globalThis.ethereum`,
