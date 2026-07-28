@@ -104,6 +104,27 @@ test "digest matches the EIP-712 spec's Mail example" {
 }
 
 ///|
+/// A type name the document does not define is an ordinary caller mistake —
+/// type names are strings, and an EIP-712 document is often assembled at
+/// runtime — so `encodeType` / `typeHash` raise rather than panic, with the
+/// same wording `encodeData` already uses for an undefined type.
+test "encodeType and typeHash raise on an undefined type name" {
+  let doc = full_mail()
+  try doc.encode_type("NoSuchType") |> ignore catch {
+    InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
+    e => fail("expected InvalidJson, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+  try doc.type_hash("NoSuchType") |> ignore catch {
+    InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
+    e => fail("expected InvalidJson, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}
+
+///|
 /// An array field's `encodeData` is the hash of its elements' own encoding,
 /// concatenated — checked against an independent computation rather than a
 /// published vector, since the spec's own example carries no array.
