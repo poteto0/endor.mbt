@@ -2,6 +2,7 @@
 package "poteto0/endor/contract"
 
 import {
+  "moonbitlang/core/bigint",
   "moonbitlang/core/debug",
   "poteto0/endor/abi",
   "poteto0/endor/provider",
@@ -9,6 +10,9 @@ import {
 }
 
 // Values
+pub fn string_answer(Array[@abi.AbiValue], what~ : String) -> String raise ContractError
+
+pub fn uint_answer(Array[@abi.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
 
 // Errors
 pub(all) suberror ContractError {
