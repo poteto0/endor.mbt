@@ -89,23 +89,25 @@ pub fn answer_contract_runtime() -> @types.Hex {
 }
 
 ///|
-/// Deploy `ANSWER_CONTRACT_CODE` from the unlocked dev account and return its
-/// address, once mined.
+/// Deploy creation code from the unlocked dev account and answer with the
+/// address it was mined at.
 ///
-/// Both halves are the typed API — `send_transaction` then `wait_for_receipt`.
+/// Both halves are the typed API — `send_transaction` then `wait_for_receipt`
+/// — with no `to`, since a transaction without a recipient deploys `data`.
 /// Generic over `Provider`, not tied to `BrowserProvider`: deploying a contract
 /// is a property of the chain, so a second backend (#19) reuses it as is.
 ///
 /// Anvil automines, so the receipt is normally there on the first poll; the
 /// interval is short and the timeout small so a node that is not mining fails
 /// the test rather than holding the suite for a minute.
-pub async fn[P : @provider.Provider] deploy_answer_contract(
+///
+/// Shared by `deploy_answer_contract` and `deploy_selector_gate`: both are
+/// this same deploy-and-locate mechanism applied to different bytecode, so it
+/// is written once here rather than once per contract.
+async fn[P : @provider.Provider] deploy_creation_code(
   provider : P,
+  data : @types.Hex,
 ) -> @types.Address raise @provider.ProviderError {
-  let data = @types.Hex::from_string(ANSWER_CONTRACT_CODE) catch {
-    e => abort("bad creation code: \{e}")
-  }
-  // no `to`: a transaction without a recipient deploys `data`
   let hash = @provider.send_transaction(
     provider,
     @types.TransactionRequest::new(dev_account(), data~),
@@ -120,6 +122,18 @@ pub async fn[P : @provider.Provider] deploy_answer_contract(
     raise @provider.ProviderError::internal("receipt has no contractAddress")
   }
   deployed
+}
+
+///|
+/// Deploy `ANSWER_CONTRACT_CODE` from the unlocked dev account and return its
+/// address, once mined.
+pub async fn[P : @provider.Provider] deploy_answer_contract(
+  provider : P,
+) -> @types.Address raise @provider.ProviderError {
+  let data = @types.Hex::from_string(ANSWER_CONTRACT_CODE) catch {
+    e => abort("bad creation code: \{e}")
+  }
+  deploy_creation_code(provider, data)
 }
 
 ///|
@@ -158,20 +172,7 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
   ) catch {
     e => abort("bad gate code: \{e}")
   }
-  let hash = @provider.send_transaction(
-    provider,
-    @types.TransactionRequest::new(dev_account(), data~),
-  )
-  let receipt = @provider.wait_for_receipt(
-    provider,
-    hash,
-    timeout=5_000,
-    poll_interval=100,
-  )
-  guard receipt.contract_address is Some(deployed) else {
-    raise @provider.ProviderError::internal("receipt has no contractAddress")
-  }
-  deployed
+  deploy_creation_code(provider, data)
 }
 
 ///|

@@ -34,6 +34,25 @@ extern "js" fn read_file(path : String) -> String =
 const ERC20_FIXTURE = "fixtures/abi/erc20.abi"
 
 ///|
+let cached_generated : Ref[@codegen.Generated?] = { val: None }
+
+///|
+/// `Erc20` generated from the fixture, computed once and shared by every test
+/// below — the ABI on disk does not change mid-suite, so reading and
+/// regenerating it once per test would just be five identical passes over the
+/// same document.
+fn fixture_generated() -> @codegen.Generated raise {
+  match cached_generated.val {
+    Some(generated) => generated
+    None => {
+      let generated = @codegen.generate("Erc20", read_file(ERC20_FIXTURE))
+      cached_generated.val = Some(generated)
+      generated
+    }
+  }
+}
+
+///|
 /// The generated preset has to cover the interface the hand-written one does.
 ///
 /// This is the claim the live tests below then check the *meaning* of: here it
@@ -42,7 +61,7 @@ const ERC20_FIXTURE = "fixtures/abi/erc20.abi"
 /// gates at all.
 async test "the fixture generates every member the hand-written preset has" {
   @anvil.on(_ => {
-    let out = @codegen.generate("Erc20", read_file(ERC20_FIXTURE))
+    let out = fixture_generated()
     assert_eq(out.skipped.join("\n"), "")
     for
       signature in [
@@ -66,7 +85,7 @@ async test "the fixture generates every member the hand-written preset has" {
 /// finds.
 async test "a getter the fixture describes is the getter the preset calls" {
   @anvil.on(provider => {
-    let members = @codegen.generate("Erc20", read_file(ERC20_FIXTURE)).members
+    let members = fixture_generated().members
     for
       probe in [
         ("totalSupply()", (t : @erc20.Erc20) => t.total_supply(provider)),
@@ -101,7 +120,7 @@ async test "a getter the fixture describes is the getter the preset calls" {
 /// decodes the answer as.
 async test "the width the fixture declares is the width that is decoded" {
   @anvil.on(provider => {
-    let out = @codegen.generate("Erc20", read_file(ERC20_FIXTURE))
+    let out = fixture_generated()
     assert_true(out.code.contains("name=\"decimals\", outputs=[Uint(8)])"))
     let gate = @anvil.deploy_selector_gate(
       provider,
@@ -138,7 +157,7 @@ async test "a gate deployed for another selector refuses the call" {
 /// decoded `42` is for `call`.
 async test "a state-changing function the fixture describes is the one sent" {
   @anvil.on(provider => {
-    let members = @codegen.generate("Erc20", read_file(ERC20_FIXTURE)).members
+    let members = fixture_generated().members
     assert_true(members.contains("transfer(address,uint256)"))
     let gate = @anvil.deploy_selector_gate(
       provider,
@@ -168,7 +187,7 @@ async test "a state-changing function the fixture describes is the one sent" {
 /// functions.
 async test "the topic the fixture yields is the topic the preset uses" {
   @anvil.on(_ => {
-    let members = @codegen.generate("Erc20", read_file(ERC20_FIXTURE)).members
+    let members = fixture_generated().members
     assert_true(members.contains("Transfer(address,address,uint256)"))
     assert_eq(
       @abi.event_topic("Transfer(address,address,uint256)"),

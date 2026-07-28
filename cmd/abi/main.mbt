@@ -78,10 +78,10 @@ fn run(config : Config) -> Int {
   let mut skipped = 0
   for input in inputs {
     match generate_one(input, config) {
-      Ok(count) => skipped = skipped + count
+      Ok(count) => skipped += count
       Err(message) => {
         println("error: \{message}")
-        failed = failed + 1
+        failed += 1
       }
     }
   }
@@ -153,11 +153,12 @@ fn generate_one(input : String, config : Config) -> Result[Int, String] {
   let source = @fs.read_file_to_string(from) catch {
     e => return Err("cannot read \{from}: \{@debug.to_string(e)}")
   }
-  let name = @codegen.pascal_case(stem(input))
+  let stem = stem(input)
+  let name = @codegen.pascal_case(stem)
   let generated = @codegen.generate(name, source) catch {
     e => return Err("\{input}: \{e}")
   }
-  let out = join(config.abi_out, @codegen.snake_case(stem(input)) + ".mbt")
+  let out = join(config.abi_out, @codegen.snake_case(stem) + ".mbt")
   @fs.write_string_to_file(out, generated.code) catch {
     e => return Err("cannot write \{out}: \{@debug.to_string(e)}")
   }

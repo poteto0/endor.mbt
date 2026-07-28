@@ -134,6 +134,28 @@ fn function_block(
 }
 
 ///|
+/// The `///|` marker, doc comment and function declaration through
+/// `provider : P,` — the five lines every generated method opens with,
+/// whether it reads or writes. `reading_block` and `sending_block` diverge
+/// only after this point: in what other parameters they add (`from~`,
+/// `value?`) and in how they close the signature.
+fn write_head(
+  struct_name : String,
+  fn_name : String,
+  doc : String,
+) -> StringBuilder {
+  let head = StringBuilder::new()
+  head.write_string("///|\n")
+  head.write_string(doc)
+  head.write_string(
+    "pub async fn[P : @provider.Provider] \{struct_name}::\{fn_name}(\n",
+  )
+  head.write_string("  self : \{struct_name},\n")
+  head.write_string("  provider : P,\n")
+  head
+}
+
+///|
 /// A `view` / `pure` function: `eth_call`, with the single answer decoded.
 fn reading_block(
   struct_name : String,
@@ -143,19 +165,14 @@ fn reading_block(
   params~ : Array[(String, Scalar)],
   out~ : Scalar,
 ) -> String {
-  let head = StringBuilder::new()
-  head.write_string("///|\n")
-  head.write_string("/// `\{signature}` — reads.\n")
-  head.write_string("///\n")
-  head.write_string(
+  let head = write_head(
+    struct_name,
+    fn_name,
+    "/// `\{signature}` — reads.\n" +
+    "///\n" +
     "/// It is evaluated against the chain's current state, so it costs nothing\n" +
     "/// and prompts no one.\n",
   )
-  head.write_string(
-    "pub async fn[P : @provider.Provider] \{struct_name}::\{fn_name}(\n",
-  )
-  head.write_string("  self : \{struct_name},\n")
-  head.write_string("  provider : P,\n")
   for p in params {
     head.write_string("  \{p.0}~ : \{p.1.mbt},\n")
   }
@@ -185,20 +202,15 @@ fn sending_block(
   fn_name~ : String,
   params~ : Array[(String, Scalar)],
 ) -> String {
-  let head = StringBuilder::new()
-  head.write_string("///|\n")
-  head.write_string("/// `\{signature}` — writes.\n")
-  head.write_string("///\n")
-  head.write_string(
+  let head = write_head(
+    struct_name,
+    fn_name,
+    "/// `\{signature}` — writes.\n" +
+    "///\n" +
     "/// It signs, so it prompts. The answer is the transaction's hash, not what\n" +
     "/// the function returned: a broadcast transaction has not run yet, and what\n" +
     "/// it did is in its receipt.\n",
   )
-  head.write_string(
-    "pub async fn[P : @provider.Provider] \{struct_name}::\{fn_name}(\n",
-  )
-  head.write_string("  self : \{struct_name},\n")
-  head.write_string("  provider : P,\n")
   head.write_string("  from~ : @types.Address,\n")
   for p in params {
     head.write_string("  \{p.0}~ : \{p.1.mbt},\n")

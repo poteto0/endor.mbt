@@ -13,6 +13,24 @@
 const FIXTURE = "../fixtures/abi/erc20.abi"
 
 ///|
+let fixture_abi_cache : Ref[String?] = { val: None }
+
+///|
+/// The fixture's bytes, read once and shared by every test below — every test
+/// wants the same file, and reading it seven times over proves nothing seven
+/// times over.
+fn fixture_abi() -> String raise {
+  match fixture_abi_cache.val {
+    Some(abi) => abi
+    None => {
+      let abi = @fs.read_file_to_string(FIXTURE)
+      fixture_abi_cache.val = Some(abi)
+      abi
+    }
+  }
+}
+
+///|
 /// Scratch lives under `_build/`, which is gitignored at every level, so a
 /// test that fails half-way leaves nothing behind to commit by accident.
 fn fresh(name : String) -> String raise {
@@ -41,7 +59,7 @@ fn given(name : String, files : Array[(String, String)]) -> String raise {
 
 ///|
 test "the fixture ABI goes in and a MoonBit package comes out" {
-  let abi = @fs.read_file_to_string(FIXTURE)
+  let abi = fixture_abi()
   let out = fresh("erc20-out")
   let config = {
     version: None,
@@ -69,7 +87,7 @@ test "the fixture ABI goes in and a MoonBit package comes out" {
 /// rewriting the generated files — in particular it must not clobber a
 /// `moon.pkg` the caller has since added imports to.
 test "a rerun rewrites the generated files and leaves moon.pkg alone" {
-  let abi = @fs.read_file_to_string(FIXTURE)
+  let abi = fixture_abi()
   let out = fresh("rerun-out")
   let config = {
     version: Some("v0.3.0"),
@@ -87,7 +105,7 @@ test "a rerun rewrites the generated files and leaves moon.pkg alone" {
 /// The point of counting failures instead of raising: the one broken document
 /// is reported, and every other file is still generated.
 test "one unusable ABI does not cost the others" {
-  let abi = @fs.read_file_to_string(FIXTURE)
+  let abi = fixture_abi()
   let out = fresh("mixed-out")
   let config = {
     version: None,
@@ -133,7 +151,7 @@ test "an empty input directory is nothing to do, not a failure" {
 ///|
 /// A directory inside `abi.in` is somebody's own layout, not an ABI document.
 test "a subdirectory of the input directory is stepped over" {
-  let dir = given("nested-in", [("erc20.abi", @fs.read_file_to_string(FIXTURE))])
+  let dir = given("nested-in", [("erc20.abi", fixture_abi())])
   let _ = ensure_dir(join(dir, "archive"))
 
   assert_eq(list_inputs(dir), ["erc20.abi"])
@@ -144,9 +162,7 @@ test "the output directory is created when it is missing" {
   let out = "_build/cli-test/created-out"
   let config = {
     version: None,
-    abi_in: given("created-in", [
-      ("erc20.abi", @fs.read_file_to_string(FIXTURE)),
-    ]),
+    abi_in: given("created-in", [("erc20.abi", fixture_abi())]),
     abi_out: out,
   }
   let _ = fresh("created-out")
@@ -187,9 +203,7 @@ test "an output directory that cannot be created stops the run" {
   @fs.write_string_to_file(blocked, "not a directory\n")
   let config = {
     version: None,
-    abi_in: given("uncreatable-in", [
-      ("erc20.abi", @fs.read_file_to_string(FIXTURE)),
-    ]),
+    abi_in: given("uncreatable-in", [("erc20.abi", fixture_abi())]),
     abi_out: join(blocked, "out"),
   }
   assert_true(ensure_dir(config.abi_out) is Some(_))
@@ -207,9 +221,7 @@ test "an output path that is not a directory fails the file it was for" {
   @fs.write_string_to_file(blocked, "not a directory\n")
   let config = {
     version: None,
-    abi_in: given("not-a-dir-in", [
-      ("erc20.abi", @fs.read_file_to_string(FIXTURE)),
-    ]),
+    abi_in: given("not-a-dir-in", [("erc20.abi", fixture_abi())]),
     abi_out: blocked,
   }
   assert_eq(run(config), 1)
