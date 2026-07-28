@@ -489,10 +489,10 @@ fn validate_elementary(
       validate_integer(value, bits, signed=true, path~, type_name~)
     // `classify_elementary` never returns `AbiType`'s compound variants —
     // only `array_element` and the document's `types` map produce arrays and
-    // structs here — but the match still has to cover them.
-    Some(Array(_) | FixedArray(_, _) | Tuple(_)) =>
-      abort("unreachable: classify_elementary never returns a compound type")
-    None => raise InvalidJson("\{path} has unknown type \{type_name}")
+    // structs here — but the match still has to cover them, and raising is
+    // what the rest of this file does with a type name it cannot use.
+    Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
+      raise InvalidJson("\{path} has unknown type \{type_name}")
   }
 }
 

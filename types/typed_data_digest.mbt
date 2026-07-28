@@ -11,13 +11,21 @@
 /// `encodeType(type_name)`: its own member list, followed by every struct
 /// type it references (directly or through another struct), alphabetized —
 /// `Mail(Person from,Person to,string contents)Person(string name,address wallet)`.
-pub fn TypedData::encode_type(self : TypedData, type_name : String) -> String {
+/// A type name the document does not define raises `InvalidJson`.
+pub fn TypedData::encode_type(
+  self : TypedData,
+  type_name : String,
+) -> String raise CodecError {
   encode_type(self.types, type_name)
 }
 
 ///|
-/// `typeHash(type_name)` = `keccak256(encodeType(type_name))`.
-pub fn TypedData::type_hash(self : TypedData, type_name : String) -> Hex {
+/// `typeHash(type_name)` = `keccak256(encodeType(type_name))`. A type name the
+/// document does not define raises `InvalidJson`.
+pub fn TypedData::type_hash(
+  self : TypedData,
+  type_name : String,
+) -> Hex raise CodecError {
   Hex::from_bytes(type_hash(self.types, type_name))
 }
 
@@ -71,7 +79,7 @@ fn domain_separator_bytes(domain : TypedDataDomain) -> Bytes raise CodecError {
 fn encode_type(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
-) -> String {
+) -> String raise CodecError {
   let out = StringBuilder::new()
   out.write_string(struct_signature(types, type_name))
   for name in referenced_type_names(types, type_name) {
@@ -87,10 +95,26 @@ fn encode_type(
 fn struct_signature(
   types : Map[String, Array[TypedDataField]],
   name : String,
-) -> String {
-  let fields = types.get(name).unwrap()
-  let members = fields.map(f => "\{f.type_name} \{f.name}").join(",")
+) -> String raise CodecError {
+  let members = fields_of(types, name)
+    .map(f => "\{f.type_name} \{f.name}")
+    .join(",")
   "\{name}(\{members})"
+}
+
+///|
+/// A type's declared fields, or the error every caller here reports for a type
+/// name the document never defined. Type names are strings and an EIP-712
+/// document is often assembled at runtime, so this is an ordinary caller
+/// mistake rather than a bug — one place owns the wording.
+fn fields_of(
+  types : Map[String, Array[TypedDataField]],
+  type_name : String,
+) -> Array[TypedDataField] raise CodecError {
+  guard types.get(type_name) is Some(fields) else {
+    raise InvalidJson("\{type_name} is not defined")
+  }
+  fields
 }
 
 ///|
@@ -128,7 +152,7 @@ fn collect_referenced(
 fn type_hash(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
-) -> Bytes {
+) -> Bytes raise CodecError {
   @crypto.keccak256_string(encode_type(types, type_name))
 }
 
@@ -145,10 +169,7 @@ fn encode_data(
   guard value is Object(members) else {
     raise InvalidJson("\{type_name} value must be an object")
   }
-  let fields = match types.get(type_name) {
-    Some(fs) => fs
-    None => raise InvalidJson("\{type_name} is not defined")
-  }
+  let fields = fields_of(types, type_name)
   let words = [type_hash(types, type_name)]
   for f in fields {
     let v = match members.get(f.name) {
@@ -224,10 +245,10 @@ fn encode_atomic(type_name : String, value : Json) -> Bytes raise CodecError {
       )
     // `classify_elementary` never returns `AbiType`'s compound variants —
     // `encode_value` already handles arrays and structs before falling
-    // through to this function — but the match still has to cover them.
-    Some(Array(_) | FixedArray(_, _) | Tuple(_)) =>
-      abort("unreachable: classify_elementary never returns a compound type")
-    None => raise InvalidJson("\{type_name} is not an elementary type")
+    // through to this function — but the match still has to cover them, and
+    // a compound type is no more encodable here than an unknown one.
+    Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
+      raise InvalidJson("\{type_name} is not an elementary type")
   }
 }
 
