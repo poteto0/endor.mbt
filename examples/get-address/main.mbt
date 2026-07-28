@@ -415,7 +415,7 @@ struct TokenView {
   /// The token last loaded and the decimals its amounts are scaled by. Held
   /// because every later action needs both, and re-reading `decimals()` before
   /// each one would be a round trip to say what cannot change.
-  mut loaded : (@contract.Erc20, Int)?
+  mut loaded : (@erc20.Erc20, Int)?
 }
 
 ///|
@@ -437,7 +437,7 @@ fn TokenView::new() -> TokenView {
 async fn TokenView::show_balance(
   self : TokenView,
   wallet : @browser.BrowserProvider,
-  token : @contract.Erc20,
+  token : @erc20.Erc20,
   decimals : Int,
   who : @endor.Address,
 ) -> Unit raise @contract.ContractError {
@@ -467,7 +467,7 @@ async fn TokenView::load(self : TokenView) -> Unit {
       }
     }
     self.status.set("Reading the token…")
-    let token = @contract.Erc20::new(at)
+    let token = @erc20.Erc20::new(at)
     let decimals = token.decimals(wallet)
     self.label.set(
       "\{token.name(wallet)} (\{token.symbol(wallet)}), \{decimals} decimals",
