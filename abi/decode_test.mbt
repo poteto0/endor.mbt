@@ -160,3 +160,21 @@ test "an offset or length outside the data is refused" {
     content="InvalidData(byte length is far larger than the data)",
   )
 }
+
+///|
+test "invalid utf-8 string is refused" {
+  inspect(
+    refused(() => {
+      ignore(
+        decode_ignoring(
+          [String],
+          "0x" +
+          word("20") +
+          word("1") +
+          "8000000000000000000000000000000000000000000000000000000000000000",
+        ),
+      )
+    }),
+    content="InvalidData(string is not valid UTF-8)",
+  )
+}

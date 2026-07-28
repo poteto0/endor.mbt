@@ -1,15 +1,4 @@
 ///|
-/// Zero, to compare a `BigInt` against without building one each time.
-let zero : BigInt = 0N
-
-///|
-/// `2^bits` — the modulus a `uintN` lives in, and the bound its signed
-/// counterpart is symmetric around.
-fn two_pow(bits : Int) -> BigInt {
-  1N << bits
-}
-
-///|
 /// ABI-encode a list of values against the types they are declared as — the
 /// argument list of a call, or the return list of one.
 ///
@@ -39,7 +28,7 @@ pub fn encode(
   types : Array[AbiType],
   values : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  @types.Hex::from_bytes(bytes_of_digits(encode_block(types, values)))
+  @types.Hex::from_bytes(_bytes_of_digits(_encode_block(types, values)))
 }
 
 ///|
@@ -49,7 +38,7 @@ pub fn encode(
 /// Offsets are counted from the start of this block, not of the whole message,
 /// which is what lets the same function encode a top-level argument list, a
 /// tuple and an array's elements.
-fn encode_block(
+fn _encode_block(
   types : Array[AbiType],
   values : Array[AbiValue],
 ) -> String raise AbiError {
@@ -65,12 +54,12 @@ fn encode_block(
   for i, t in types {
     if t.is_dynamic() {
       let offset = (head_digits + tail_digits) / 2
-      heads.push(left_pad(offset.to_string(radix=16)))
-      let tail = encode_value(t, values[i])
+      heads.push(_left_pad(offset.to_string(radix=16)))
+      let tail = _encode_value(t, values[i])
       tail_digits += tail.length()
       tails.push(tail)
     } else {
-      heads.push(encode_value(t, values[i]))
+      heads.push(_encode_value(t, values[i]))
     }
   }
   let out = StringBuilder::new()
@@ -87,51 +76,50 @@ fn encode_block(
 /// Encode one value, in the layout its own type calls for: a single word for a
 /// scalar, a length word plus padded content for a byte string, and a nested
 /// block for anything compound.
-fn encode_value(t : AbiType, v : AbiValue) -> String raise AbiError {
+fn _encode_value(t : AbiType, v : AbiValue) -> String raise AbiError {
   match (t, v) {
     (Uint(bits), Uint(n)) => {
-      guard n >= zero && n < two_pow(check_bits(bits, "uint")) else {
+      guard n >= 0N && n < _two_pow(_validate_bits(bits, "uint")) else {
         raise InvalidValue("uint\{bits} cannot hold \{n}")
       }
-      left_pad(n.to_string(radix=16))
+      _left_pad(n.to_string(radix=16))
     }
     (Int(bits), Int(n)) => {
-      let half = two_pow(check_bits(bits, "int") - 1)
-      guard n >= zero - half && n < half else {
+      let half = _two_pow(_validate_bits(bits, "int") - 1)
+      guard n >= 0N - half && n < half else {
         raise InvalidValue("int\{bits} cannot hold \{n}")
       }
       // two's complement: a negative value is the word that many below 2^256
-      left_pad(
-        (if n < zero { n + two_pow(256) } else { n }).to_string(radix=16),
-      )
+      _left_pad(_to_unsigned(n, 256).to_string(radix=16))
     }
     (AbiType::Address, AbiValue::Address(a)) =>
-      left_pad(digits_of(a.to_string()))
-    (AbiType::Bool, AbiValue::Bool(b)) => left_pad(if b { "1" } else { "0" })
+      _left_pad(_digits_of(a.to_string()))
+    (AbiType::Bool, AbiValue::Bool(b)) => _left_pad(if b { "1" } else { "0" })
     (FixedBytes(size), Bytes(b)) => {
-      guard b.length() == check_bytes_size(size) else {
+      guard b.length() == _validate_bytes_size(size) else {
         raise InvalidValue(
           "bytes\{size} needs \{size} bytes, got \{b.length()}",
         )
       }
-      right_pad(digits_of_bytes(b))
+      _right_pad(_digits_of_bytes(b))
     }
     (AbiType::Bytes, AbiValue::Bytes(b)) =>
-      left_pad(b.length().to_string(radix=16)) + right_pad(digits_of_bytes(b))
+      _left_pad(b.length().to_string(radix=16)) +
+      _right_pad(_digits_of_bytes(b))
     (AbiType::String, AbiValue::String(s)) =>
-      encode_value(AbiType::Bytes, AbiValue::Bytes(@utf8.encode(s)))
+      _encode_value(AbiType::Bytes, AbiValue::Bytes(@utf8.encode(s)))
     (Array(elem), Array(xs)) =>
-      left_pad(xs.length().to_string(radix=16)) +
-      encode_block(Array::make(xs.length(), elem), xs)
+      _left_pad(xs.length().to_string(radix=16)) +
+      _encode_block(Array::make(xs.length(), elem), xs)
     (FixedArray(elem, size), Array(xs)) => {
-      guard xs.length() == check_array_size(size) else {
+      guard xs.length() == _validate_array_size(size) else {
         raise InvalidValue(
           "\{t.name()} needs \{size} elements, got \{xs.length()}",
         )
       }
-      encode_block(Array::make(size, elem), xs)
+      _encode_block(Array::make(size, elem), xs)
     }
-    (Tuple(elems), Tuple(vs)) => encode_block(elems, vs)
+    (Tuple(elems), Tuple(vs)) => _encode_block(elems, vs)
     _ => raise InvalidValue("\{v} is not a \{t.name()}")
   }
 }

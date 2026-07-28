@@ -56,21 +56,26 @@ pub impl Show for AbiType with fn output(self, logger) {
 /// canonical name: hashing `uint7(…)` would produce a selector no contract
 /// answers to, which is worse than raising.
 ///
-/// ```
-/// inspect(@abi.AbiType::Uint(256).name(), content="uint256")
-/// inspect(@abi.AbiType::Array(Tuple([Address, Bool])).name(), content="(address,bool)[]")
+/// ```mbt check
+/// test "doc: abi type" {
+///   inspect(@abi.AbiType::Uint(256).name(), content="uint256")
+///   inspect(
+///     @abi.AbiType::Array(Tuple([Address, Bool])).name(),
+///     content="(address,bool)[]",
+///   )
+/// }
 /// ```
 pub fn AbiType::name(self : AbiType) -> String raise AbiError {
   match self {
-    Uint(bits) => "uint\{check_bits(bits, "uint")}"
-    Int(bits) => "int\{check_bits(bits, "int")}"
+    Uint(bits) => "uint\{_validate_bits(bits, "uint")}"
+    Int(bits) => "int\{_validate_bits(bits, "int")}"
     Address => "address"
     Bool => "bool"
-    FixedBytes(n) => "bytes\{check_bytes_size(n)}"
+    FixedBytes(n) => "bytes\{_validate_bytes_size(n)}"
     Bytes => "bytes"
     String => "string"
     Array(elem) => "\{elem.name()}[]"
-    FixedArray(elem, k) => "\{elem.name()}[\{check_array_size(k)}]"
+    FixedArray(elem, k) => "\{elem.name()}[\{_validate_array_size(k)}]"
     Tuple(elems) => {
       let parts = []
       for elem in elems {
@@ -79,36 +84,6 @@ pub fn AbiType::name(self : AbiType) -> String raise AbiError {
       "(" + parts.join(",") + ")"
     }
   }
-}
-
-///|
-/// A bit width `uintN` / `intN` can actually have.
-fn check_bits(bits : Int, what : String) -> Int raise AbiError {
-  guard bits >= 8 && bits <= 256 && bits % 8 == 0 else {
-    raise InvalidAbiType(
-      "\{what}\{bits}: width must be a multiple of 8 in 8..=256",
-    )
-  }
-  bits
-}
-
-///|
-/// A size `bytesN` can actually have. `bytes0` is not a type; the empty
-/// dynamic `bytes` is.
-fn check_bytes_size(n : Int) -> Int raise AbiError {
-  guard n >= 1 && n <= 32 else {
-    raise InvalidAbiType("bytes\{n}: size must be in 1..=32")
-  }
-  n
-}
-
-///|
-/// A length `T[k]` can actually have.
-fn check_array_size(k : Int) -> Int raise AbiError {
-  guard k >= 0 else {
-    raise InvalidAbiType("T[\{k}]: length cannot be negative")
-  }
-  k
 }
 
 ///|
