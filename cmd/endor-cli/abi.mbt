@@ -4,36 +4,66 @@
 /// The command is deliberately argument-free: what it reads and where it
 /// writes is in `endor.yaml`, which is checked in, so the generated files a
 /// repository holds are reproducible by anyone who clones it rather than
-/// dependent on the flags whoever ran it last happened to type.
+/// dependent on the flags whoever ran it last happened to type. An argument
+/// that would change the output is therefore not merely unsupported but
+/// refused — accepting and ignoring one is how the checked-in config quietly
+/// stops being the truth. `--help` never reaches here: `dispatch` answers it
+/// from the command table, for this command and every one after it.
 ///
-/// ```sh
-/// $ cat endor.yaml
-/// version: v0.3.0
-/// abi:
-///   in: ./abi
-///   out: ./outputs
-/// $ endor-cli abi
-/// erc20.abi -> ./outputs/erc20.mbt  (Erc20)
-/// ```
-///
-/// Nothing here raises out of `main`. One unreadable ABI among twenty is worth
-/// reporting and stepping over, not worth throwing away the other nineteen —
-/// so failures are counted, printed as they happen, and answered for in the
-/// exit code, which is what a build script actually reads.
-fn main {
+/// Nothing here raises. One unreadable ABI among twenty is worth reporting and
+/// stepping over, not worth throwing away the other nineteen — so failures are
+/// counted, printed as they happen, and answered for in the exit code, which is
+/// what a build script actually reads.
+fn handle_abi(args : Array[String]) -> Int {
+  guard args is [] else {
+    return refuse(
+      "endor-cli abi: unexpected argument `\{args[0]}`",
+      print_abi_usage,
+    )
+  }
   banner()
   let config = read_config() catch {
     e => {
       println("error: \{CONFIG_FILE}: \{e}")
-      return @sys.exit(1)
+      return 1
     }
   }
   if config.version is Some(version) {
     println("config: version \{version}")
   }
-  if run(config) > 0 {
-    @sys.exit(1)
+  if generate_all(config) > 0 {
+    1
+  } else {
+    0
   }
+}
+
+///|
+fn print_abi_usage() -> Unit {
+  println(
+    (
+      #|usage: endor-cli abi
+      #|
+      #|Write one MoonBit contract preset per ABI document. EXPERIMENTAL.
+      #|
+      #|Takes no arguments: what it reads and where it writes is `endor.yaml` in
+      #|the directory it is run from, so the generated files a repository holds
+      #|are reproducible by anyone who clones it.
+      #|
+      #|  version: v0.3.0
+      #|  abi:
+      #|    in: ./abi      # the directory of ABI documents to read
+      #|    out: ./outputs # where to write MoonBit, created if missing
+      #|
+      #|One input becomes one output named after it — `erc20.abi` generates
+      #|`erc20.mbt` holding `pub struct Erc20` — plus a `moon.pkg` alongside if
+      #|there is not one already. An existing `moon.pkg` is never touched, only
+      #|reported on.
+      #|
+      #|Exits non-zero if any document could not be generated; the ones that
+      #|could are still written.
+    ),
+  )
 }
 
 ///|
@@ -56,10 +86,10 @@ fn banner() -> Unit {
 ///|
 /// Generate every file the config asks for, answering with how many failed.
 ///
-/// Split out of `main` so the whole pipeline can be driven from a test against
-/// a scratch directory: `main` itself is only the banner, the config and the
-/// exit code, none of which a test can observe.
-fn run(config : Config) -> Int {
+/// Split out of `handle_abi` so the whole pipeline can be driven from a test
+/// against a scratch directory: what `handle_abi` adds around it is the banner,
+/// the config and the exit code, none of which a test can observe.
+fn generate_all(config : Config) -> Int {
   let inputs = list_inputs(config.abi_in) catch {
     e => {
       println("error: cannot read \{config.abi_in}: \{@debug.to_string(e)}")
@@ -107,38 +137,6 @@ const CONFIG_FILE = "endor.yaml"
 /// run from.
 fn read_config(path? : String = CONFIG_FILE) -> Config raise {
   parse_config(@fs.read_file_to_string(path))
-}
-
-///|
-/// The files of a directory, sorted.
-///
-/// Sorted because the order `read_dir` answers in is the filesystem's, and a
-/// generator whose output order depends on that produces a different summary
-/// on a different machine for the same input. Directories are stepped over
-/// rather than descended into: an `abi/` holding a subdirectory is far more
-/// likely to be someone's own layout than a request to recurse.
-fn list_inputs(dir : String) -> Array[String] raise {
-  let files = []
-  for entry in @fs.read_dir(dir) {
-    if !@fs.is_dir(join(dir, entry)) {
-      files.push(entry)
-    }
-  }
-  files.sort()
-  files
-}
-
-///|
-/// Make sure a directory exists, answering with the reason it does not.
-///
-/// `create_dir` failing is the *normal* case on a second run, so the failure
-/// that matters is not the raise — it is the path still not being there
-/// afterwards.
-fn ensure_dir(dir : String) -> String? {
-  @fs.create_dir(dir) catch {
-    e => if !@fs.path_exists(dir) { return Some(@debug.to_string(e)) }
-  }
-  None
 }
 
 ///|
@@ -191,30 +189,5 @@ fn write_package_config(dir : String) -> Unit {
     e => println("warning: cannot write \{path}: \{@debug.to_string(e)}")
   } noraise {
     _ => println("wrote \{path}")
-  }
-}
-
-///|
-/// A file name without its extension: `erc20.abi` is `erc20`.
-///
-/// Only the last extension goes, and a name that is *all* extension (`.abi`)
-/// keeps it — otherwise a dotfile would generate a struct with no name at all.
-fn stem(file : String) -> String {
-  match file.rev_split_once(".") {
-    Some((name, _)) if name != "" => name.to_owned()
-    _ => file
-  }
-}
-
-///|
-/// Two path segments, with exactly one separator between them.
-///
-/// The config's `in` and `out` are written by hand, so `./abi` and `./abi/`
-/// both turn up and both have to mean the same directory.
-fn join(dir : String, name : String) -> String {
-  if dir == "" || dir.has_suffix("/") {
-    dir + name
-  } else {
-    dir + "/" + name
   }
 }

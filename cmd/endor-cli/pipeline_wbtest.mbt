@@ -1,6 +1,7 @@
 ///|
-/// The whole CLI apart from `main`'s banner and exit code, driven against
-/// scratch directories on a real filesystem.
+/// The `abi` subcommand's pipeline — everything under `handle_abi` bar the
+/// banner and the exit code — driven against scratch directories on a real
+/// filesystem.
 ///
 /// It runs against the repository's own `fixtures/abi/erc20.abi` rather than
 /// an inlined copy: the file the generator is pointed at in anger is a file on
@@ -66,7 +67,7 @@ test "the fixture ABI goes in and a MoonBit package comes out" {
     abi_in: given("erc20-in", [("erc20.abi", abi)]),
     abi_out: out,
   }
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   // named after the file, not after anything inside the ABI
   let code = @fs.read_file_to_string(join(out, "erc20.mbt"))
   assert_true(code.contains("pub struct Erc20 {"))
@@ -94,10 +95,10 @@ test "a rerun rewrites the generated files and leaves moon.pkg alone" {
     abi_in: given("rerun-in", [("erc20.abi", abi)]),
     abi_out: out,
   }
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   let mine = @fs.read_file_to_string(join(out, "moon.pkg")) + "\n// mine\n"
   @fs.write_string_to_file(join(out, "moon.pkg"), mine)
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   assert_eq(@fs.read_file_to_string(join(out, "moon.pkg")), mine)
 }
 
@@ -118,7 +119,7 @@ test "one unusable ABI does not cost the others" {
     ]),
     abi_out: out,
   }
-  assert_eq(run(config), 2)
+  assert_eq(generate_all(config), 2)
   assert_true(@fs.path_exists(join(out, "erc20.mbt")))
   assert_false(@fs.path_exists(join(out, "truncated.mbt")))
   assert_false(@fs.path_exists(join(out, "9lives.mbt")))
@@ -127,7 +128,7 @@ test "one unusable ABI does not cost the others" {
 ///|
 test "an input directory that is not there is reported, not raised" {
   assert_eq(
-    run({
+    generate_all({
       version: None,
       abi_in: "_build/cli-test/nope",
       abi_out: "_build/cli-test/nope-out",
@@ -143,7 +144,7 @@ test "an empty input directory is nothing to do, not a failure" {
     abi_in: given("empty-in", []),
     abi_out: "_build/cli-test/empty-out",
   }
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   // and it stopped before creating an output directory it had nothing to fill
   assert_false(@fs.path_exists(join(config.abi_out, "moon.pkg")))
 }
@@ -166,7 +167,7 @@ test "the output directory is created when it is missing" {
     abi_out: out,
   }
   let _ = fresh("created-out")
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   assert_true(@fs.path_exists(join(out, "erc20.mbt")))
 }
 
@@ -207,7 +208,7 @@ test "an output directory that cannot be created stops the run" {
     abi_out: join(blocked, "out"),
   }
   assert_true(ensure_dir(config.abi_out) is Some(_))
-  assert_eq(run(config), 1)
+  assert_eq(generate_all(config), 1)
 }
 
 ///|
@@ -224,7 +225,7 @@ test "an output path that is not a directory fails the file it was for" {
     abi_in: given("not-a-dir-in", [("erc20.abi", fixture_abi())]),
     abi_out: blocked,
   }
-  assert_eq(run(config), 1)
+  assert_eq(generate_all(config), 1)
 }
 
 ///|
@@ -251,16 +252,9 @@ test "a skipped member is counted and reported" {
     ]),
     abi_out: out,
   }
-  assert_eq(run(config), 0)
+  assert_eq(generate_all(config), 0)
   let code = @fs.read_file_to_string(join(out, "vault.mbt"))
   assert_true(code.contains("Vault::paused("))
   assert_true(code.contains("// Not generated from this ABI:"))
   assert_false(code.contains("Vault::holders("))
-}
-
-///|
-test "the banner warns before anything is generated" {
-  // it takes no arguments and has no answer to assert on; what is being
-  // pinned is that every run pays for it, including a run that succeeds
-  banner()
 }

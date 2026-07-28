@@ -105,7 +105,9 @@ Layout:
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
 - `cmd/` — **experimental, in progress (#48)**: `endor-cli`, the command-line
-  front end to `abi/codegen`. Like `examples/`, a separate MoonBit module
+  tools; `cmd/endor-cli/` is the binary and `abi`, the front end to
+  `abi/codegen`, is so far its only real subcommand. How to add one is
+  `cmd/README.md#adding-a-subcommand`. Like `examples/`, a separate MoonBit module
   (`poteto0/endor-cli`, listed in `moon.work`) so its dependencies stay out of
   this one: it needs `moonbitlang/x` for file access and therefore a `native`
   build, and the SDK must need neither. Being a separate module keeps it out of

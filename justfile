@@ -123,8 +123,8 @@ codegen-check:
   printf 'version: v%s\nabi:\n  in: ./abi\n  out: ./outputs\n' \
     "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)" > "$scratch/endor.yaml"
   cd cmd && moon build --target native && cd ..
-  cli="{{justfile_directory()}}/_build/native/debug/build/poteto0/endor-cli/abi/abi.exe"
-  (cd "$scratch" && "$cli")
+  cli="{{justfile_directory()}}/_build/native/debug/build/poteto0/endor-cli/endor-cli/endor-cli.exe"
+  (cd "$scratch" && "$cli" abi)
   # a package of *this* module, so it resolves `poteto0/endor` from the working
   # tree and not from whatever the registry last published
   rm -rf _codegen_check && mkdir _codegen_check
@@ -168,6 +168,11 @@ release-check tag:
     "$(grep -m1 '^version' cmd/moon.mod | cut -d'"' -f2)"
   expect "cmd dependency on poteto0/endor" \
     "$(grep -m1 'poteto0/endor@' cmd/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
+  # and what the binary itself answers `endor-cli version` with — an installed
+  # binary has no `moon.mod` to read, so its version is a constant that has to
+  # be moved by hand and is therefore the one that gets forgotten
+  expect "cmd/endor-cli VERSION" \
+    "$(grep -m1 '^const VERSION' cmd/endor-cli/version.mbt | cut -d'"' -f2)"
   [ "$fail" -eq 0 ] || exit 1
   echo "ok: every declared version is ${want}"
 

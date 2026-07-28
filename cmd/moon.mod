@@ -19,7 +19,7 @@ license = "MIT"
 
 preferred_target = "native"
 
-description = "Experimental code generator for poteto0/endor: MoonBit contract presets from ABI documents"
+description = "Command-line tools for poteto0/endor; `endor-cli abi` generates MoonBit contract presets from ABI documents (experimental)"
 
 import {
   "poteto0/endor@0.3.0",

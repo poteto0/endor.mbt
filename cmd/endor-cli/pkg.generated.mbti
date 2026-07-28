@@ -1,5 +1,9 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "poteto0/endor-cli/abi"
+package "poteto0/endor-cli/endor-cli"
+
+import {
+  "moonbitlang/core/debug",
+}
 
 // Values
 pub fn parse_config(String) -> Config raise ConfigError
@@ -12,11 +16,15 @@ pub(all) suberror ConfigError {
 pub impl Show for ConfigError
 
 // Types and methods
+type Command
+
 pub(all) struct Config {
   version : String?
   abi_in : String
   abi_out : String
 }
+
+type Invocation derive(Eq, @debug.Debug)
 
 // Type aliases
 
