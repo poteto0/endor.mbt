@@ -22,11 +22,15 @@ node answers `null` for a receipt or block it does not have.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
-Message signing is planned but not implemented — do not describe it as
-available. There is no
-ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
-`data` are raw `Hex`. Callers
-reach unwrapped methods through the generic `Provider::request` escape hatch.
+**Contracts are called through their ABI**: `abi/` encodes and decodes ABI
+values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
+`contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
+top of `eth_call` / `eth_sendTransaction`. Message signing is planned but not
+implemented — do not describe it as available. Neither is decoding a *log* into
+an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
+`@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
+match `topics[0]` against. Callers reach unwrapped methods through the generic
+`Provider::request` escape hatch.
 
 **The SDK is stateless.** It caches no current account and no current chain:
 events are delivered to callbacks and nowhere else, and every read goes to the
@@ -56,6 +60,13 @@ Layout:
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
   it without a cycle
+- `abi/` — the contract ABI: `AbiType` / `AbiValue`, `encode` / `decode`,
+  `signature` / `selector` / `event_topic` / `encode_call`. Depends on `types`
+  and `crypto` and on no transport, so calldata can be built with no provider
+  in hand
+- `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
+  and the answer decoded, plus the `Erc20` preset. `ContractError` keeps the
+  wallet's failures (`Rpc`) apart from the ABI's (`Abi`)
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;

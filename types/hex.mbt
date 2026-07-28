@@ -49,6 +49,28 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 }
 
 ///|
+/// The hex alphabet, as a `FixedArray` so a nibble can index it.
+let hex_digit : FixedArray[Char] = [
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+]
+
+///|
+/// Encode raw bytes as a `0x`-prefixed hex byte string. This is the direction
+/// nothing on the wire takes — a node always answers hex — but a caller has to,
+/// to hand a wallet something that was computed rather than read back: ABI
+/// calldata, or a `keccak256` digest.
+pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
+  let buf = StringBuilder::new()
+  buf.write_string("0x")
+  for b in bytes {
+    let n = b.to_int()
+    buf.write_char(hex_digit[n >> 4])
+    buf.write_char(hex_digit[n & 0x0f])
+  }
+  Hex::{ inner: buf.to_string() }
+}
+
+///|
 /// The canonical `0x`-prefixed lowercase string form.
 pub fn Hex::to_string(self : Hex) -> String {
   self.inner

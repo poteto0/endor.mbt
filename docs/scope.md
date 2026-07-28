@@ -3,8 +3,9 @@
 What `poteto0/endor` covers. It reads accounts, balances and the current chain,
 evaluates calls without broadcasting them, sends transactions, switches the
 wallet between chains through the `wallet_*` methods below, waits for what it
-sent to be mined, reads blocks and receipts, and subscribes to the provider
-events that say those answers went stale. It does not sign messages.
+sent to be mined, reads blocks and receipts, calls contracts through their ABI,
+and subscribes to the provider events that say those answers went stale. It does
+not sign messages.
 
 The SDK is **stateless**: it caches no current account and no current chain.
 Every value comes from the wallet at the moment it is asked for, and events are
@@ -74,9 +75,9 @@ let gas = @provider.estimate_gas(wallet, req).to_uint64()
 what the caller leaves out stays out of the request rather than being sent as
 `null`.
 
-There is no ABI layer yet ([#18](https://github.com/poteto0/endor.mbt/issues/18)),
-so `data` is calldata the caller encodes and the answer is return data the caller
-decodes — a selector plus ABI-encoded arguments in, raw bytes out.
+`data` is calldata and the answer is return data: a selector plus ABI-encoded
+arguments in, raw bytes out. [Calling a contract](#calling-a-contract) below is
+the same thing with the encoding done for you.
 
 A call the node cannot execute — a revert — is answered as an error, so it
 arrives as a `ProviderError` (typically `Rpc(code=3, …)`) rather than as an empty
@@ -174,8 +175,11 @@ a successful transaction — `receipt.status` is `Success` or `Reverted`, and it
 the field to check. Beyond it a receipt carries `block_number` / `block_hash`,
 `gas_used` / `cumulative_gas_used` / `effective_gas_price`, `from` / `to`,
 `contract_address` (present exactly when `to` is absent, i.e. for a deployment)
-and `logs`, each an `@endor.Log` with its raw `topics` and `data` — there is no
-ABI layer yet, so decoding an event's arguments is still the caller's job.
+and `logs`, each an `@endor.Log` with its raw `topics` and `data`.
+`@abi.event_topic("Transfer(address,address,uint256)")` is what `topics[0]` is
+matched against to find the logs of one event, and `@abi.decode` reads the
+non-indexed arguments out of `data`; pairing indexed arguments back up with
+their topics is not wrapped yet.
 
 A `Block` carries the header (`number`, `hash`, `parent_hash`, `timestamp`,
 `miner`, `gas_limit`, `gas_used`, `base_fee_per_gas`) and `transactions` as a
@@ -219,6 +223,81 @@ when empty; `NativeCurrency`'s `decimals` defaults to 18. Presets such as
 Adding a chain is also how a wallet switches to it, so `switch_or_add_chain`'s
 second switch is redundant on wallets that do both — it is there for the ones
 that add without switching.
+
+### Calling a contract
+
+| Function                                  | Underneath            | Returns                 |
+| ----------------------------------------- | --------------------- | ----------------------- |
+| `Contract::call(p, name~, …)`             | `eth_call`            | `Array[@abi.AbiValue]`  |
+| `Contract::send(p, from~, name~, …)`      | `eth_sendTransaction` | `@endor.TxHash`         |
+
+`@contract.Contract` is the ABI layer over the two helpers above: `call` encodes
+the arguments, evaluates the call and decodes the answer as `outputs`; `send`
+encodes the arguments and broadcasts them, so it prompts and answers with a
+hash. Neither registers an ABI up front — each call names the function it makes:
+
+```
+let values = @contract.Contract::new(nft).call(
+  wallet,
+  name="ownerOf",
+  inputs=[Uint(256)],       // the parameter types, which fix the selector
+  args=[Uint(id)],          // the values, checked against those types
+  outputs=[Address],        // how to read the answer back
+  from?, block?,            // optional, as for `call` above
+)
+```
+
+`inputs`, `args` and `outputs` all default to empty, so a no-argument getter
+that answers nothing is `call(p, name="poke")`.
+
+Errors arrive as `@contract.ContractError`, which keeps the two failures apart:
+`Rpc(e)` is the wallet or the node — a rejected prompt, a revert — and `Abi(e)`
+means the contract is not the one the caller described, most often an address
+that is not the contract it was taken for. No retry helps with the second.
+
+#### The ERC-20 preset
+
+`@contract.Erc20` spells the standard interface once: `name`, `symbol`,
+`decimals`, `total_supply`, `balance_of`, `allowance`, `transfer`, `approve`,
+and `Erc20::transfer_topic()` for finding transfers in a receipt's logs.
+
+```
+let token = @contract.Erc20::new(address)
+let amount = token.balance_of(wallet, who)      // BigInt, in the token's own unit
+let hash = token.transfer(wallet, from~, to~, amount~)   // prompts, then broadcasts
+```
+
+Amounts are `BigInt` in the token's smallest unit, never scaled: `decimals` says
+where the point goes, and moving it is a presentation concern the SDK stays out
+of, exactly as it does for `Wei`. Reading is four `eth_call`s that cost the user
+nothing; `transfer` and `approve` sign, so they prompt and answer with a `TxHash`
+whose success is in the receipt.
+
+### Encoding and decoding on their own
+
+`@abi` is the encoding underneath, usable without a provider:
+
+| Function                                | Answers                                    |
+| --------------------------------------- | ------------------------------------------ |
+| `@abi.encode(types, values)`            | the values, ABI-encoded, as `@endor.Hex`   |
+| `@abi.decode(types, data)`              | `Array[@abi.AbiValue]`                     |
+| `@abi.encode_call(name~, inputs~, args~)` | selector plus arguments — calldata        |
+| `@abi.signature(name~, inputs~)`        | `"transfer(address,uint256)"`              |
+| `@abi.selector(signature)`              | the 4 bytes calldata starts with           |
+| `@abi.event_topic(signature)`           | the 32-byte topic an event is logged under |
+
+`@abi.AbiType` describes a parameter — `Uint(256)`, `Address`, `FixedBytes(32)`,
+`Array(String)`, `FixedArray(t, k)`, `Tuple([…])` — and `@abi.AbiValue` carries
+the value. The types travel alongside the values because ABI data carries no
+type tags: only the type says how wide a `uint` is (and so whether the value
+fits), and only the type tells a fixed-length array from a dynamic one.
+
+`@abi.AbiError` is `InvalidAbiType` (a type no contract can declare, `uint7`),
+`InvalidValue` (a value that does not fit its type) or `InvalidData` (encoded
+bytes that will not read back as the expected types).
+
+Not covered: parsing a JSON ABI file, `bytesN` beyond 32, decoding a log's
+indexed arguments, and EIP-712 typed-data hashing.
 
 ### Provider events
 
@@ -276,6 +355,8 @@ Alongside those:
   `ReceiptStatus` / `Log` — domain types with hex and JSON codecs
 - `@provider.MockProvider::on_sequence` — canned answers one per call, for
   flows that retry (the 4902 fallback above is tested with it)
+- `@abi.AbiType` / `AbiValue` / `AbiError`, `@contract.Contract` / `Erc20` /
+  `ContractError` — the contract layer above
 - `@provider.ProviderError` — EIP-1193 / EIP-1474 codes mapped onto typed
   variants (`UserRejected`, `UnrecognizedChain`, …). Wallet-side failures never
   panic.
@@ -283,6 +364,7 @@ Alongside those:
 ## Planned, not implemented yet
 
 - message signing (`personal_sign`, `eth_signTypedData_v4`)
+- decoding a log into an event's arguments, indexed topics included
 - EIP-6963 — enumerating several injected providers instead of taking
   `globalThis.ethereum`
 
@@ -316,7 +398,8 @@ The raw `Json` it returns can be decoded with the same codecs the helpers use �
 
 ## Backends
 
-The typed RPC layer and the domain types are plain MoonBit. Only the injected
-provider itself is JS, so `supported_targets = "js"` is confined to `endor/ffi/js`
-and `endor/provider/browser`; the root package, `endor/types` and
+The typed RPC layer, the domain types and the contract layer are plain MoonBit.
+Only the injected provider itself is JS, so `supported_targets = "js"` is
+confined to `endor/ffi/js` and `endor/provider/browser`; the root package,
+`endor/types`, `endor/crypto`, `endor/abi`, `endor/contract` and
 `endor/provider` stay backend-agnostic.

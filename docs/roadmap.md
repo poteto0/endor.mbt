@@ -11,7 +11,7 @@
 
 |        | 目標                                                                                        | issue                                                 |
 | ------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **L1** | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20/721 プリセット             | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
+| **L1** | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20 プリセット（済）／残りはログのデコードと ERC-721 | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
 | **L2** | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
 | **L3** | ドキュメント / クックブック、semver ポリシー確立                                            | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
 
@@ -68,8 +68,8 @@ M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も�
 決着済み: `crypto/` に MoonBit で自前実装（[#28](https://github.com/poteto0/endor.mbt/issues/28)）。
 JS への FFI は選ばず、leaf パッケージに置いたので backend-agnostic のまま上の層から
 使える。これに乗って EIP-55 チェックサム付きアドレスは
-[#29](https://github.com/poteto0/endor.mbt/issues/29) で入った。残りは L1 の関数
-セレクタとイベント topic、EIP-712 の typed data hashing。
+[#29](https://github.com/poteto0/endor.mbt/issues/29) で、関数セレクタとイベント
+topic は L1 の `abi/` で入った。残りは EIP-712 の typed data hashing。
 
 **イベントの FFI 設計（[#16](https://github.com/poteto0/endor.mbt/issues/16)）** —
 JS コールバックの寿命と MoonBit async の橋渡しに加えて、「SDK が現在の account /
@@ -99,7 +99,7 @@ S1 の判断 (#4)  — L2 をやるなら publish 前にリファクタ
  → 検証手段の決定 (#12) → M2 送金 (#10) + M3 receipt (#11)
  → keccak256 の方針決定 (#13) → M4 署名 (#14) → M5 チェーン切替 (#15)
  → イベント設計 (#16) → M7 EIP-6963 (#17)
- → L1 コントラクト層 (#18)
+ → L1 コントラクト層 (#18) — ABI と Contract / Erc20 まで入った
 ```
 
 L2（[#19](https://github.com/poteto0/endor.mbt/issues/19)）と

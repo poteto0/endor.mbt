@@ -108,6 +108,7 @@ pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Hex::byte_length(Self) -> Int
+pub fn Hex::from_bytes(Bytes) -> Self
 pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError
 pub fn Hex::is_empty(Self) -> Bool

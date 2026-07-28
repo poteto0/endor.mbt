@@ -1,0 +1,62 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/abi"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+  "poteto0/endor/types",
+}
+
+// Values
+pub fn decode(Array[AbiType], @types.Hex) -> Array[AbiValue] raise AbiError
+
+pub fn encode(Array[AbiType], Array[AbiValue]) -> @types.Hex raise AbiError
+
+pub fn encode_call(name~ : String, inputs~ : Array[AbiType], args~ : Array[AbiValue]) -> @types.Hex raise AbiError
+
+pub fn event_topic(String) -> @types.Hex
+
+pub fn selector(String) -> @types.Hex
+
+pub fn signature(name~ : String, inputs~ : Array[AbiType]) -> String raise AbiError
+
+// Errors
+pub(all) suberror AbiError {
+  InvalidAbiType(String)
+  InvalidValue(String)
+  InvalidData(String)
+} derive(Eq)
+pub impl Show for AbiError
+
+// Types and methods
+pub(all) enum AbiType {
+  Uint(Int)
+  Int(Int)
+  Address
+  Bool
+  FixedBytes(Int)
+  Bytes
+  String
+  Array(AbiType)
+  FixedArray(AbiType, Int)
+  Tuple(Array[AbiType])
+} derive(Eq, @debug.Debug)
+pub fn AbiType::name(Self) -> String raise AbiError
+pub impl Show for AbiType
+
+pub(all) enum AbiValue {
+  Uint(@bigint.BigInt)
+  Int(@bigint.BigInt)
+  Address(@types.Address)
+  Bool(Bool)
+  Bytes(Bytes)
+  String(String)
+  Array(Array[AbiValue])
+  Tuple(Array[AbiValue])
+} derive(Eq, @debug.Debug)
+pub impl Show for AbiValue
+
+// Type aliases
+
+// Traits
+

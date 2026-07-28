@@ -25,6 +25,9 @@
       .card h2 {
         margin-top: 0;
       }
+      .card + .card {
+        margin-top: 1.5rem;
+      }
       .status {
         color: #555;
       }
@@ -87,7 +90,8 @@
     <h1>endor.mbt — get wallet address</h1>
     <p>
       This demo detects MetaMask, requests the connected wallet address, sends
-      the chain's native currency, and switches chains using the
+      the chain's native currency, switches chains, and reads and transfers an
+      ERC-20 token through the ABI layer, using the
       <code>endor</code> MoonBit SDK (compiled to JavaScript). Everything
       below the heading is rendered from MoonBit with
       <a href="https://github.com/mizchi/luna.mbt">luna.mbt</a>, so the wallet
@@ -99,6 +103,15 @@
       point it at a testnet first — the <strong>Sepolia</strong> and
       <strong>Polygon Amoy</strong> buttons switch to one, adding it to the
       wallet if it has never seen it. Both have public faucets.
+    </p>
+
+    <p>
+      The token card takes any ERC-20 address on the chain the wallet is on —
+      paste one and press <strong>Load token</strong>. Reading it
+      (<code>name</code>, <code>symbol</code>, <code>decimals</code>,
+      <code>balanceOf</code>) is four <code>eth_call</code>s and costs nothing;
+      <strong>Send tokens</strong> is a real <code>transfer</code> and prompts
+      the wallet.
     </p>
 
     <!-- Luna renders the wallet card into this element; see main.mbt. -->
