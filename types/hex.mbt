@@ -84,6 +84,43 @@ pub fn Hex::to_string(self : Hex) -> String {
 }
 
 ///|
+/// The value of one hex digit. Total on purpose: every character reached here
+/// came from a validated `Hex`, so a non-hex character cannot occur.
+fn hex_nibble(c : Char) -> Int {
+  match c {
+    '0'..='9' => c.to_int() - '0'.to_int()
+    'a'..='f' => c.to_int() - 'a'.to_int() + 10
+    'A'..='F' => c.to_int() - 'A'.to_int() + 10
+    _ => 0
+  }
+}
+
+///|
+/// The raw bytes this value spells — the reverse of `Hex::from_bytes`. Needed
+/// wherever a hex byte string has to be hashed or packed alongside other
+/// bytes, such as EIP-712's `encodeData`.
+///
+/// ```mbt check
+/// test "doc: hex to bytes" {
+///   let h = @types.Hex::from_string("0xdead")
+///   assert_eq(h.to_bytes(), b"\xde\xad")
+/// }
+/// ```
+pub fn Hex::to_bytes(self : Hex) -> Bytes {
+  let digits = self.inner[2:].to_owned()
+  let out = Array::new(capacity=digits.length() / 2)
+  let mut high = 0
+  for i, c in digits.iter2() {
+    if i % 2 == 0 {
+      high = hex_nibble(c)
+    } else {
+      out.push(((high << 4) | hex_nibble(c)).to_byte())
+    }
+  }
+  Bytes::makei(out.length(), i => out[i])
+}
+
+///|
 /// How many bytes the value holds.
 pub fn Hex::byte_length(self : Hex) -> Int {
   (self.inner.length() - 2) / 2

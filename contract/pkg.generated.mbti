@@ -32,9 +32,9 @@ pub struct Contract {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Contract::address(Self) -> @types.Address
-pub async fn[P : @provider.Provider] Contract::call(Self, P, name~ : String, inputs? : Array[@abi.AbiType], args? : Array[@abi.AbiValue], outputs? : Array[@abi.AbiType], from? : @types.Address, block? : @types.BlockTag) -> Array[@abi.AbiValue] raise ContractError
+pub async fn[P : @provider.Provider] Contract::call(Self, P, name~ : String, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], outputs? : Array[@types.AbiType], from? : @types.Address, block? : @types.BlockTag) -> Array[@types.AbiValue] raise ContractError
 pub fn Contract::new(@types.Address) -> Self
-pub async fn[P : @provider.Provider] Contract::send(Self, P, from~ : @types.Address, name~ : String, inputs? : Array[@abi.AbiType], args? : Array[@abi.AbiValue], value? : @types.Wei) -> @types.TxHash raise ContractError
+pub async fn[P : @provider.Provider] Contract::send(Self, P, from~ : @types.Address, name~ : String, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei) -> @types.TxHash raise ContractError
 
 // Type aliases
 

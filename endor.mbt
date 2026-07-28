@@ -23,4 +23,6 @@ pub using @types {
   type TypedDataDomain,
   type TypedDataField,
   type CodecError,
+  type AbiType,
+  type AbiValue,
 }

@@ -12,6 +12,10 @@ import {
 // Types and methods
 
 // Type aliases
+pub using @types {type AbiType}
+
+pub using @types {type AbiValue}
+
 pub using @types {type Address}
 
 pub using @types {type Block}
