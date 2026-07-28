@@ -98,6 +98,8 @@ pub fn ChainParams::chain_id(Self) -> ChainId
 pub fn ChainParams::new(ChainId, chain_name~ : String, rpc_urls~ : Array[String], native_currency~ : NativeCurrency, block_explorer_urls? : Array[String]) -> Self
 pub fn ChainParams::to_json(Self) -> Json
 
+type ElementaryType derive(Eq)
+
 pub(all) enum Fee {
   Auto
   Eip1559(max_fee_per_gas~ : Wei, max_priority_fee_per_gas~ : Wei)
@@ -113,6 +115,7 @@ pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError
 pub fn Hex::from_utf8(String) -> Self
 pub fn Hex::is_empty(Self) -> Bool
+pub fn Hex::to_bytes(Self) -> Bytes
 pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
@@ -189,9 +192,14 @@ pub impl Show for TxHash
 pub struct TypedData {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn TypedData::digest(Self) -> Hex raise CodecError
+pub fn TypedData::domain_separator(Self) -> Hex raise CodecError
+pub fn TypedData::encode_type(Self, String) -> String
+pub fn TypedData::hash_struct(Self) -> Hex raise CodecError
 pub fn TypedData::new(TypedDataDomain, primary_type~ : String, types~ : Map[String, Array[TypedDataField]], message~ : Json) -> Self raise CodecError
 pub fn TypedData::primary_type(Self) -> String
 pub fn TypedData::to_json(Self) -> Json
+pub fn TypedData::type_hash(Self, String) -> Hex
 
 pub struct TypedDataDomain {
   // private fields

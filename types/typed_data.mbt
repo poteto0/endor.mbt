@@ -317,26 +317,61 @@ fn parse_size(s : String) -> Int? {
 }
 
 ///|
-/// Whether `type_name` is one of EIP-712's own types rather than a struct the
-/// document defines: `address`, `bool`, `string`, `bytes`, `bytes1`…`bytes32`,
-/// `uint8`…`uint256` and `int8`…`int256` in steps of 8.
-fn is_elementary(type_name : String) -> Bool {
+/// EIP-712's own atomic types, classified once so `is_elementary`,
+/// `validate_elementary` and (in `typed_data_digest.mbt`) `encode_atomic` all
+/// dispatch off the same parse of the type name rather than each re-deriving
+/// it.
+enum ElementaryType {
+  Uint(Int)
+  Int(Int)
+  Address
+  Bool
+  FixedBytes(Int)
+  Bytes
+  String
+} derive(Eq)
+
+///|
+/// Classify `type_name` as one of EIP-712's own types — `address`, `bool`,
+/// `string`, `bytes`, `bytes1`…`bytes32`, `uint8`…`uint256` and
+/// `int8`…`int256` in steps of 8 — or `None` if it is neither elementary nor
+/// (necessarily) a struct name.
+fn classify_elementary(type_name : String) -> ElementaryType? {
   match type_name {
-    "address" | "bool" | "string" | "bytes" => true
+    "string" => Some(String)
+    "bytes" => Some(Bytes)
+    "bool" => Some(Bool)
+    "address" => Some(Address)
     _ =>
-      match elementary_size(type_name, prefix="bytes") {
-        Some(n) => n >= 1 && n <= 32
-        None =>
-          match elementary_size(type_name, prefix="uint") {
-            Some(bits) => valid_bits(bits)
-            None =>
-              match elementary_size(type_name, prefix="int") {
-                Some(bits) => valid_bits(bits)
-                None => false
-              }
-          }
+      if elementary_size(type_name, prefix="bytes") is Some(n) {
+        if n >= 1 && n <= 32 {
+          Some(FixedBytes(n))
+        } else {
+          None
+        }
+      } else if elementary_size(type_name, prefix="uint") is Some(bits) {
+        if valid_bits(bits) {
+          Some(Uint(bits))
+        } else {
+          None
+        }
+      } else if elementary_size(type_name, prefix="int") is Some(bits) {
+        if valid_bits(bits) {
+          Some(Int(bits))
+        } else {
+          None
+        }
+      } else {
+        None
       }
   }
+}
+
+///|
+/// Whether `type_name` is one of EIP-712's own types rather than a struct the
+/// document defines.
+fn is_elementary(type_name : String) -> Bool {
+  classify_elementary(type_name) is Some(_)
 }
 
 ///|
@@ -423,61 +458,56 @@ fn validate_elementary(
   value : Json,
   path~ : String,
 ) -> Unit raise CodecError {
-  match type_name {
-    "string" => {
+  match classify_elementary(type_name) {
+    Some(String) => {
       guard value is String(_) else {
         raise InvalidJson("\{path} must be a string")
       }
     }
-    "bool" => {
+    Some(Bool) => {
       guard value is (True | False) else {
         raise InvalidJson("\{path} must be a boolean")
       }
     }
-    "address" => {
+    Some(Address) => {
       guard value is String(s) else {
         raise InvalidJson("\{path} must be an address string")
       }
       ignore(Address::from_string(s))
     }
-    "bytes" => {
+    Some(Bytes) => {
       guard value is String(s) else {
         raise InvalidJson("\{path} must be a hex string")
       }
       ignore(Hex::from_string(s))
     }
-    _ =>
-      if elementary_size(type_name, prefix="bytes") is Some(n) {
-        guard value is String(s) else {
-          raise InvalidJson("\{path} must be a hex string (\{type_name})")
-        }
-        let hex = Hex::from_string(s)
-        guard hex.byte_length() == n else {
-          raise InvalidLength("\{path} must be \{n} bytes (\{type_name}): \{s}")
-        }
-      } else if elementary_size(type_name, prefix="uint") is Some(bits) {
-        validate_integer(value, bits, signed=false, path~, type_name~)
-      } else if elementary_size(type_name, prefix="int") is Some(bits) {
-        validate_integer(value, bits, signed=true, path~, type_name~)
-      } else {
-        raise InvalidJson("\{path} has unknown type \{type_name}")
+    Some(FixedBytes(n)) => {
+      guard value is String(s) else {
+        raise InvalidJson("\{path} must be a hex string (\{type_name})")
       }
+      let hex = Hex::from_string(s)
+      guard hex.byte_length() == n else {
+        raise InvalidLength("\{path} must be \{n} bytes (\{type_name}): \{s}")
+      }
+    }
+    Some(Uint(bits)) =>
+      validate_integer(value, bits, signed=false, path~, type_name~)
+    Some(Int(bits)) =>
+      validate_integer(value, bits, signed=true, path~, type_name~)
+    None => raise InvalidJson("\{path} has unknown type \{type_name}")
   }
 }
 
 ///|
-/// Check an integer value fits the width it is declared at. A `uint256` does
-/// not fit a JSON number, so one that has already lost precision is refused
-/// rather than signed: past 2^53 the document has to carry the value as a
-/// string, which is what wallets' own examples do.
-fn validate_integer(
+/// Read an integer value off the wire: a JSON number, or (past 2^53, where a
+/// double stops holding every value exactly) a decimal or `0x`-prefixed
+/// string.
+fn integer_value(
   value : Json,
-  bits : Int,
-  signed~ : Bool,
   path~ : String,
   type_name~ : String,
-) -> Unit raise CodecError {
-  let n = match value {
+) -> BigInt raise CodecError {
+  match value {
     Number(d, ..) => {
       let i = d.to_int64()
       guard i.to_double() == d else {
@@ -493,6 +523,21 @@ fn validate_integer(
         "\{path} must be a number or a numeric string (\{type_name})",
       )
   }
+}
+
+///|
+/// Check an integer value fits the width it is declared at. A `uint256` does
+/// not fit a JSON number, so one that has already lost precision is refused
+/// rather than signed: past 2^53 the document has to carry the value as a
+/// string, which is what wallets' own examples do.
+fn validate_integer(
+  value : Json,
+  bits : Int,
+  signed~ : Bool,
+  path~ : String,
+  type_name~ : String,
+) -> Unit raise CodecError {
+  let n = integer_value(value, path~, type_name~)
   let (low, high) = if signed {
     let half = BigInt::from_int(1) << (bits - 1)
     (-half, half - BigInt::from_int(1))
