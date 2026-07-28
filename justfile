@@ -89,13 +89,58 @@ archive-check:
   }
   echo "ok: the archive ships only the SDK packages"
 
+# `cmd/` is its own module with its own backend: it needs real file access,
+# which means `native`, while everything above pins `js`. So it gets its own
+# recipes rather than a `--target` argument on the shared ones. `moon fmt` and
+# `moon info` at the root already reach it — `moon.work` lists it as a member.
+[group("ci")]
+cli-check:
+  @cd cmd && moon check --target native
+
+alias cli-ut := cli-test
+[group("ci")]
+cli-test opts="":
+  @cd cmd && moon test --target native {{opts}}
+
+[group("ci")]
+cli-test-coverage:
+  @cd cmd && moon coverage clean && moon test --enable-coverage --target native
+  @cd cmd && moon coverage report -f summary
+
+# the check the ABI generator itself cannot make: that what it wrote compiles.
+# `moon test` never compiles generated source — it only compares it to a string
+# — which is the same blind spot doc examples have in this repository, and the
+# reason they rot. So the CLI is run for real against `fixtures/`, and the
+# result is checked as a standalone package.
+[group("ci")]
+codegen-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  scratch=$(mktemp -d)
+  trap 'rm -rf "$scratch" "{{justfile_directory()}}/_codegen_check"' EXIT
+  mkdir -p "$scratch/abi"
+  cp fixtures/abi/*.abi "$scratch/abi/"
+  printf 'version: v%s\nabi:\n  in: ./abi\n  out: ./outputs\n' \
+    "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)" > "$scratch/endor.yaml"
+  cd cmd && moon build --target native && cd ..
+  cli="{{justfile_directory()}}/_build/native/debug/build/poteto0/endor-cli/abi/abi.exe"
+  (cd "$scratch" && "$cli")
+  # a package of *this* module, so it resolves `poteto0/endor` from the working
+  # tree and not from whatever the registry last published
+  rm -rf _codegen_check && mkdir _codegen_check
+  cp "$scratch"/outputs/*.mbt "$scratch"/outputs/moon.pkg _codegen_check/
+  moon check --target {{target}} --deny-warn
+  # and it came out formatted, so nobody's `just fmt` shows it as a diff
+  moon fmt --check
+  echo "ok: the generated code compiles and is already formatted"
+
 # what the pre-commit hook runs: formats and regenerates in place
 [group("ci")]
-ci: unit-test fmt check info archive-check
+ci: unit-test fmt check info archive-check cli-check cli-test codegen-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check archive-check
+ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release
@@ -116,6 +161,13 @@ release-check tag:
   # the demo should show the version being released, not the previous one
   expect "examples/get-address dependency on poteto0/endor" \
     "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
+  # the CLI is its own module and its own release, but it generates code against
+  # this SDK — a CLI declaring a version the SDK never had is a CLI nobody can
+  # resolve, so both its own version and what it pins move together with the tag
+  expect "cmd version" \
+    "$(grep -m1 '^version' cmd/moon.mod | cut -d'"' -f2)"
+  expect "cmd dependency on poteto0/endor" \
+    "$(grep -m1 'poteto0/endor@' cmd/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
   [ "$fail" -eq 0 ] || exit 1
   echo "ok: every declared version is ${want}"
 

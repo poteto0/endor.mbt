@@ -1,0 +1,31 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/abi/codegen"
+
+// Values
+pub fn generate(String, String) -> Generated raise CodegenError
+
+pub fn moon_pkg() -> String
+
+pub fn pascal_case(String) -> String
+
+pub fn snake_case(String) -> String
+
+// Errors
+pub(all) suberror CodegenError {
+  InvalidJson(String)
+  InvalidAbi(String)
+  InvalidName(String)
+} derive(Eq)
+pub impl Show for CodegenError
+
+// Types and methods
+pub(all) struct Generated {
+  code : String
+  members : Array[String]
+  skipped : Array[String]
+}
+
+// Type aliases
+
+// Traits
+

@@ -121,3 +121,81 @@ pub async fn[P : @provider.Provider] deploy_answer_contract(
   }
   deployed
 }
+
+///|
+/// A contract that answers `42` for exactly one function selector and reverts
+/// for every other — the negative half `deploy_answer_contract` cannot give.
+///
+/// The answer contract ignores its calldata, so a call reaching it proves the
+/// SDK produced *some* well-formed transaction; it cannot prove the SDK
+/// produced the *right* one. This one dispatches: the four bytes it was
+/// deployed for are the only four bytes it accepts, so a caller whose selector
+/// is wrong by one bit gets a revert from a real EVM rather than a passing
+/// test. That is what makes it worth deploying a contract to check a hash.
+///
+/// ```mbt check
+/// async test "doc: selector gate" {
+///   @anvil.on(provider => {
+///     // the selector of `totalSupply()`
+///     let sel = @types.Hex::from_string("0x18160ddd")
+///     let at = @anvil.deploy_selector_gate(provider, sel)
+///     inspect(@provider.is_contract(provider, at), content="true")
+///   })
+/// }
+/// ```
+pub async fn[P : @provider.Provider] deploy_selector_gate(
+  provider : P,
+  selector : @types.Hex,
+) -> @types.Address raise @provider.ProviderError {
+  let four = selector.to_string()[2:].to_owned()
+  guard four.length() == 8 else {
+    raise @provider.ProviderError::internal(
+      "a selector is four bytes, got \{selector}",
+    )
+  }
+  let data = @types.Hex::from_string(
+    SELECTOR_GATE_INIT + four + SELECTOR_GATE_BODY,
+  ) catch {
+    e => abort("bad gate code: \{e}")
+  }
+  let hash = @provider.send_transaction(
+    provider,
+    @types.TransactionRequest::new(dev_account(), data~),
+  )
+  let receipt = @provider.wait_for_receipt(
+    provider,
+    hash,
+    timeout=5_000,
+    poll_interval=100,
+  )
+  guard receipt.contract_address is Some(deployed) else {
+    raise @provider.ProviderError::internal("receipt has no contractAddress")
+  }
+  deployed
+}
+
+///|
+/// The two halves of the selector gate's creation code, with the four selector
+/// bytes spliced between them.
+///
+/// The initcode is the same shape as the answer contract's — `CODECOPY` the
+/// runtime out of itself and return it — for a runtime of `0x1e` bytes at
+/// offset `0x0c`. The runtime is:
+///
+/// ```text
+/// 6000 35        CALLDATALOAD(0)      the first word of the calldata
+/// 60e0 1c        SHR(0xe0)            keep its top four bytes: the selector
+/// 63 ssssssss    PUSH4 <selector>     the one this gate was deployed for
+/// 14             EQ
+/// 6013 57        JUMPI(0x13)          equal → the JUMPDEST below
+/// 6000 80 fd     REVERT(0, 0)         otherwise: no such function here
+/// 5b             JUMPDEST
+/// 602a 6000 52   MSTORE(0, 42)
+/// 6020 6000 f3   RETURN(0, 32)        one word holding 42
+/// ```
+const SELECTOR_GATE_INIT : String = "0x601e600c600039601e6000f3600035" +
+  "60e01c63"
+
+///|
+const SELECTOR_GATE_BODY : String = "14601357600080fd5b602a600052602060" +
+  "00f3"

@@ -3,6 +3,8 @@ import {
   "poteto0/endor/provider",
   "poteto0/endor/contract",
   "poteto0/endor/contract/erc20",
+  "poteto0/endor/abi",
+  "poteto0/endor/abi/codegen",
   "poteto0/endor/backend/anvil",
   "moonbitlang/async",
 } for "test"
