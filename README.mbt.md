@@ -62,7 +62,61 @@ open in a browser that has a wallet installed — see
 [`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md)
 for the build-and-serve steps.
 
-## Reading a contract
+## Calling a contract
+
+```
+async fn holdings(
+  wallet : @browser.BrowserProvider,
+  token : @endor.Address,
+  who : @endor.Address,
+) -> Unit {
+  try {
+    let token = @contract.Erc20::new(token)
+    // four eth_calls, no prompt and no gas: reads cost the user nothing
+    let decimals = token.decimals(wallet)
+    let amount = token.balance_of(wallet, who)
+    println("\{who} holds \{amount} of \{token.name(wallet)} (\{token.symbol(wallet)})")
+    println("its amounts carry \{decimals} decimals")
+  } catch {
+    Abi(e) => println("that address is not an ERC-20: \{e}")
+    Rpc(e) => println("the wallet said: \{e}")
+  }
+}
+```
+
+`Erc20` is a preset over `Contract`, which is `eth_call` / `eth_sendTransaction`
+with the arguments encoded and the answer decoded. Amounts are `BigInt` in the
+token's smallest unit — `decimals` says where the point goes, and scaling it for
+a human stays out of the SDK, exactly as it does for `Wei`. `transfer` and
+`approve` sign, so they prompt and answer with a `TxHash`.
+
+Any other contract is one `call` away, with the types spelled out:
+
+```
+async fn owner_of(
+  wallet : @browser.BrowserProvider,
+  nft : @endor.Address,
+  id : BigInt,
+) -> @endor.Address? raise @contract.ContractError {
+  let values = @contract.Contract::new(nft).call(
+    wallet,
+    name="ownerOf",
+    inputs=[Uint(256)],
+    args=[Uint(id)],
+    outputs=[Address],
+  )
+  guard values is [Address(owner)] else { return None }
+  Some(owner)
+}
+```
+
+The encoding underneath is `endor/abi`, usable on its own when the call goes out
+some other way: `@abi.encode_call(name~, inputs~, args~)` builds the calldata,
+`@abi.decode(outputs, data)` reads an answer back, `@abi.selector(sig)` and
+`@abi.event_topic(sig)` hash a signature into the four bytes a call starts with
+and the topic an event is logged under.
+
+## Reading state without an ABI
 
 ```
 async fn total_supply(
@@ -70,7 +124,7 @@ async fn total_supply(
   token : @endor.Address,
 ) -> Unit {
   try {
-    // `totalSupply()` — a selector with no arguments, until the ABI layer lands
+    // `totalSupply()` — the selector, spelled out
     let req = @endor.CallRequest::new(
       token,
       data=@endor.Hex::from_string("0x18160ddd"),
@@ -298,8 +352,11 @@ chains, `transaction_receipt` / `wait_for_receipt` and `block_by_number` /
 `block_by_hash` read what was mined, and `on_accounts_changed` /
 `on_chain_changed` / `on_disconnect` subscribe to the provider events, and
 `sign_message` / `sign_typed_data` ask the wallet for a signature over a message
-or a validated `TypedData` document. Anything not wrapped is still reachable
-through `Provider::request`, with raw `Json`.
+or a validated `TypedData` document. Above all
+of that, `endor/abi` encodes and decodes ABI values and `endor/contract` turns
+them into typed contract calls, with an `Erc20` preset. Signing messages is
+planned but not implemented; until it lands, `Provider::request` reaches any
+method with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
@@ -313,11 +370,14 @@ for where the unimplemented parts sit in the plan.
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                                        |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs   |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
+| `endor/abi`              | ABI encode / decode, function selectors and event topics — `AbiType`, `AbiValue`, `AbiError`                |
+| `endor/contract`         | `Contract` — typed calls over the ABI layer — and the `Erc20` preset                                        |
 | `endor/provider`         | `Provider` / `EventSource` traits, `ProviderError`, typed RPC and event helpers, `MockProvider`             |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                                             |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `on` / `removeListener`, `spawn`      |
 
-`endor`, `endor/crypto`, `endor/types` and `endor/provider` are backend-agnostic;
+`endor`, `endor/crypto`, `endor/types`, `endor/abi`, `endor/contract` and
+`endor/provider` are backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
 whole point there is a browser-injected object.
 

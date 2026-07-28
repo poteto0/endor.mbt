@@ -266,14 +266,16 @@ async fn WalletView::switch_to(self : WalletView, chain : Chain) -> Unit {
 const WEI_DIGITS = 18
 
 ///|
-/// Parse a human amount of the chain's native currency ("0.01", "1", ".5")
-/// into wei, or `None` when it is not a decimal number the chain can carry.
+/// Parse a human amount ("0.01", "1", ".5") into the smallest unit of a
+/// currency with `decimals` decimal places, or `None` when it is not a decimal
+/// number that currency can carry.
 ///
-/// The SDK deals in `Wei` and nothing else — units are a presentation concern,
-/// so the conversion lives out here in the UI rather than in `endor/types`.
-/// More than 18 decimals is rejected rather than rounded: silently dropping a
-/// digit of someone's money is worse than making them retype it.
-fn wei_of_ether(amount : String) -> @endor.Wei? {
+/// The SDK deals in whole smallest units and nothing else — `Wei` for the
+/// chain's own currency, a `BigInt` for a token — so scaling is a presentation
+/// concern and lives out here in the UI. More decimals than the currency has
+/// are rejected rather than rounded: silently dropping a digit of someone's
+/// money is worse than making them retype it.
+fn units_of_decimal(amount : String, decimals : Int) -> BigInt? {
   let whole = StringBuilder::new()
   let fraction = StringBuilder::new()
   let mut after_point = false
@@ -293,14 +295,20 @@ fn wei_of_ether(amount : String) -> @endor.Wei? {
   let scaled = StringBuilder::new()
   scaled.write_string(whole.to_string())
   scaled.write_string(fraction.to_string())
-  let padding = WEI_DIGITS - fraction.to_string().length()
+  let padding = decimals - fraction.to_string().length()
   guard padding >= 0 else { return None }
   for _ in 0..<padding {
     scaled.write_char('0')
   }
   // "0" + the digits: `BigInt::from_string` needs at least one, and ".5"
   // legitimately leaves the whole part empty
-  Some(@endor.Wei::from_bigint(BigInt::from_string("0" + scaled.to_string())))
+  Some(BigInt::from_string("0" + scaled.to_string()))
+}
+
+///|
+/// The same parse, for the chain's own currency.
+fn wei_of_ether(amount : String) -> @endor.Wei? {
+  units_of_decimal(amount, WEI_DIGITS).map(@endor.Wei::from_bigint)
 }
 
 ///|
@@ -351,6 +359,170 @@ async fn WalletView::send(self : WalletView) -> Unit {
 }
 
 ///|
+/// The wallet and the account it has connected, or `None` when the page is not
+/// connected yet.
+///
+/// Both reads belong to the provider, so their errors are re-raised as `Rpc`:
+/// that is what lets each token flow below cover its whole path — connect,
+/// call, prompt — with a single `try`.
+async fn connected() -> (@browser.BrowserProvider, @endor.Address)? raise @contract.ContractError {
+  try {
+    let wallet = @browser.BrowserProvider::require()
+    // `accounts` never prompts, so asking costs no popup
+    match @provider.accounts(wallet).get(0) {
+      Some(who) => Some((wallet, who))
+      None => None
+    }
+  } catch {
+    e => raise Rpc(e)
+  }
+}
+
+///|
+/// Render `units` of a currency with `decimals` decimal places back as a
+/// human-readable amount — the inverse of `units_of_decimal`.
+fn decimal_of_units(units : BigInt, decimals : Int) -> String {
+  guard decimals > 0 else { return units.to_string() }
+  let digits = units.to_string()
+  // pad so there is at least one digit in front of the point: 1 unit of a
+  // 6-decimal token is "0.000001", not ".000001"
+  let padded = if digits.length() <= decimals {
+    "0".repeat(decimals - digits.length() + 1) + digits
+  } else {
+    digits
+  }
+  let point = padded.length() - decimals
+  padded[0:point].to_owned() + "." + padded[point:].to_owned()
+}
+
+///|
+/// The ERC-20 half of the page: a token address, what the contract says about
+/// itself, and a transfer.
+///
+/// This is the ABI layer end to end. Nothing here builds calldata or reads hex:
+/// `Erc20` turns `balanceOf` into a `BigInt` and `transfer` into a prompt, and
+/// the only conversion left is between the token's smallest unit and the digits
+/// a human types — which needs `decimals`, read from the token itself.
+struct TokenView {
+  status : @signals.Signal[String]
+  /// What the contract says it is: name, symbol and decimals in one line.
+  label : @signals.Signal[String]
+  balance : @signals.Signal[String]
+  tx : @signals.Signal[String]
+  token_input : @signals.Signal[String]
+  to_input : @signals.Signal[String]
+  amount_input : @signals.Signal[String]
+  /// The token last loaded and the decimals its amounts are scaled by. Held
+  /// because every later action needs both, and re-reading `decimals()` before
+  /// each one would be a round trip to say what cannot change.
+  mut loaded : (@contract.Erc20, Int)?
+}
+
+///|
+fn TokenView::new() -> TokenView {
+  {
+    status: signal("No token loaded."),
+    label: signal(PLACEHOLDER),
+    balance: signal(PLACEHOLDER),
+    tx: signal(PLACEHOLDER),
+    token_input: signal(""),
+    to_input: signal(""),
+    amount_input: signal(""),
+    loaded: None,
+  }
+}
+
+///|
+/// Read the connected account's balance of `token` and show it scaled.
+async fn TokenView::show_balance(
+  self : TokenView,
+  wallet : @browser.BrowserProvider,
+  token : @contract.Erc20,
+  decimals : Int,
+  who : @endor.Address,
+) -> Unit raise @contract.ContractError {
+  self.balance.set(decimal_of_units(token.balance_of(wallet, who), decimals))
+}
+
+///|
+/// Ask the address in the form what token it is, and what the connected
+/// account holds of it.
+///
+/// Four `eth_call`s, no prompt and no gas: reads against a contract cost the
+/// user nothing, which is why a dapp can do this the moment an address is
+/// typed. An address that is not an ERC-20 answers something the return types
+/// cannot be read out of, and that arrives here as `Abi`.
+async fn TokenView::load(self : TokenView) -> Unit {
+  try {
+    guard connected() is Some((wallet, who)) else {
+      self.status.set("Connect the wallet first.")
+      return
+    }
+    let at = @endor.Address::from_string(
+      self.token_input.get().trim().to_owned(),
+    ) catch {
+      _ => {
+        self.status.set("Token address is not a valid address.")
+        return
+      }
+    }
+    self.status.set("Reading the token…")
+    let token = @contract.Erc20::new(at)
+    let decimals = token.decimals(wallet)
+    self.label.set(
+      "\{token.name(wallet)} (\{token.symbol(wallet)}), \{decimals} decimals",
+    )
+    self.loaded = Some((token, decimals))
+    self.show_balance(wallet, token, decimals, who)
+    self.status.set("Token loaded.")
+  } catch {
+    Rpc(NotInstalled) =>
+      self.status.set("MetaMask not detected — install it and reload.")
+    Abi(e) => self.status.set("That address is not an ERC-20: \{e}")
+    e => self.status.set("Error: \{e}")
+  }
+}
+
+///|
+/// Move tokens, which is `transfer(address,uint256)` and therefore a prompt.
+///
+/// The amount is scaled by the token's own `decimals` before it goes anywhere:
+/// "1.5" of a 6-decimal token is 1500000 units, and getting that wrong by a
+/// factor of a million is the classic ERC-20 mistake.
+async fn TokenView::send(self : TokenView) -> Unit {
+  try {
+    guard self.loaded is Some((token, decimals)) else {
+      self.status.set("Load a token first.")
+      return
+    }
+    guard connected() is Some((wallet, from)) else {
+      self.status.set("Connect the wallet first.")
+      return
+    }
+    let to = @endor.Address::from_string(self.to_input.get().trim().to_owned()) catch {
+      _ => {
+        self.status.set("Recipient is not a valid address.")
+        return
+      }
+    }
+    guard units_of_decimal(self.amount_input.get(), decimals) is Some(amount) else {
+      self.status.set("Amount must be a decimal number the token can carry.")
+      return
+    }
+    self.status.set("Confirm the transfer in the wallet…")
+    let hash = token.transfer(wallet, from~, to~, amount~)
+    self.tx.set(hash.to_string())
+    self.status.set("Broadcast. The balance moves once it is mined.")
+    self.show_balance(wallet, token, decimals, from)
+  } catch {
+    Rpc(NotInstalled) =>
+      self.status.set("MetaMask not detected — install it and reload.")
+    Rpc(UserRejected) => self.status.set("Transfer rejected in the wallet.")
+    e => self.status.set("Error: \{e}")
+  }
+}
+
+///|
 /// One labelled row of the card.
 fn field(label : String, value : @signals.Signal[String]) -> DomNode {
   div(class="field") <| [
@@ -391,26 +563,8 @@ fn wallet_card() -> DomNode {
     ],
     div(class="send") <| [
       // read back on submit, so typing an address never rejects it mid-word
-      input(
-        class="to",
-        type_="text",
-        placeholder="0x… recipient",
-        on=events().input(e => {
-          view.to_input.set(
-            @dom.HTMLInputElement::cast_from_element(e.target()).value,
-          )
-        }),
-      ),
-      input(
-        class="amount",
-        type_="text",
-        placeholder="0.01",
-        on=events().input(e => {
-          view.amount_input.set(
-            @dom.HTMLInputElement::cast_from_element(e.target()).value,
-          )
-        }),
-      ),
+      text_input(class="to", placeholder="0x… recipient", view.to_input),
+      text_input(class="amount", placeholder="0.01", view.amount_input),
       button(
         class="chain",
         on=events().click(_ => @js.spawn(() => view.send())),
@@ -433,9 +587,78 @@ fn wallet_card() -> DomNode {
 }
 
 ///|
+/// A text input that writes what it holds into `into` as it is typed.
+fn text_input(
+  class~ : String,
+  placeholder~ : String,
+  into : @signals.Signal[String],
+) -> DomNode {
+  input(
+    class~,
+    type_="text",
+    placeholder~,
+    on=events().input(e => {
+      into.set(@dom.HTMLInputElement::cast_from_element(e.target()).value)
+    }),
+  )
+}
+
+///|
+fn token_card() -> DomNode {
+  let view = TokenView::new()
+  div(class="card") <| [
+    h2() <| [
+      text("ERC-20 token"),
+    ],
+    p(class="status") <| [
+      text_dyn(() => view.status.get()),
+    ],
+    field("Token", view.label),
+    field("Balance", view.balance),
+    field("Last tx", view.tx),
+    p(class="hint") <| [
+      text("Read a token the connected account holds:"),
+    ],
+    div(class="send") <| [
+      text_input(
+        class="to",
+        placeholder="0x… token contract",
+        view.token_input,
+      ),
+      button(
+        class="chain",
+        on=events().click(_ => @js.spawn(() => view.load())),
+      ) <| [
+        text("Load token"),
+      ],
+    ],
+    p(class="hint") <| [
+      text("Transfer it:"),
+    ],
+    div(class="send") <| [
+      text_input(class="to", placeholder="0x… recipient", view.to_input),
+      text_input(class="amount", placeholder="1.5", view.amount_input),
+      button(
+        class="chain",
+        on=events().click(_ => @js.spawn(() => view.send())),
+      ) <| [
+        text("Send tokens"),
+      ],
+    ],
+  ]
+}
+
+///|
 fn main {
   match @dom.document().getElementById("app") {
-    Some(root) => render_to(root, wallet_card())
+    Some(root) =>
+      render_to(
+        root,
+        div() <| [
+          wallet_card(),
+          token_card(),
+        ],
+      )
     None => println("[endor] #app element not found")
   }
 }

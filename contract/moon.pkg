@@ -1,0 +1,14 @@
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+  "poteto0/endor/types",
+  "poteto0/endor/abi",
+  "poteto0/endor/provider",
+}
+
+// Only the tests need it: an `async test` runs in a task group. The shipped
+// code here is `async` but reaches for no clock of its own, so the dependency
+// stops at the package below it.
+import {
+  "moonbitlang/async",
+} for "test"

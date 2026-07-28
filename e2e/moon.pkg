@@ -1,6 +1,7 @@
 import {
   "poteto0/endor/types",
   "poteto0/endor/provider",
+  "poteto0/endor/contract",
   "poteto0/endor/backend/anvil",
   "moonbitlang/async",
 } for "test"

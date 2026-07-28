@@ -49,19 +49,23 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 }
 
 ///|
+/// The hex alphabet, as a `FixedArray` so a nibble can index it.
+let hex_digit : FixedArray[Char] = [
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+]
+
+///|
 /// Encode raw bytes as a `0x`-prefixed hex byte string. This is the direction
 /// nothing on the wire takes — a node always answers hex — but a caller has to,
-/// to hand a wallet something that is not already hex: `personal_sign` signs
-/// the bytes of a message, spelled as hex.
-///
-/// Private until something outside carries bytes of its own: `from_utf8` is the
-/// only way in so far, and a public constructor is a promise that cannot be
-/// taken back.
-fn Hex::from_bytes(bytes : Bytes) -> Hex {
+/// to hand a wallet something that was computed rather than read back: ABI
+/// calldata, or a `keccak256` digest.
+pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
   let buf = StringBuilder::new()
   buf.write_string("0x")
   for b in bytes {
-    buf.write_string(b.to_hex())
+    let n = b.to_int()
+    buf.write_char(hex_digit[n >> 4])
+    buf.write_char(hex_digit[n & 0x0f])
   }
   Hex::{ inner: buf.to_string() }
 }

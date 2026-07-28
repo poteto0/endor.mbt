@@ -8,6 +8,8 @@ package "poteto0/endor-examples-get-address"
 // Types and methods
 type Chain
 
+type TokenView
+
 type WalletView
 
 // Type aliases

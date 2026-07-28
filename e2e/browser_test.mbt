@@ -103,6 +103,50 @@ async test "call runs deployed code and estimate_gas prices it" {
 }
 
 ///|
+/// The ABI layer against real EVM output: the same call as above, but the
+/// answer is read back as a `uint256` instead of as a hex word.
+///
+/// A mock can prove the encoding; only a node can prove that what the EVM
+/// returns is what the decoder expects. The deployed contract answers 42 to any
+/// selector, so the call names one it does not have to implement.
+async test "a contract call decodes the answer through the ABI" {
+  @anvil.on(provider => {
+    let deployed = @anvil.deploy_answer_contract(provider)
+    let values = @contract.Contract::new(deployed).call(
+      provider,
+      name="answer",
+      outputs=[Uint(256)],
+      from=@anvil.dev_account(),
+    )
+    guard values is [Uint(answer)] else {
+      fail("expected one uint256, got \{values.length()} values")
+    }
+    inspect(answer, content="42")
+  })
+}
+
+///|
+/// The other half: a contract that is not the one the caller described. Every
+/// account here answers `0x`, which no return type can be read out of, and that
+/// is the `Abi` half of `ContractError` rather than a wallet failure.
+async test "an address with no code is an Abi error, not an Rpc one" {
+  @anvil.on(provider => {
+    try
+      @contract.Erc20::new(@anvil.other_account()).balance_of(
+        provider,
+        @anvil.dev_account(),
+      )
+      |> ignore
+    catch {
+      Abi(_) => inspect("abi", content="abi")
+      e => fail("expected an Abi error, got \{e}")
+    } noraise {
+      _ => fail("expected an error")
+    }
+  })
+}
+
+///|
 async test "call against a non-contract returns empty data" {
   @anvil.on(provider => {
     let request = @types.CallRequest::new(
