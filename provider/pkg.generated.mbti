@@ -43,6 +43,10 @@ pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderEr
 
 pub async fn[P : Provider] send_transaction(P, @types.TransactionRequest) -> @types.TxHash raise ProviderError
 
+pub async fn[P : Provider] sign_message(P, @types.Address, String) -> @types.Hex raise ProviderError
+
+pub async fn[P : Provider] sign_typed_data(P, @types.Address, Json) -> @types.Hex raise ProviderError
+
 pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise ProviderError
 
 pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit raise ProviderError

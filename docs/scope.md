@@ -3,8 +3,8 @@
 What `poteto0/endor` covers. It reads accounts, balances and the current chain,
 evaluates calls without broadcasting them, sends transactions, switches the
 wallet between chains through the `wallet_*` methods below, waits for what it
-sent to be mined, reads blocks and receipts, and subscribes to the provider
-events that say those answers went stale. It does not sign messages.
+sent to be mined, reads blocks and receipts, signs messages, and subscribes to
+the provider events that say those answers went stale.
 
 The SDK is **stateless**: it caches no current account and no current chain.
 Every value comes from the wallet at the moment it is asked for, and events are
@@ -183,6 +183,41 @@ list of `TxHash`: the SDK asks for hashes rather than full transaction objects,
 and each hash is what a receipt is then fetched with. `number` and `hash` are
 absent for the *pending* block, which has not been sealed and so has neither.
 
+### Signing messages
+
+| Function                                   | JSON-RPC method         | Returns      |
+| ------------------------------------------ | ----------------------- | ------------ |
+| `@provider.sign_message(p, who, message)`  | `personal_sign`         | `@endor.Hex` |
+| `@provider.sign_typed_data(p, who, doc)`   | `eth_signTypedData_v4`  | `@endor.Hex` |
+
+Both prompt the user — signing is the wallet's job, and the key never leaves it
+— so both raise `UserRejected` (4001) when they decline and `Unauthorized`
+(4100) for an account the dapp was never authorized for. The answer is the
+signature as raw `Hex`, 65 bytes of `r ‖ s ‖ v`; the SDK does not recover the
+signer from it, since that needs the ABI/crypto layer that is not there yet.
+
+```
+let signature = @provider.sign_message(wallet, who, "login to example.com")
+```
+
+`sign_message` is EIP-191 personal signing: the wallet prefixes the message with
+`"\x19Ethereum Signed Message:\n" + length` before hashing it, which is what
+keeps a signature produced this way from ever being a valid transaction. The
+message goes over the wire as its UTF-8 bytes in hex (`@endor.Hex::from_utf8`,
+which is public for a caller who needs it), so the wallet can show the user the
+text they are signing. Note the parameter order EIP-191 fixed: the message comes
+first and the address second — the opposite way round from the typed-data call,
+which is why both are wrapped rather than left to `Provider::request`.
+
+`sign_typed_data` is EIP-712: `doc` is the
+`{ types, primaryType, domain, message }` document as `Json`, which the wallet
+receives serialized, since v4 takes it as a string rather than as a nested
+object. There is no typed `TypedData` builder yet
+([#14](https://github.com/poteto0/endor.mbt/issues/14) tracks it): the caller
+assembles the document and the **wallet** hashes it, so nothing here needs
+keccak256 locally. A wallet that does not implement the method at all answers
+`UnsupportedMethod` (4200).
+
 ### Chain switching
 
 | Function                                   | JSON-RPC method              |
@@ -282,7 +317,7 @@ Alongside those:
 
 ## Planned, not implemented yet
 
-- message signing (`personal_sign`, `eth_signTypedData_v4`)
+- a typed `TypedData` builder for `sign_typed_data`, instead of raw `Json`
 - EIP-6963 — enumerating several injected providers instead of taking
   `globalThis.ethereum`
 

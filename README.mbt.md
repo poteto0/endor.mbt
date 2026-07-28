@@ -162,6 +162,36 @@ for a deployment, the `contract_address` the code now lives at. Blocks read back
 with `block_by_number` / `block_by_hash`, which answer `None` for a block the
 node does not know.
 
+## Signing a message
+
+```
+async fn login(
+  wallet : @browser.BrowserProvider,
+  who : @endor.Address,
+) -> Unit {
+  try {
+    // personal_sign — the wallet shows the text and signs it with `who`'s key
+    let signature = @provider.sign_message(wallet, who, "login to example.com")
+    println("signed as \{signature}")
+  } catch {
+    UserRejected => println("the user declined")
+    e => println("error: \{e}")
+  }
+}
+```
+
+The message is signed EIP-191 style: the wallet prefixes it with
+`"\x19Ethereum Signed Message:\n" + length` before hashing, so a signature
+produced this way can never be a valid transaction. It travels as the UTF-8
+bytes of the message in hex, which is what lets the wallet show the user the
+text they are agreeing to, and the 65-byte signature comes back as `Hex` for
+your backend to verify.
+
+EIP-712 typed data is `sign_typed_data`, which takes the
+`{ types, primaryType, domain, message }` document as `Json` and sends it to
+`eth_signTypedData_v4`. The wallet hashes the document, so nothing has to be
+hashed here; a typed `TypedData` builder is still to come.
+
 ## Switching chains
 
 ```
@@ -237,9 +267,9 @@ evaluate a request without broadcasting it, `send_transaction` broadcasts one,
 `switch_chain` / `add_chain` / `switch_or_add_chain` move the wallet between
 chains, `transaction_receipt` / `wait_for_receipt` and `block_by_number` /
 `block_by_hash` read what was mined, and `on_accounts_changed` /
-`on_chain_changed` / `on_disconnect` subscribe to the provider events. Signing
-messages is planned but not implemented; until it lands, `Provider::request`
-reaches any method with raw `Json`.
+`on_chain_changed` / `on_disconnect` subscribe to the provider events, and
+`sign_message` / `sign_typed_data` ask the wallet for a signature. Anything not
+wrapped is still reachable through `Provider::request`, with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.

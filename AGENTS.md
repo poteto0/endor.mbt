@@ -22,8 +22,11 @@ node answers `null` for a receipt or block it does not have.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
-Message signing is planned but not implemented — do not describe it as
-available. There is no
+**Messages are signed by the wallet** through `personal_sign` (`sign_message`,
+over a `String` the SDK hands over as UTF-8 bytes in hex) and
+`eth_signTypedData_v4` (`sign_typed_data`, over the EIP-712 document as `Json`,
+serialized on the wire) — both answer with the signature as `Hex`, and neither
+hashes anything locally, so no typed `TypedData` builder exists yet. There is no
 ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
 `data` are raw `Hex`. Callers
 reach unwrapped methods through the generic `Provider::request` escape hatch.

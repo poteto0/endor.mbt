@@ -110,6 +110,7 @@ pub struct Hex {
 pub fn Hex::byte_length(Self) -> Int
 pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError
+pub fn Hex::from_utf8(String) -> Self
 pub fn Hex::is_empty(Self) -> Bool
 pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String

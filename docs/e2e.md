@@ -88,8 +88,8 @@ fresh chain guarantees (a nonce *grows*, it does not become exactly `n + 1`),
 and the shim is installed once rather than per test. The shim also queues
 `eth_sendTransaction`: without that serialization concurrent tests are handed
 the same nonce, and a wallet prompting one transaction at a time is what a
-browser would do anyway. When signing (#14) lands, its methods join the queue
-for the same reason.
+browser would do anyway. The signing methods do not need it: they change no
+state, so nothing they do depends on the order they run in.
 
 ## Manual QA before a release
 
@@ -123,9 +123,11 @@ Then walk the six paths only an extension can exercise:
 Steps 8 and 9 are the transaction half. The node-side half is already in
 `e2e/`, which proves the wire format a node accepts and that 4001 maps to
 `UserRejected`; what only the extension can prove is that its confirmation
-dialog shows the right recipient and amount. Once signing (#14) lands, add
-"sign a message, approve, reject once" the same way — and the node-side half of
-it to `e2e/`.
+dialog shows the right recipient and amount. Signing splits the same way: `e2e/`
+signs with `personal_sign` and `eth_signTypedData_v4` against Anvil's unlocked
+dev accounts, which proves the parameter order and the serialized EIP-712
+document a node accepts, while only an extension can show that its prompt
+renders the message as text rather than as hex.
 
 ### Why no headless wallet
 

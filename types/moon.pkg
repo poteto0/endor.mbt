@@ -2,6 +2,9 @@ import {
   "moonbitlang/core/bigint",
   "moonbitlang/core/debug",
   "moonbitlang/core/string",
+  // `Hex::from_utf8` encodes a message the way a wallet expects to be handed
+  // one: the UTF-8 bytes, spelled as hex.
+  "moonbitlang/core/encoding/utf8",
   // EIP-55 checksum casing hashes the address with keccak256; `crypto` is a
   // leaf package, so depending on it here introduces no cycle.
   "poteto0/endor/crypto",

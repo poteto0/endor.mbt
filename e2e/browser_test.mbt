@@ -398,3 +398,52 @@ async test "a block past the head reads as none" {
     )
   })
 }
+
+///|
+/// Signing against a real node: the wire fact is the parameter order, which a
+/// node rejects rather than silently mis-signs — Anvil's dev accounts are
+/// unlocked, so it signs for them the way a wallet would. The signature itself
+/// is 65 bytes, `r ‖ s ‖ v`.
+async test "a message is signed by the account that owns it" {
+  @anvil.on(provider => {
+    let signature = @provider.sign_message(
+      provider,
+      @anvil.dev_account(),
+      "endor.mbt e2e",
+    )
+    inspect(signature.byte_length(), content="65")
+    // signing is deterministic for a fixed key and message, so the same
+    // message signed twice is the same signature
+    assert_eq(
+      @provider.sign_message(provider, @anvil.dev_account(), "endor.mbt e2e"),
+      signature,
+    )
+    // and a different account is a different signature
+    assert_true(
+      @provider.sign_message(provider, @anvil.other_account(), "endor.mbt e2e") !=
+      signature,
+    )
+  })
+}
+
+///|
+/// EIP-712 the same way. The document goes over the wire serialized, and a node
+/// that could not parse it would answer with an error instead of a signature —
+/// which is what this proves and a mock cannot.
+async test "typed data is signed as an eip-712 document" {
+  @anvil.on(provider => {
+    let signature = @provider.sign_typed_data(provider, @anvil.dev_account(), {
+      "types": {
+        "EIP712Domain": [
+          { "name": "name", "type": "string" },
+          { "name": "chainId", "type": "uint256" },
+        ],
+        "Mail": [{ "name": "contents", "type": "string" }],
+      },
+      "primaryType": "Mail",
+      "domain": { "name": "Endor", "chainId": Json::number(31337) },
+      "message": { "contents": "hello" },
+    })
+    inspect(signature.byte_length(), content="65")
+  })
+}
