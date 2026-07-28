@@ -40,6 +40,24 @@ test "invalid if odd length" {
 }
 
 ///|
+/// A message is encoded as its UTF-8 bytes, which is what a wallet decodes back
+/// to show the user — not the UTF-16 a MoonBit string is held as.
+test "can create from a utf-8 string" {
+  inspect(@types.Hex::from_utf8("").to_string(), content="0x")
+  inspect(@types.Hex::from_utf8("hello").to_string(), content="0x68656c6c6f")
+  inspect(
+    @types.Hex::from_utf8("こんにちは").to_string(),
+    content="0xe38193e38293e381abe381a1e381af",
+  )
+  // outside the BMP: one code point, four UTF-8 bytes
+  inspect(@types.Hex::from_utf8("🔥").to_string(), content="0xf09f94a5")
+  // a byte below 0x10 keeps its leading zero, so the digits stay in step with
+  // the bytes they came from
+  inspect(@types.Hex::from_utf8("a\nb").to_string(), content="0x610a62")
+  inspect(@types.Hex::from_utf8("hello").byte_length(), content="5")
+}
+
+///|
 test "can convert to json" {
   inspect(
     @types.Hex::from_string("0xAB01").to_json().stringify(),

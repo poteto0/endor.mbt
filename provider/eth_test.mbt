@@ -1078,3 +1078,105 @@ async test "error send answered with a malformed hash" {
     }
   })
 }
+
+///|
+/// The EIP-712 document a `Permit` is signed as, trimmed to the fields every
+/// typed-data signature carries. What the document may and may not say is
+/// covered in `types/`; here it is only a payload the RPC layer has to
+/// serialize and pass through unchanged.
+fn permit_typed_data() -> @types.TypedData {
+  @types.TypedData::new(
+    @types.TypedDataDomain::new(
+      name="Endor",
+      chain_id=@types.ChainId::mainnet(),
+    ),
+    primary_type="Permit",
+    types={
+      "Permit": [
+        @types.TypedDataField::new("holder", "address"),
+        @types.TypedDataField::new("value", "uint256"),
+      ],
+    },
+    message={
+      "holder": "0x52908400098527886e0f7030069857d2e4169ee7",
+      "value": Json::number(1),
+    },
+  ) catch {
+    e => abort("bad test document: \{e}")
+  }
+}
+
+///|
+async test "can sign typed data" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_signTypedData_v4",
+      response=Json::string("0x" + "cd".repeat(65)),
+    )
+    let signature = @provider.sign_typed_data(
+      provider,
+      test_address(),
+      permit_typed_data(),
+    ) catch {
+      e => fail("unexpected error \{e}")
+    }
+    inspect(signature.byte_length(), content="65")
+
+    // the account comes first, and the document reaches the wallet serialized
+    // — v4 takes a string, not a nested object
+    debug_inspect(
+      provider.last_call(),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_signTypedData_v4",
+        #|    Array(
+        #|      [
+        #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|        String("{\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"Permit\":[{\"name\":\"holder\",\"type\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\"}]},\"primaryType\":\"Permit\",\"domain\":{\"name\":\"Endor\",\"chainId\":1},\"message\":{\"holder\":\"0x52908400098527886e0f7030069857d2e4169ee7\",\"value\":1}}"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
+    )
+  })
+}
+
+///|
+async test "error sign typed data rejected by user" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on_error(
+      method_name="eth_signTypedData_v4",
+      error=@provider.ProviderError::UserRejected,
+    )
+    try
+      @provider.sign_typed_data(provider, test_address(), permit_typed_data())
+    catch {
+      @provider.ProviderError::UserRejected => ()
+      e => fail("expected UserRejected, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
+
+///|
+/// A wallet that does not know `eth_signTypedData_v4` at all answers 4200, and
+/// that too propagates untouched.
+async test "error sign typed data unsupported by the wallet" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on_error(
+      method_name="eth_signTypedData_v4",
+      error=@provider.ProviderError::UnsupportedMethod,
+    )
+    try
+      @provider.sign_typed_data(provider, test_address(), permit_typed_data())
+    catch {
+      @provider.ProviderError::UnsupportedMethod => ()
+      e => fail("expected UnsupportedMethod, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}

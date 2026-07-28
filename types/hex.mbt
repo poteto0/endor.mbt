@@ -49,6 +49,31 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 }
 
 ///|
+/// Encode raw bytes as a `0x`-prefixed hex byte string. This is the direction
+/// nothing on the wire takes — a node always answers hex — but a caller has to,
+/// to hand a wallet something that is not already hex: `personal_sign` signs
+/// the bytes of a message, spelled as hex.
+///
+/// Private until something outside carries bytes of its own: `from_utf8` is the
+/// only way in so far, and a public constructor is a promise that cannot be
+/// taken back.
+fn Hex::from_bytes(bytes : Bytes) -> Hex {
+  let buf = StringBuilder::new()
+  buf.write_string("0x")
+  for b in bytes {
+    buf.write_string(b.to_hex())
+  }
+  Hex::{ inner: buf.to_string() }
+}
+
+///|
+/// Encode a string's UTF-8 bytes as hex — how a human-readable message is
+/// handed to `personal_sign`, which takes the message as a hex byte string.
+pub fn Hex::from_utf8(s : String) -> Hex {
+  Hex::from_bytes(@utf8.encode(s))
+}
+
+///|
 /// The canonical `0x`-prefixed lowercase string form.
 pub fn Hex::to_string(self : Hex) -> String {
   self.inner
