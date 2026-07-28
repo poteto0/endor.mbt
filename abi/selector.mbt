@@ -5,11 +5,13 @@
 /// This exact spelling is what gets hashed, so it is where a selector comes
 /// from — `transfer(address,uint256)`, never `transfer(address to, uint256)`.
 ///
-/// ```
-/// inspect(
-///   @abi.signature(name="transfer", inputs=[Address, Uint(256)]),
-///   content="transfer(address,uint256)",
-/// )
+/// ```mbt check
+/// test "doc: signature" {
+///   inspect(
+///     @abi.signature(name="transfer", inputs=[Address, Uint(256)]),
+///     content="transfer(address,uint256)",
+///   )
+/// }
 /// ```
 pub fn signature(
   name~ : String,
