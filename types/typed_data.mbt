@@ -317,26 +317,19 @@ fn parse_size(s : String) -> Int? {
 }
 
 ///|
-/// EIP-712's own atomic types, classified once so `is_elementary`,
-/// `validate_elementary` and (in `typed_data_digest.mbt`) `encode_atomic` all
-/// dispatch off the same parse of the type name rather than each re-deriving
-/// it.
-enum ElementaryType {
-  Uint(Int)
-  Int(Int)
-  Address
-  Bool
-  FixedBytes(Int)
-  Bytes
-  String
-} derive(Eq)
-
-///|
-/// Classify `type_name` as one of EIP-712's own types — `address`, `bool`,
-/// `string`, `bytes`, `bytes1`…`bytes32`, `uint8`…`uint256` and
+/// Classify `type_name` as one of EIP-712's own atomic types — `address`,
+/// `bool`, `string`, `bytes`, `bytes1`…`bytes32`, `uint8`…`uint256` and
 /// `int8`…`int256` in steps of 8 — or `None` if it is neither elementary nor
 /// (necessarily) a struct name.
-fn classify_elementary(type_name : String) -> ElementaryType? {
+///
+/// This reuses `AbiType` rather than a type of its own: EIP-712's atomic
+/// types are, by design, exactly the ABI's own (EIP-712 hashes an atomic
+/// value the way the ABI encodes it), and the two now live in the same
+/// package. Only the seven atomic variants are ever returned here —
+/// `Array`/`FixedArray`/`Tuple` are the ABI's compound types, which have no
+/// place in this classification (an EIP-712 array or struct field is handled
+/// by `array_element` / the document's own `types` map instead).
+fn classify_elementary(type_name : String) -> AbiType? {
   match type_name {
     "string" => Some(String)
     "bytes" => Some(Bytes)
@@ -494,6 +487,11 @@ fn validate_elementary(
       validate_integer(value, bits, signed=false, path~, type_name~)
     Some(Int(bits)) =>
       validate_integer(value, bits, signed=true, path~, type_name~)
+    // `classify_elementary` never returns `AbiType`'s compound variants —
+    // only `array_element` and the document's `types` map produce arrays and
+    // structs here — but the match still has to cover them.
+    Some(Array(_) | FixedArray(_, _) | Tuple(_)) =>
+      abort("unreachable: classify_elementary never returns a compound type")
     None => raise InvalidJson("\{path} has unknown type \{type_name}")
   }
 }

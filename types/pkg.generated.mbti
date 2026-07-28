@@ -127,8 +127,6 @@ pub fn ChainParams::chain_id(Self) -> ChainId
 pub fn ChainParams::new(ChainId, chain_name~ : String, rpc_urls~ : Array[String], native_currency~ : NativeCurrency, block_explorer_urls? : Array[String]) -> Self
 pub fn ChainParams::to_json(Self) -> Json
 
-type ElementaryType derive(Eq)
-
 pub(all) enum Fee {
   Auto
   Eip1559(max_fee_per_gas~ : Wei, max_priority_fee_per_gas~ : Wei)

@@ -222,6 +222,11 @@ fn encode_atomic(type_name : String, value : Json) -> Bytes raise CodecError {
       word_of_unsigned(
         to_unsigned256(integer_value(value, path=type_name, type_name~)),
       )
+    // `classify_elementary` never returns `AbiType`'s compound variants —
+    // `encode_value` already handles arrays and structs before falling
+    // through to this function — but the match still has to cover them.
+    Some(Array(_) | FixedArray(_, _) | Tuple(_)) =>
+      abort("unreachable: classify_elementary never returns a compound type")
     None => raise InvalidJson("\{type_name} is not an elementary type")
   }
 }
