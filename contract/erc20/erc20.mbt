@@ -19,13 +19,13 @@
 /// }
 /// ```
 pub struct Erc20 {
-  priv contract : Contract
+  priv contract : @contract.Contract
 } derive(Eq, @debug.Debug)
 
 ///|
 /// Point at a deployed token.
 pub fn Erc20::new(address : @types.Address) -> Erc20 {
-  Erc20::{ contract: Contract::new(address) }
+  Erc20::{ contract: @contract.Contract::new(address) }
 }
 
 ///|
@@ -39,8 +39,8 @@ pub fn Erc20::address(self : Erc20) -> @types.Address {
 pub async fn[P : @provider.Provider] Erc20::name(
   self : Erc20,
   provider : P,
-) -> String raise ContractError {
-  string_answer(
+) -> String raise @contract.ContractError {
+  _string_answer(
     self.contract.call(provider, name="name", outputs=[String]),
     what="name",
   )
@@ -51,8 +51,8 @@ pub async fn[P : @provider.Provider] Erc20::name(
 pub async fn[P : @provider.Provider] Erc20::symbol(
   self : Erc20,
   provider : P,
-) -> String raise ContractError {
-  string_answer(
+) -> String raise @contract.ContractError {
+  _string_answer(
     self.contract.call(provider, name="symbol", outputs=[String]),
     what="symbol",
   )
@@ -64,8 +64,8 @@ pub async fn[P : @provider.Provider] Erc20::symbol(
 pub async fn[P : @provider.Provider] Erc20::decimals(
   self : Erc20,
   provider : P,
-) -> Int raise ContractError {
-  uint_answer(
+) -> Int raise @contract.ContractError {
+  _uint_answer(
     self.contract.call(provider, name="decimals", outputs=[Uint(8)]),
     what="decimals",
   ).to_int()
@@ -76,8 +76,8 @@ pub async fn[P : @provider.Provider] Erc20::decimals(
 pub async fn[P : @provider.Provider] Erc20::total_supply(
   self : Erc20,
   provider : P,
-) -> BigInt raise ContractError {
-  uint_answer(
+) -> BigInt raise @contract.ContractError {
+  _uint_answer(
     self.contract.call(provider, name="totalSupply", outputs=[Uint(256)]),
     what="totalSupply",
   )
@@ -89,8 +89,8 @@ pub async fn[P : @provider.Provider] Erc20::balance_of(
   self : Erc20,
   provider : P,
   owner : @types.Address,
-) -> BigInt raise ContractError {
-  uint_answer(
+) -> BigInt raise @contract.ContractError {
+  _uint_answer(
     self.contract.call(
       provider,
       name="balanceOf",
@@ -110,8 +110,8 @@ pub async fn[P : @provider.Provider] Erc20::allowance(
   provider : P,
   owner~ : @types.Address,
   spender~ : @types.Address,
-) -> BigInt raise ContractError {
-  uint_answer(
+) -> BigInt raise @contract.ContractError {
+  _uint_answer(
     self.contract.call(
       provider,
       name="allowance",
@@ -135,7 +135,7 @@ pub async fn[P : @provider.Provider] Erc20::transfer(
   from~ : @types.Address,
   to~ : @types.Address,
   amount~ : BigInt,
-) -> @types.TxHash raise ContractError {
+) -> @types.TxHash raise @contract.ContractError {
   self.contract.send(
     provider,
     from~,
@@ -155,7 +155,7 @@ pub async fn[P : @provider.Provider] Erc20::approve(
   from~ : @types.Address,
   spender~ : @types.Address,
   amount~ : BigInt,
-) -> @types.TxHash raise ContractError {
+) -> @types.TxHash raise @contract.ContractError {
   self.contract.send(
     provider,
     from~,
@@ -178,10 +178,10 @@ pub fn Erc20::transfer_topic() -> @types.Hex {
 /// A getter whose answer does not decode as one number is an address that is
 /// not the token it was taken for — the most likely mistake in this whole
 /// package, so it names the getter that was asked.
-fn uint_answer(
+fn _uint_answer(
   values : Array[@abi.AbiValue],
   what~ : String,
-) -> BigInt raise ContractError {
+) -> BigInt raise @contract.ContractError {
   guard values is [Uint(n)] else {
     raise Abi(@abi.InvalidData("\{what}() did not answer a number"))
   }
@@ -190,10 +190,10 @@ fn uint_answer(
 
 ///|
 /// The single string a getter answered with.
-fn string_answer(
+fn _string_answer(
   values : Array[@abi.AbiValue],
   what~ : String,
-) -> String raise ContractError {
+) -> String raise @contract.ContractError {
   guard values is [String(s)] else {
     raise Abi(@abi.InvalidData("\{what}() did not answer a string"))
   }

@@ -132,7 +132,7 @@ async test "a contract call decodes the answer through the ABI" {
 async test "an address with no code is an Abi error, not an Rpc one" {
   @anvil.on(provider => {
     try
-      @contract.Erc20::new(@anvil.other_account()).balance_of(
+      @erc20.Erc20::new(@anvil.other_account()).balance_of(
         provider,
         @anvil.dev_account(),
       )

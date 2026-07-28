@@ -42,7 +42,7 @@ async test "balance_of asks balanceOf and reads the number back" {
     let wallet = answering(
       "0x00000000000000000000000000000000000000000000000000000000000003e8",
     )
-    let balance = @contract.Erc20::new(token()).balance_of(wallet, holder()) catch {
+    let balance = @erc20.Erc20::new(token()).balance_of(wallet, holder()) catch {
       e => fail("unexpected error: \{e}")
     }
     inspect(balance, content="1000")
@@ -62,7 +62,7 @@ async test "decimals and total_supply read the token's scale" {
     let wallet = answering(
       "0x0000000000000000000000000000000000000000000000000000000000000006",
     )
-    let usdc = @contract.Erc20::new(token())
+    let usdc = @erc20.Erc20::new(token())
     inspect(
       usdc.decimals(wallet) catch {
         e => fail("unexpected error: \{e}")
@@ -94,7 +94,7 @@ async test "name and symbol read the token's strings" {
       "5553444300000000000000000000000000000000000000000000000000000000",
     )
     inspect(
-      @contract.Erc20::new(token()).symbol(wallet) catch {
+      @erc20.Erc20::new(token()).symbol(wallet) catch {
         e => fail("unexpected error: \{e}")
       },
       content="USDC",
@@ -114,7 +114,7 @@ async test "transfer sends calldata to the token" {
         "0x00000000000000000000000000000000000000000000000000000000000000ff",
       ),
     )
-    let hash = @contract.Erc20::new(token()).transfer(
+    let hash = @erc20.Erc20::new(token()).transfer(
       wallet,
       from=holder(),
       to=address("0x000000000000000000000000000000000000dead"),
@@ -143,7 +143,7 @@ async test "an address that is not the token is an Abi error" {
   @async.with_task_group(_ => {
     let wallet = answering("0x")
     try
-      @contract.Erc20::new(token()).balance_of(wallet, holder()) |> ignore
+      @erc20.Erc20::new(token()).balance_of(wallet, holder()) |> ignore
     catch {
       e =>
         inspect(
@@ -166,7 +166,7 @@ async test "a rejected prompt stays a ProviderError" {
       error=UserRejected,
     )
     try
-      @contract.Erc20::new(token()).approve(
+      @erc20.Erc20::new(token()).approve(
         wallet,
         from=holder(),
         spender=address("0x000000000000000000000000000000000000dead"),
@@ -186,7 +186,7 @@ async test "a rejected prompt stays a ProviderError" {
 /// The topic a receipt's logs are matched against to find the transfers.
 test "transfer_topic is the Transfer event's topic" {
   inspect(
-    @contract.Erc20::transfer_topic(),
+    @erc20.Erc20::transfer_topic(),
     content="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
   )
 }
