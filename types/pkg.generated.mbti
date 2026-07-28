@@ -185,6 +185,26 @@ pub fn TxHash::to_json(Self) -> Json
 pub fn TxHash::to_string(Self) -> String
 pub impl Show for TxHash
 
+pub struct TypedData {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedData::new(TypedDataDomain, primary_type~ : String, types~ : Map[String, Array[TypedDataField]], message~ : Json) -> Self raise CodecError
+pub fn TypedData::primary_type(Self) -> String
+pub fn TypedData::to_json(Self) -> Json
+
+pub struct TypedDataDomain {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedDataDomain::fields(Self) -> Array[TypedDataField]
+pub fn TypedDataDomain::new(name? : String, version? : String, chain_id? : ChainId, verifying_contract? : Address, salt? : Hex) -> Self raise CodecError
+pub fn TypedDataDomain::to_json(Self) -> Json
+
+pub struct TypedDataField {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedDataField::new(String, String) -> Self raise CodecError
+pub fn TypedDataField::to_json(Self) -> Json
+
 pub struct Wei {
   // private fields
 } derive(Eq, @debug.Debug)

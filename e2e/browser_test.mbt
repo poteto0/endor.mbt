@@ -429,21 +429,29 @@ async test "a message is signed by the account that owns it" {
 ///|
 /// EIP-712 the same way. The document goes over the wire serialized, and a node
 /// that could not parse it would answer with an error instead of a signature —
-/// which is what this proves and a mock cannot.
+/// which is what this proves and a mock cannot. `TypedData` decides what the
+/// document may say; what a node accepts is decided here.
 async test "typed data is signed as an eip-712 document" {
   @anvil.on(provider => {
-    let signature = @provider.sign_typed_data(provider, @anvil.dev_account(), {
-      "types": {
-        "EIP712Domain": [
-          { "name": "name", "type": "string" },
-          { "name": "chainId", "type": "uint256" },
+    let mail = @types.TypedData::new(
+      @types.TypedDataDomain::new(name="Endor", chain_id=@anvil.chain_id()),
+      primary_type="Mail",
+      types={
+        "Mail": [
+          @types.TypedDataField::new("to", "address"),
+          @types.TypedDataField::new("contents", "string"),
         ],
-        "Mail": [{ "name": "contents", "type": "string" }],
       },
-      "primaryType": "Mail",
-      "domain": { "name": "Endor", "chainId": Json::number(31337) },
-      "message": { "contents": "hello" },
-    })
+      message={
+        "to": @anvil.other_account().to_json(),
+        "contents": "endor.mbt e2e",
+      },
+    )
+    let signature = @provider.sign_typed_data(
+      provider,
+      @anvil.dev_account(),
+      mail,
+    )
     inspect(signature.byte_length(), content="65")
   })
 }

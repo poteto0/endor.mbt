@@ -1081,13 +1081,28 @@ async test "error send answered with a malformed hash" {
 
 ///|
 /// The EIP-712 document a `Permit` is signed as, trimmed to the fields every
-/// typed-data signature carries.
-fn permit_typed_data() -> Json {
-  {
-    "types": { "EIP712Domain": Json::array([]), "Permit": Json::array([]) },
-    "primaryType": "Permit",
-    "domain": { "name": "Endor", "chainId": Json::number(1) },
-    "message": { "value": Json::number(1) },
+/// typed-data signature carries. What the document may and may not say is
+/// covered in `types/`; here it is only a payload the RPC layer has to
+/// serialize and pass through unchanged.
+fn permit_typed_data() -> @types.TypedData {
+  @types.TypedData::new(
+    @types.TypedDataDomain::new(
+      name="Endor",
+      chain_id=@types.ChainId::mainnet(),
+    ),
+    primary_type="Permit",
+    types={
+      "Permit": [
+        @types.TypedDataField::new("holder", "address"),
+        @types.TypedDataField::new("value", "uint256"),
+      ],
+    },
+    message={
+      "holder": "0x52908400098527886e0f7030069857d2e4169ee7",
+      "value": Json::number(1),
+    },
+  ) catch {
+    e => abort("bad test document: \{e}")
   }
 }
 
@@ -1118,7 +1133,7 @@ async test "can sign typed data" {
         #|    Array(
         #|      [
         #|        String("0x52908400098527886e0f7030069857d2e4169ee7"),
-        #|        String("{\"types\":{\"EIP712Domain\":[],\"Permit\":[]},\"primaryType\":\"Permit\",\"domain\":{\"name\":\"Endor\",\"chainId\":1},\"message\":{\"value\":1}}"),
+        #|        String("{\"types\":{\"EIP712Domain\":[{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"chainId\",\"type\":\"uint256\"}],\"Permit\":[{\"name\":\"holder\",\"type\":\"address\"},{\"name\":\"value\",\"type\":\"uint256\"}]},\"primaryType\":\"Permit\",\"domain\":{\"name\":\"Endor\",\"chainId\":1},\"message\":{\"holder\":\"0x52908400098527886e0f7030069857d2e4169ee7\",\"value\":1}}"),
         #|      ],
         #|    ),
         #|  ),

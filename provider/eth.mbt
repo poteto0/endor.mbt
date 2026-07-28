@@ -366,19 +366,20 @@ pub async fn[P : Provider] send_transaction(
 /// Ask the wallet to sign an EIP-712 typed-data structure with `who`'s key
 /// (`eth_signTypedData_v4`), and return the signature.
 ///
-/// `typed_data` is the `{ types, primaryType, domain, message }` document as
-/// `Json`, which the wallet receives as a *string*: v4 takes the document
-/// serialized, not as a nested object. There is no typed `TypedData` builder
-/// yet, so the caller assembles the document and the wallet — not this SDK —
-/// hashes it; nothing here needs keccak256.
+/// `typed_data` is a `@types.TypedData`: it validated the document when it was
+/// built, so what reaches the wallet is one it can be expected to accept, and
+/// a field with the wrong type was already reported by name. It goes over the
+/// wire *serialized* — v4 takes the document as a string, not as a nested
+/// object.
 ///
-/// The address comes *first* here, the opposite way round from `sign_message`.
+/// The wallet, not this SDK, computes the digest: nothing here hashes anything.
+/// The address comes *first*, the opposite way round from `sign_message`.
 ///
 /// ```
 /// async fn[P : @provider.Provider] sign_permit(
 ///   p : P,
 ///   who : @types.Address,
-///   permit : Json,
+///   permit : @types.TypedData,
 /// ) -> @types.Hex raise @provider.ProviderError {
 ///   @provider.sign_typed_data(p, who, permit)
 /// }
@@ -386,12 +387,15 @@ pub async fn[P : Provider] send_transaction(
 pub async fn[P : Provider] sign_typed_data(
   provider : P,
   who : @types.Address,
-  typed_data : Json,
+  typed_data : @types.TypedData,
 ) -> @types.Hex raise ProviderError {
   invoke_rpc(
     provider,
     method_name="eth_signTypedData_v4",
-    params=Json::array([who.to_json(), Json::string(typed_data.stringify())]),
+    params=Json::array([
+      who.to_json(),
+      Json::string(typed_data.to_json().stringify()),
+    ]),
     decode=@types.Hex::from_json,
   )
 }

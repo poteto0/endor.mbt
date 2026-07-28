@@ -187,10 +187,39 @@ bytes of the message in hex, which is what lets the wallet show the user the
 text they are agreeing to, and the 65-byte signature comes back as `Hex` for
 your backend to verify.
 
-EIP-712 typed data is `sign_typed_data`, which takes the
-`{ types, primaryType, domain, message }` document as `Json` and sends it to
-`eth_signTypedData_v4`. The wallet hashes the document, so nothing has to be
-hashed here; a typed `TypedData` builder is still to come.
+EIP-712 typed data is `sign_typed_data`, which takes an `@endor.TypedData` and
+sends it to `eth_signTypedData_v4`:
+
+```
+fn permit(
+  token : @endor.Address,
+  holder : @endor.Address,
+) -> @endor.TypedData raise @endor.CodecError {
+  @endor.TypedData::new(
+    @endor.TypedDataDomain::new(
+      name="Endor",
+      chain_id=@endor.ChainId::mainnet(),
+      verifying_contract=token,
+    ),
+    primary_type="Permit",
+    types={
+      "Permit": [
+        @endor.TypedDataField::new("holder", "address"),
+        // a uint256 past 2^53 travels as a string, since a JSON number cannot
+        // hold one without losing precision
+        @endor.TypedDataField::new("value", "uint256"),
+      ],
+    },
+    message={ "holder": holder.to_json(), "value": "1000000000000000000" },
+  )
+}
+```
+
+Building the document validates it — `primaryType` resolves, every field type is
+defined, and the message matches the type it claims to be — so a field with the
+wrong type is reported by name here rather than as an opaque wallet-side error.
+The `EIP712Domain` entry is derived from the domain, so the type and the value
+cannot disagree. The wallet hashes the document, so nothing is hashed here.
 
 ## Switching chains
 
@@ -268,8 +297,9 @@ evaluate a request without broadcasting it, `send_transaction` broadcasts one,
 chains, `transaction_receipt` / `wait_for_receipt` and `block_by_number` /
 `block_by_hash` read what was mined, and `on_accounts_changed` /
 `on_chain_changed` / `on_disconnect` subscribe to the provider events, and
-`sign_message` / `sign_typed_data` ask the wallet for a signature. Anything not
-wrapped is still reachable through `Provider::request`, with raw `Json`.
+`sign_message` / `sign_typed_data` ask the wallet for a signature over a message
+or a validated `TypedData` document. Anything not wrapped is still reachable
+through `Provider::request`, with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.

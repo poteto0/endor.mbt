@@ -19,5 +19,8 @@ pub using @types {
   type Log,
   type ChainParams,
   type NativeCurrency,
+  type TypedData,
+  type TypedDataDomain,
+  type TypedDataField,
   type CodecError,
 }

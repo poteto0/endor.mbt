@@ -24,9 +24,11 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
 **Messages are signed by the wallet** through `personal_sign` (`sign_message`,
 over a `String` the SDK hands over as UTF-8 bytes in hex) and
-`eth_signTypedData_v4` (`sign_typed_data`, over the EIP-712 document as `Json`,
-serialized on the wire) — both answer with the signature as `Hex`, and neither
-hashes anything locally, so no typed `TypedData` builder exists yet. There is no
+`eth_signTypedData_v4` (`sign_typed_data`, over a `TypedData` — the EIP-712
+document as a validated value, serialized on the wire) — both answer with the
+signature as `Hex`. Neither hashes anything: the wallet computes the digest, so
+`TypedData` validates a document but does not encode one. Computing the digest
+locally is #45, and EIP-1271 is what will need it. There is no
 ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
 `data` are raw `Hex`. Callers
 reach unwrapped methods through the generic `Provider::request` escape hatch.
@@ -54,7 +56,7 @@ Layout:
   `types/` backend-agnostic
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs
+  `ChainParams`, `TypedData`, `Block`, `TransactionReceipt`, `Log`, codecs
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
