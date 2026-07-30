@@ -1,0 +1,10 @@
+import {
+  "moonbitlang/core/debug",
+  "moonbitlang/x/fs",
+  "moonbitlang/x/sys",
+  "poteto0/endor/abi/codegen",
+}
+
+supported_targets = "native+js"
+
+pkgtype(kind: "executable")

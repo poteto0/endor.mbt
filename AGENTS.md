@@ -89,6 +89,16 @@ Layout:
   re-exports from `types` (spelled `@abi.AbiType`, as before). Depends on
   `types`, `codec` and `crypto` and on no transport, so calldata can be built
   with no provider in hand
+- `abi/codegen/` — **experimental, in progress (#48)**: renders the *source* of
+  a `Contract` preset from a JSON ABI document. It emits text and nothing else,
+  so it depends on `abi` (to resolve and validate the declared types) and on
+  neither `contract` nor `provider`, whose names it only ever spells. It
+  translates what it can type unambiguously and skips the rest by name rather
+  than approximating it — do not describe it as a finished feature, and do not
+  widen what it generates without a case that proves the wider version right.
+  An ABI member's `name` is checked against the Solidity identifier grammar as
+  it is read, because the name is the one thing out of the document that
+  reaches the generated source verbatim
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
   and the answer decoded, plus the `Erc20` preset. `ContractError` keeps the
   wallet's failures (`Rpc`) apart from the ABI's (`Abi`)
@@ -112,6 +122,19 @@ Layout:
 
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
+- `cmd/` — **experimental, in progress (#48)**: `endor-cli`, the command-line
+  tools; `cmd/endor-cli/` is the binary and `abi`, the front end to
+  `abi/codegen`, is so far its only real subcommand. How to add one is
+  `cmd/README.md#adding-a-subcommand`. Like `examples/`, a separate MoonBit module
+  (`poteto0/endor-cli`, listed in `moon.work`) so its dependencies stay out of
+  this one: it needs `moonbitlang/x` for file access and therefore a `native`
+  build, and the SDK must need neither. Being a separate module keeps it out of
+  the *package graph*; the `exclude` list in `moon.mod` keeps it out of the
+  *archive*, which `moon package` fills from the directory tree — both are
+  needed, exactly as for `examples/`. Its version and its `poteto0/endor@…`
+  pin move with the release tag, which `just release-check` asserts. Its own
+  recipes are `just cli-check` / `just cli-test`, because everything else here
+  pins `js`
 
 ## SDK design rules
 

@@ -30,20 +30,31 @@ import {
 }
 
 options(
-  // Kept out of the published archive. `examples/` matters most: it is a nested
-  // module with its own `moon.mod` pulling in UI dependencies, so shipping it
-  // would drag `mizchi/luna` into a consumer's resolution. The rest is
+  // Kept out of the published archive. `examples/` and `cmd/` matter most: each
+  // is a nested module with its own `moon.mod` pulling in dependencies this one
+  // does not have, so shipping either would drag them into a consumer's
+  // resolution — `mizchi/luna` for the demo, and `moonbitlang/x` plus a
+  // `native` build for the CLI. Being a separate module is what keeps those
+  // dependencies out of *this* module's graph; listing it here is what keeps
+  // its files out of the *archive*, which `moon package` fills from the
+  // directory tree and not from the package graph. Both are needed. The rest is
   // repository-local tooling and notes. `e2e` and `backend` are packages of
   // this module that nothing shipped imports; `backend/anvil` in particular
   // installs a fake wallet over `globalThis.ethereum`, which a wallet SDK must
-  // never hand a consumer. `just release-check` asserts both stayed out.
+  // never hand a consumer. `just release-check` asserts they stayed out.
+  // `_codegen_check` is the scratch package `just codegen-check` compiles: it
+  // is gitignored and removed on the way out, but `moon package` reads the
+  // directory tree it finds, so a publish racing a check must not ship it.
   exclude: [
     "examples",
+    "cmd",
     "e2e",
     "backend",
     "moon.work",
     "justfile",
     "AGENTS.md",
     "docs",
+    "fixtures",
+    "_codegen_check",
   ],
 )

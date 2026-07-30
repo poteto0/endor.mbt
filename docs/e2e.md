@@ -71,17 +71,34 @@ rather than the published release:
 cannot be taken back, and a wallet SDK that hands consumers a function
 overwriting `globalThis.ethereum` would be a real footgun.
 
+`e2e/codegen_test.mbt` is also the one place that reads a repository file at
+run time (`fixtures/`, through a test-only `extern "js"`), which is why it lives
+here rather than beside the generator's own unit tests.
+
 `Backend::endpoint` reads `ENDOR_E2E_RPC_URL`, and `run` **skips when it is
 unset** — that is why `just ut` needs no node. Two things keep a skip from
 passing for a pass: `run` says so once on stdout, and `just e2e` refuses to run
 until something answers on the port.
 
-A contract is deployed from `ANSWER_CONTRACT_CODE`, twenty-odd bytes of hand
-written EVM whose runtime always returns the word `42`. It exists so `call`,
-`estimate_gas`, `code` and `is_contract` have real bytecode to talk to without
-the SDK needing an ABI layer (#18). Deployment is a `send_transaction` with no
-`to` followed by a `wait_for_receipt`, and the address it lands at is read off
-the receipt's `contract_address`.
+Two contracts are deployed, both hand-written EVM of a few dozen bytes.
+Deployment is in each case a `send_transaction` with no `to` followed by a
+`wait_for_receipt`, with the address read off the receipt's `contract_address`.
+
+`ANSWER_CONTRACT_CODE` (`@anvil.deploy_answer_contract`) always returns the word
+`42`, whatever it is called with. It exists so `call`, `estimate_gas`, `code`
+and `is_contract` have real bytecode to talk to without the SDK needing an ABI
+layer (#18).
+
+`@anvil.deploy_selector_gate(provider, selector)` is the opposite: it returns
+`42` for exactly the four bytes it was deployed for and reverts for everything
+else. Ignoring the calldata is what makes the answer contract useless for the
+question `e2e/codegen_test.mbt` asks — whether the *experimental* ABI generator
+(#48) and the hand-written `@erc20.Erc20` dispatch to the same function. Both
+halves are given the gate; only agreement on all four bytes gets an answer, and
+a test in that file deploys a gate for the wrong selector to prove the check has
+teeth. The fixture it reads, `fixtures/abi/erc20.abi`, is the same file
+`just codegen-check` runs the CLI against, so a change to one is caught by the
+other.
 
 Tests share one chain and run concurrently, so assertions are about what a
 fresh chain guarantees (a nonce *grows*, it does not become exactly `n + 1`),

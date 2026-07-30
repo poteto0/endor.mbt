@@ -386,8 +386,27 @@ three constructors are spelled `@types.InvalidData(…)`. The rules themselves a
 predicates in `@codec`, which is also where the hex-digit and word arithmetic
 both this layer and `@eip712` work in lives.
 
-Not covered: parsing a JSON ABI file, `bytesN` beyond 32, and decoding a log's
-indexed arguments.
+Not covered: `bytesN` beyond 32, and decoding a log's indexed arguments.
+
+#### Generating a preset from an ABI — experimental
+
+`@codegen.generate(name, abi_json)` (`abi/codegen`) reads a JSON ABI document
+and renders the source of a preset shaped like `@contract.Erc20` — a struct
+wrapping a `Contract`, a method per function, a topic getter per event.
+`endor-cli abi`, its command-line front end, lives in `cmd/`, which is a
+**separate module** (`poteto0/endor-cli`) and is not part of what this one
+publishes — it is installed as a binary (`moon install
+poteto0/endor-cli/endor-cli`), not depended on. `endor-cli init` writes the
+`endor.yaml` that `abi` reads.
+
+**This is experimental and is not part of the stable surface.** It generates
+only what it can type without guessing — parameters and single return values of
+`address`, `bool`, `string`, `uintN`, `intN` — and *skips* every other member
+rather than approximating it, naming each one in `Generated::skipped` and in a
+comment in the generated file. Events are exempt, since a topic needs only the
+signature. `constructor`, `fallback`, `receive` and `error` entries are dropped:
+a preset wraps a contract that is already deployed. Read what it produces before
+shipping it.
 
 ### Provider events
 

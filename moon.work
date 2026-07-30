@@ -1,4 +1,5 @@
 members = [
   ".",
+  "./cmd",
   "./examples/get-address",
 ]

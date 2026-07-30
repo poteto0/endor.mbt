@@ -42,6 +42,23 @@ applies.
 
 ### Added
 
+- **Experimental:** `abi/codegen` renders the source of a `@contract.Contract`
+  preset — a struct, a method per ABI function, a topic getter per event — from
+  a JSON ABI document, and `endor-cli abi` writes one file per document from a
+  checked-in `endor.yaml` — which `endor-cli init` writes, along with the input
+  directory it names, so a fresh project reaches a working generator in one
+  command. It generates only what it can type without guessing
+  (`address`, `bool`, `string`, `uintN`, `intN`, single return values) and
+  *skips* every other member by name rather than approximating it. The CLI is a
+  separate module (`poteto0/endor-cli`, in `cmd/`), so `moonbitlang/x` and a
+  `native` build stay out of the SDK's dependency graph. Not part of the stable
+  surface: read what it produces before shipping it. (#48)
+- `@contract.uint_answer` / `int_answer` / `string_answer` / `bool_answer` /
+  `address_answer`: the single value a getter answered with, or a
+  `ContractError` naming the getter. They were private helpers in `Erc20`;
+  generated presets need them, so they are public and there is one per type the
+  SDK can name. `int` and `uint` stay separate deliberately — the same 32 bytes
+  differ only in how the top bit reads. (#48)
 - `Hex::from_digits`, which builds a hex byte string from the digits alone —
   no `0x`, no `Bytes` in between. It is where both of `Hex`'s rules are now
   stated: `from_string` is this with the prefix taken off first, so a shortcut
