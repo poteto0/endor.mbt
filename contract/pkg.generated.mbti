@@ -13,7 +13,13 @@ pub fn address_answer(Array[@types.AbiValue], what~ : String) -> @types.Address 
 
 pub fn bool_answer(Array[@types.AbiValue], what~ : String) -> Bool raise ContractError
 
+pub async fn[P : @provider.Provider] deploy(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei, confirmations? : Int, timeout? : Int, poll_interval? : Int) -> Contract raise ContractError
+
+pub fn deployment_data(bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue]) -> @types.Hex raise ContractError
+
 pub fn int_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
+
+pub async fn[P : @provider.Provider] send_deployment(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei) -> @types.TxHash raise ContractError
 
 pub fn string_answer(Array[@types.AbiValue], what~ : String) -> String raise ContractError
 
@@ -23,6 +29,7 @@ pub fn uint_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt rai
 pub(all) suberror ContractError {
   Rpc(@provider.ProviderError)
   Abi(@types.AbiError)
+  Deployment(String)
 } derive(Eq)
 pub impl Show for ContractError
 

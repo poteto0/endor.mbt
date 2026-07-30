@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn answer_contract_code() -> @types.Hex
+
 pub fn answer_contract_runtime() -> @types.Hex
 
 pub fn chain_id() -> @types.ChainId

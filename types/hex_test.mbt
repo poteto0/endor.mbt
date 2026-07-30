@@ -133,3 +133,16 @@ test "a large value survives the round trip" {
   assert_eq(h.to_bytes(), payload)
   assert_eq(@types.Hex::from_digits(h.digits()), h)
 }
+
+///|
+/// `Hex::concat` — the two halves' bytes in order, with the empty value the
+/// identity on either side, since `0x` is the value that spells no bytes.
+test "two hex values join into one" {
+  let code = @types.Hex::from_string("0x6080")
+  let args = @types.Hex::from_string("0xdeadbeef")
+  let empty = @types.Hex::from_string("0x")
+  assert_eq(code.concat(args), @types.Hex::from_string("0x6080deadbeef"))
+  assert_eq(code.concat(empty), code)
+  assert_eq(empty.concat(code), code)
+  assert_eq(code.concat(args).byte_length(), 6)
+}

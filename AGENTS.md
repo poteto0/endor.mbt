@@ -25,7 +25,8 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 **Contracts are called through their ABI**: `abi/` encodes and decodes ABI
 values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
 `contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
-top of `eth_call` / `eth_sendTransaction`. Message signing is planned but not
+top of `eth_call` / `eth_sendTransaction`, and `deploy` on top of a transaction
+with no recipient. Message signing is planned but not
 implemented — do not describe it as available. Neither is decoding a _log_ into
 an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
 `@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
@@ -100,8 +101,12 @@ Layout:
   it is read, because the name is the one thing out of the document that
   reaches the generated source verbatim
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
-  and the answer decoded, plus the `Erc20` preset. `ContractError` keeps the
-  wallet's failures (`Rpc`) apart from the ABI's (`Abi`)
+  and the answer decoded, plus the `Erc20` preset and `deploy` /
+  `send_deployment`, which are the same thing for a transaction with no
+  recipient: creation code with the constructor's arguments encoded behind it,
+  and the address the receipt names. `ContractError` keeps the wallet's failures
+  (`Rpc`) apart from the ABI's (`Abi`) and from a deployment that left no
+  contract behind (`Deployment`)
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;

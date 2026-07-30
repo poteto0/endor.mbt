@@ -311,10 +311,12 @@ that add without switching.
 
 ### Calling a contract
 
-| Function                             | Underneath            | Returns                |
-| ------------------------------------ | --------------------- | ---------------------- |
-| `Contract::call(p, name~, …)`        | `eth_call`            | `Array[@abi.AbiValue]` |
-| `Contract::send(p, from~, name~, …)` | `eth_sendTransaction` | `@endor.TxHash`        |
+| Function                                  | Underneath                                 | Returns                |
+| ----------------------------------------- | ------------------------------------------ | ---------------------- |
+| `Contract::call(p, name~, …)`             | `eth_call`                                 | `Array[@abi.AbiValue]` |
+| `Contract::send(p, from~, name~, …)`      | `eth_sendTransaction`                      | `@endor.TxHash`        |
+| `deploy(p, from~, bytecode~, …)`          | `eth_sendTransaction` + `wait_for_receipt` | `@contract.Contract`   |
+| `send_deployment(p, from~, bytecode~, …)` | `eth_sendTransaction`                      | `@endor.TxHash`        |
 
 `@contract.Contract` is the ABI layer over the two helpers above: `call` encodes
 the arguments, evaluates the call and decodes the answer as `outputs`; `send`
@@ -335,10 +337,42 @@ let values = @contract.Contract::new(nft).call(
 `inputs`, `args` and `outputs` all default to empty, so a no-argument getter
 that answers nothing is `call(p, name="poke")`.
 
-Errors arrive as `@contract.ContractError`, which keeps the two failures apart:
+Errors arrive as `@contract.ContractError`, which keeps the failures apart:
 `Rpc(e)` is the wallet or the node — a rejected prompt, a revert — and `Abi(e)`
 means the contract is not the one the caller described, most often an address
 that is not the contract it was taken for. No retry helps with the second.
+`Deployment(what)` is the third and belongs to `deploy` alone.
+
+#### Deploying one
+
+A transaction with no recipient deploys its `data`, so a deployment is the same
+`eth_sendTransaction` with `to` left out and the creation code in its place:
+
+```
+let deployed = @contract.deploy(
+  wallet,
+  from=me,
+  bytecode=code,            // the creation code, as @endor.Hex
+  inputs=[Uint(256)],       // the constructor's parameter types
+  args=[Uint(1000N)],       // encoded behind the code — no selector
+  value?,                   // ether handed to the constructor
+  confirmations?, timeout?, poll_interval?,   // wait_for_receipt's own
+)
+let token = @contract.Erc20::new(deployed.address())
+```
+
+Constructor arguments carry no selector because a constructor has no name to
+hash: `@contract.deployment_data`, which builds the `data` and is public for a
+caller that sends it some other way, is `@abi.encode_call` without those four
+bytes — so a constructor taking nothing leaves the creation code exactly as it
+was.
+
+`deploy` waits, since the address only exists once the transaction is mined —
+it is in the receipt's `contract_address`. `send_deployment` is the same
+broadcast without the wait, for a caller that wants the hash while the
+transaction is still pending. A deployment that reverted has a receipt too, and
+one with no address in it, so both are raised as `Deployment(what)` rather than
+handed back as an absence to notice.
 
 #### The ERC-20 preset
 

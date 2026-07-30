@@ -42,6 +42,16 @@ applies.
 
 ### Added
 
+- Contract deployment: `@contract.deploy` sends the creation code with its
+  constructor arguments encoded behind it, waits for the receipt and answers
+  with the `Contract` now at the address it names; `send_deployment` is the same
+  broadcast without the wait, and `deployment_data` is the `data` both build.
+  A deployment that reverted, or whose receipt names no `contractAddress`,
+  raises the new `ContractError::Deployment`. (#63)
+- `Hex::concat`, which joins two hex byte strings without taking either apart:
+  both of `Hex`'s rules hold of the halves, so they hold of the whole, and the
+  caller gets no error it has no way to cause. `deployment_data` is what it
+  exists for. (#63)
 - **Experimental:** `abi/codegen` renders the source of a `@contract.Contract`
   preset — a struct, a method per ABI function, a topic getter per event — from
   a JSON ABI document, and `endor-cli abi` writes one file per document from a

@@ -127,6 +127,31 @@ async fn owner_of(
 }
 ```
 
+A contract that is not deployed yet is one `deploy` away, since a transaction
+with no recipient deploys its `data`:
+
+```
+async fn put_on_chain(
+  wallet : @browser.BrowserProvider,
+  me : @endor.Address,
+  code : @endor.Hex,     // the creation code, from your compiler's artifact
+) -> @endor.Address raise @contract.ContractError {
+  let deployed = @contract.deploy(
+    wallet,
+    from=me,
+    bytecode=code,
+    inputs=[Uint(256)],  // the constructor's parameters, encoded behind the code
+    args=[Uint(1000N)],
+  )
+  deployed.address()
+}
+```
+
+`deploy` prompts, broadcasts, and waits for the receipt, because the address
+only exists once the transaction is mined — `@contract.send_deployment` is the
+same broadcast without the wait, for a UI that wants the `TxHash` while the
+deployment is still pending.
+
 The encoding underneath is `endor/abi`, usable on its own when the call goes out
 some other way: `@abi.encode_call(name~, inputs~, args~)` builds the calldata,
 `@abi.decode(outputs, data)` reads an answer back, `@abi.selector(sig)` and
@@ -389,7 +414,7 @@ for where the unimplemented parts sit in the plan.
 | `endor/eip712`           | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                             |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
 | `endor/abi`              | ABI encode / decode, function selectors and event topics — `AbiType`, `AbiValue`, `AbiError`                |
-| `endor/contract`         | `Contract` — typed calls over the ABI layer — and the `Erc20` preset                                        |
+| `endor/contract`         | `Contract` — typed calls over the ABI layer — `deploy`, and the `Erc20` preset                              |
 | `endor/provider`         | `Provider` / `EventSource` traits, `ProviderError`, typed RPC and event helpers, `MockProvider`             |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                                             |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `on` / `removeListener`, `spawn`      |
