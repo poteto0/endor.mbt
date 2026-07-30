@@ -161,14 +161,13 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
   provider : P,
   selector : @types.Hex,
 ) -> @types.Address raise @provider.ProviderError {
-  let four = selector.to_string()[2:].to_owned()
-  guard four.length() == 8 else {
+  guard selector.byte_length() == 4 else {
     raise @provider.ProviderError::internal(
       "a selector is four bytes, got \{selector}",
     )
   }
-  let data = @types.Hex::from_string(
-    SELECTOR_GATE_INIT + four + SELECTOR_GATE_BODY,
+  let data = @types.Hex::from_digits(
+    SELECTOR_GATE_INIT + selector.digits() + SELECTOR_GATE_BODY,
   ) catch {
     e => abort("bad gate code: \{e}")
   }
@@ -194,8 +193,10 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
 /// 602a 6000 52   MSTORE(0, 42)
 /// 6020 6000 f3   RETURN(0, 32)        one word holding 42
 /// ```
-const SELECTOR_GATE_INIT : String = "0x601e600c600039601e6000f3600035" +
-  "60e01c63"
+/// Digits, not a `Hex`: neither half is a byte string on its own, and the
+/// selector goes between them. `Hex::from_digits` puts the `0x` back once the
+/// three are one.
+const SELECTOR_GATE_INIT : String = "601e600c600039601e6000f360003560e01c63"
 
 ///|
 const SELECTOR_GATE_BODY : String = "14601357600080fd5b602a600052602060" +

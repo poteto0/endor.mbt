@@ -22,6 +22,12 @@ struct Command {
 ///
 /// Order is the order the help prints in, so entries of a section stay
 /// together.
+///
+/// A `fn` rather than the `let` it reads like it wants to be. A top-level
+/// value holding these entries is a definition cycle — `commands()` names
+/// `handle_help`, which reaches `find_command`, which reads `commands()` — and
+/// MoonBit refuses it. The table is built per call instead, three times in the
+/// life of a process that then exits.
 fn commands() -> Array[Command] {
   [
     {
@@ -50,12 +56,8 @@ fn commands() -> Array[Command] {
 
 ///|
 fn find_command(name : String) -> Command? {
-  for entry in commands() {
-    if entry.name == name {
-      return Some(entry)
-    }
-  }
-  None
+  let table = commands()
+  table.search_by(entry => entry.name == name).map(at => table[at])
 }
 
 ///|

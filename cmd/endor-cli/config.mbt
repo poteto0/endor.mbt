@@ -65,15 +65,18 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
   let mut abi_out = None
   for raw in text.split("\n") {
     let line = raw.trim_end(chars="\r").to_owned()
-    if line.trim().is_empty() || line.trim().has_prefix("#") {
+    // the indent is the one thing that needs the line as written; everything
+    // after it is about the content, so the content is trimmed once
+    let indent = line.length() - line.trim_start(chars=" ").length()
+    let text = line.trim().to_owned()
+    if text.is_empty() || text.has_prefix("#") {
       continue
     }
-    let indent = line.length() - line.trim_start(chars=" ").length()
-    guard line.split_once(":") is Some((key, rest)) else {
-      raise Malformed("`\{line.trim()}` is not `key: value`")
+    guard text.split_once(":") is Some((key, rest)) else {
+      raise Malformed("`\{text}` is not `key: value`")
     }
     let key = key.trim().to_owned()
-    let value = unquote(strip_comment(rest.trim().to_owned()))
+    let value = scalar(rest.trim().to_owned())
     match indent {
       0 => {
         section = key
@@ -91,7 +94,7 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
         }
       _ =>
         raise Malformed(
-          "`\{line.trim()}` is indented \{indent} spaces; expected 0 or 2",
+          "`\{text}` is indented \{indent} spaces; expected 0 or 2",
         )
     }
   }
@@ -105,38 +108,30 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
 }
 
 ///|
-/// A value with its trailing comment taken off.
+/// What a `key:` is actually worth: the scalar, with its quotes and its
+/// trailing comment gone.
 ///
-/// The `#` has to be preceded by a space to start one, which is what keeps a
-/// path like `./abi#2` whole — YAML draws the same line, and a directory whose
-/// name has a `#` in it is likelier than a caller who wanted an empty value.
-/// A quoted scalar is exempt up to its closing quote, so `"./a # b"` is a path
-/// and `"./a" # b` is a path with a comment after it.
-fn strip_comment(value : String) -> String {
-  let start = if value.has_prefix("\"") || value.has_prefix("'") {
-    let quote = value[:1].to_owned()
-    match value[1:].to_owned().find(quote) {
-      Some(close) => close + 2
-      // an unterminated quote is not a comment to strip; `unquote` leaves it
-      // alone too, and the caller sees the odd value they wrote
-      None => return value
-    }
-  } else {
-    0
-  }
-  match value[start:].to_owned().find(" #") {
-    Some(at) => value[:start + at].trim_end(chars=" ").to_owned()
-    None => value
-  }
-}
-
-///|
-/// YAML lets a scalar be quoted; nothing here needs the quotes.
-fn unquote(value : String) -> String {
-  for quote in ["\"", "'"] {
-    if value.length() >= 2 && value.has_prefix(quote) && value.has_suffix(quote) {
-      return value[1:value.length() - 1].to_owned()
+/// Both in one pass, because they are one question. Where the quote ends is
+/// where the comment may begin — `"./a # b"` is a path and `"./a" # b` is a
+/// path with a comment after it — so finding the closing quote twice, once to
+/// know what to strip and once to know what to unwrap, is finding out the same
+/// thing twice.
+///
+/// The `#` has to be preceded by a space to open a comment, which is what
+/// keeps `./abi#2` whole. YAML draws the same line, and a directory with a `#`
+/// in its name is likelier than a caller who wanted an empty value. An
+/// unterminated quote is left exactly as written: it is not a scalar this
+/// reader understands, and the caller seeing back what they typed is the
+/// clearest thing it can do about that.
+fn scalar(value : String) -> String {
+  guard value.has_prefix("\"") || value.has_prefix("'") else {
+    return match value.find(" #") {
+      Some(at) => value[:at].trim_end(chars=" ").to_owned()
+      None => value
     }
   }
-  value
+  guard value[1:].to_owned().find(value[:1].to_owned()) is Some(close) else {
+    return value
+  }
+  value[1:close + 1].to_owned()
 }

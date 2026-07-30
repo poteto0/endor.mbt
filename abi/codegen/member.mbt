@@ -24,6 +24,13 @@ priv struct Scalar {
 /// `bytes` and `bytesN` are left out deliberately even though `Bytes` exists:
 /// the ABI's `bytesN` is fixed-width and MoonBit's `Bytes` is not, so a
 /// generated signature would promise a length it cannot enforce.
+///
+/// `literal` is spelled out here even though `AbiType` derives `Debug` and
+/// currently renders identically. Taking `"\{ty}"` instead would make the
+/// derived debug format load-bearing for source that has to compile — a
+/// formatting change nothing pins would silently emit uncompilable files. The
+/// copy is deliberate, and `codegen_test.mbt` asserts the two agree so that
+/// "currently renders identically" stays a fact rather than an assumption.
 fn scalar(ty : @abi.AbiType) -> Scalar? {
   match ty {
     Address =>
@@ -150,7 +157,9 @@ fn function_block(
 fn write_head(
   struct_name : String,
   fn_name : String,
-  doc : String,
+  doc~ : String,
+  from~ : Bool,
+  params~ : Array[(String, Scalar)],
 ) -> StringBuilder {
   let head = StringBuilder::new()
   head.write_string("///|\n")
@@ -160,6 +169,14 @@ fn write_head(
   )
   head.write_string("  self : \{struct_name},\n")
   head.write_string("  provider : P,\n")
+  // a write's `from~` precedes the ABI's own parameters, so that a caller
+  // reading the signature sees who signs before what is signed
+  if from {
+    head.write_string("  from~ : @types.Address,\n")
+  }
+  for p in params {
+    head.write_string("  \{p.0}~ : \{p.1.mbt},\n")
+  }
   head
 }
 
@@ -176,19 +193,15 @@ fn reading_block(
   let head = write_head(
     struct_name,
     fn_name,
-    "/// `\{signature}` — reads.\n" +
-    "///\n" +
-    "/// It is evaluated against the chain's current state, so it costs nothing\n" +
-    "/// and prompts no one.\n",
+    doc="/// `\{signature}` — reads.\n" +
+      "///\n" +
+      "/// It is evaluated against the chain's current state, so it costs nothing\n" +
+      "/// and prompts no one.\n",
+    from=false,
+    params~,
   )
-  for p in params {
-    head.write_string("  \{p.0}~ : \{p.1.mbt},\n")
-  }
   let call = ["provider", "name=\"\{f.name}\""]
-  if !params.is_empty() {
-    call.push("inputs=[\{inputs_of(params)}]")
-    call.push("args=[\{args_of(params)}]")
-  }
+  call.append(abi_args(params))
   call.push("outputs=[\{out.literal}]")
   head.write_string(
     ") -> \{out.mbt} raise @contract.ContractError {\n" +
@@ -213,24 +226,22 @@ fn sending_block(
   let head = write_head(
     struct_name,
     fn_name,
-    "/// `\{signature}` — writes.\n" +
-    "///\n" +
-    "/// It signs, so it prompts. The answer is the transaction's hash, not what\n" +
-    "/// the function returned: a broadcast transaction has not run yet, and what\n" +
-    "/// it did is in its receipt.\n",
+    doc="/// `\{signature}` — writes.\n" +
+      "///\n" +
+      "/// It signs, so it prompts. The answer is the transaction's hash, not what\n" +
+      "/// the function returned: a broadcast transaction has not run yet, and what\n" +
+      "/// it did is in its receipt.\n",
+    from=true,
+    params~,
   )
-  head.write_string("  from~ : @types.Address,\n")
-  for p in params {
-    head.write_string("  \{p.0}~ : \{p.1.mbt},\n")
-  }
+  // `value?` closes the parameter list rather than joining `from~` ahead of it:
+  // it is optional, and an optional parameter reads as an afterthought because
+  // that is what it is
   if f.payable {
     head.write_string("  value? : @types.Wei,\n")
   }
   let send = ["provider", "from~", "name=\"\{f.name}\""]
-  if !params.is_empty() {
-    send.push("inputs=[\{inputs_of(params)}]")
-    send.push("args=[\{args_of(params)}]")
-  }
+  send.append(abi_args(params))
   if f.payable {
     send.push("value?")
   }
@@ -257,9 +268,9 @@ fn call_expr(
   suffix~ : String,
 ) -> String {
   let pad = " ".repeat(indent)
-  let one_line = "\{pad}\{callee}(\{args.join(", ")})\{suffix}\n"
-  if one_line.length() - 1 <= 80 {
-    return one_line
+  let one_line = "\{pad}\{callee}(\{args.join(", ")})\{suffix}"
+  if one_line.length() <= 80 {
+    return one_line + "\n"
   }
   let out = StringBuilder::new()
   out.write_string("\{pad}\{callee}(\n")
@@ -302,34 +313,43 @@ fn event_block(
   Ok(
     (
       signature,
-      "///|\n" +
-      "/// `topics[0]` of every log this event writes:\n" +
-      "/// `\{signature}`.\n" +
-      "///\n" +
-      "/// What a receipt's logs are matched against to find it.\n" +
-      "pub fn \{struct_name}::\{fn_name}() -> @types.Hex {\n" +
-      "  @abi.event_topic(\"\{signature}\")\n" +
-      "}\n",
+      (
+        $|///|
+        $|/// `topics[0]` of every log this event writes:
+        $|/// `\{signature}`.
+        $|///
+        $|/// What a receipt's logs are matched against to find it.
+        $|pub fn \{struct_name}::\{fn_name}() -> @types.Hex {
+        $|  @abi.event_topic("\{signature}")
+        $|}
+        $|
+      ),
     ),
   )
 }
 
 ///|
-/// The `inputs` argument: the ABI types, in order.
+/// The `inputs` and `args` arguments, or neither for a function that takes no
+/// parameters — `Contract::call` and `send` both default them to empty, so a
+/// generated method says nothing rather than saying `inputs=[], args=[]`.
 ///
-/// It is spelled out at every call site rather than hoisted into a constant on
-/// the struct, because `Contract::call` hashes it into the selector on each
-/// call — a generated method carries its own signature, and a reader can see
-/// which function it dispatches to without following a reference.
-fn inputs_of(params : Array[(String, Scalar)]) -> String {
-  params.map(p => p.1.literal).join(", ")
-}
-
-///|
-/// The `args` argument: each parameter wrapped in the `AbiValue` constructor
-/// its type calls for. It has to line up with `inputs_of` element by element —
-/// `encode` pairs them positionally — which is why both are built from the same
-/// list rather than from the ABI twice.
-fn args_of(params : Array[(String, Scalar)]) -> String {
-  params.map(p => "\{p.1.ctor}(\{p.0})").join(", ")
+/// They come back together because they have to *stay* together: `encode`
+/// pairs them positionally, so the nth type and the nth value are one fact
+/// about the nth parameter and are built from one walk over one list. Returned
+/// as arguments rather than written, because whether a call fits on one line
+/// is decided by `call_expr` after it has all of them.
+///
+/// The types are spelled out at every call site rather than hoisted into a
+/// constant on the struct, because `Contract::call` hashes them into the
+/// selector on each call — a generated method carries its own signature, and a
+/// reader can see which function it dispatches to without following a
+/// reference.
+fn abi_args(params : Array[(String, Scalar)]) -> Array[String] {
+  if params.is_empty() {
+    return []
+  }
+  [
+    "inputs=[\{params.map(p => p.1.literal).join(", ")}]",
+    "args=[\{params.map(p => "\{p.1.ctor}(\{p.0})").join(", ")}]",
+  ]
 }

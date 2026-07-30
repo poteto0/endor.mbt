@@ -135,9 +135,12 @@ codegen-check:
   # tree and not from whatever the registry last published
   rm -rf _codegen_check && mkdir _codegen_check
   cp "$scratch"/outputs/*.mbt "$scratch"/outputs/moon.pkg _codegen_check/
-  moon check --target {{target}} --deny-warn
+  # scoped to the generated package: `ci` and `ci-check` both run `check` and
+  # `fmt`/`fmt-check` over the whole module already, and the only thing they
+  # cannot see is this directory, which does not exist when they run
+  moon check --target {{target}} --deny-warn _codegen_check
   # and it came out formatted, so nobody's `just fmt` shows it as a diff
-  moon fmt --check
+  moon fmt --check _codegen_check
   echo "ok: the generated code compiles and is already formatted"
 
 # what the pre-commit hook runs: formats and regenerates in place

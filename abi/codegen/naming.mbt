@@ -42,15 +42,11 @@ pub fn snake_case(name : String) -> String {
   let out = StringBuilder::new()
   let mut last_underscore = true // suppress a leading underscore
   for i, c in chars {
-    if c.is_ascii_alphabetic() && c.to_ascii_lowercase() != c {
+    if c.is_ascii_uppercase() {
       let prev_is_word = i > 0 &&
-        (
-          chars[i - 1].to_ascii_uppercase() != chars[i - 1] ||
-          chars[i - 1].is_ascii_digit()
-        )
+        (chars[i - 1].is_ascii_lowercase() || chars[i - 1].is_ascii_digit())
       let next_is_lower = i + 1 < chars.length() &&
-        chars[i + 1].is_ascii_alphabetic() &&
-        chars[i + 1].to_ascii_uppercase() != chars[i + 1]
+        chars[i + 1].is_ascii_lowercase()
       if !last_underscore && (prev_is_word || next_is_lower) {
         out.write_char('_')
       }
@@ -83,40 +79,39 @@ pub fn snake_case(name : String) -> String {
 /// from them. `$` is in here because Solidity allows it in an identifier; it is
 /// inert in MoonBit source, which has no `$`-interpolation.
 fn is_abi_ident(name : String) -> Bool {
-  guard name.get_char(0) is Some(c) &&
-    (c.is_ascii_alphabetic() || c == '_' || c == '$') else {
-    return false
-  }
-  name
-  .iter()
-  .all(c => {
-    c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_' || c == '$'
-  })
+  ident_like(name, dollar=true)
 }
 
 ///|
 /// Whether a string can be spelled as a MoonBit value identifier — and is not
 /// a keyword, which would parse as something else entirely.
 fn is_value_ident(name : String) -> Bool {
-  guard name.get_char(0) is Some(c) && (c.is_ascii_alphabetic() || c == '_') else {
-    return false
-  }
-  guard name
-    .iter()
-    .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_') else {
-    return false
-  }
-  !keywords.contains(name)
+  ident_like(name, dollar=false) && !keywords.contains(name)
 }
 
 ///|
 /// Whether a string can be spelled as a MoonBit type identifier: a value
 /// identifier that starts with a capital.
 fn is_type_ident(name : String) -> Bool {
-  is_value_ident(name) &&
-  name.get_char(0) is Some(c) &&
-  c.is_ascii_alphabetic() &&
-  c.to_ascii_uppercase() == c
+  is_value_ident(name) && name.get_char(0) is Some(c) && c.is_ascii_uppercase()
+}
+
+///|
+/// The grammar both identifier questions share: a letter or `_` — or `$`, for
+/// the Solidity one — and then letters, digits and the same.
+///
+/// The two callers differ in that one character and in the keyword check, and
+/// that is all they differ in. Written out twice, the shared half is something
+/// two doc comments each claim to be about a different language; written once,
+/// what is actually different is what is visible.
+fn ident_like(name : String, dollar~ : Bool) -> Bool {
+  let extra = c => c == '_' || (dollar && c == '$')
+  guard name.get_char(0) is Some(c) && (c.is_ascii_alphabetic() || extra(c)) else {
+    return false
+  }
+  name
+  .iter()
+  .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || extra(c))
 }
 
 ///|

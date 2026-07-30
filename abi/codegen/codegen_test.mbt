@@ -944,3 +944,34 @@ test "generate: a skipped member is in neither the code nor the members" {
   assert_eq(out.members, ["paused()"])
   assert_eq(out.skipped.length(), 1)
 }
+
+///|
+/// The `AbiType` literals the generator emits are written out by hand in
+/// `scalar`, not taken from `AbiType`'s derived `Debug`. That is deliberate —
+/// emitted source must not depend on a debug format nothing pins — but it
+/// leaves a promise the table makes silently: that what it spells is what the
+/// type actually is.
+///
+/// So the promise is asserted here. If the table and the type ever disagree,
+/// the generated file names an `AbiType` that does not exist and fails to
+/// compile; this fails first, and says which spelling drifted.
+test "generate: the type a call declares is the type the ABI said" {
+  let out = @codegen.generate(
+    "Widths",
+    (
+      #|[
+      #|  { "type": "function", "name": "f", "stateMutability": "nonpayable",
+      #|    "inputs": [
+      #|      { "name": "a", "type": "address" }, { "name": "b", "type": "bool" },
+      #|      { "name": "c", "type": "string" }, { "name": "d", "type": "uint8" },
+      #|      { "name": "e", "type": "int128" }
+      #|    ], "outputs": [] }
+      #|]
+    ),
+  )
+  let declared = [@abi.AbiType::Address, Bool, String, Uint(8), Int(128)]
+    .map(ty => "\{ty}")
+    .join(", ")
+  assert_eq(declared, "Address, Bool, String, Uint(8), Int(128)")
+  assert_true(out.code.contains("inputs=[\{declared}]"))
+}

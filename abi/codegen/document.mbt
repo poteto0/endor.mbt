@@ -104,10 +104,11 @@ fn read_function(
     Some(_) =>
       raise InvalidAbi("function `\{name}` has a non-string `stateMutability`")
   }
+  let of = "function `\{name}`"
   {
     name,
-    inputs: read_params(fields, "inputs", of="function `\{name}`"),
-    outputs: read_params(fields, "outputs", of="function `\{name}`"),
+    inputs: read_params(fields, "inputs", of~),
+    outputs: read_params(fields, "outputs", of~),
     mutating: !(mutability is ("view" | "pure")),
     payable: mutability == "payable",
   }
