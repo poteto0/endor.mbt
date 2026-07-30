@@ -91,10 +91,10 @@ pub fn encode_call(
   inputs~ : Array[AbiType],
   args~ : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  let selector = @types.Hex::digits_of_bytes(
+  let selector = @codec.digits_of_bytes(
     selector_bytes(signature(name~, inputs~)),
   )
   @types.Hex::from_bytes(
-    @types.Hex::bytes_of_digits(selector + _encode_block(inputs, args)),
+    @codec.bytes_of_digits(selector + _encode_block(inputs, args)),
   )
 }

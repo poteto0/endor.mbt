@@ -366,7 +366,7 @@ pub async fn[P : Provider] send_transaction(
 /// Ask the wallet to sign an EIP-712 typed-data structure with `who`'s key
 /// (`eth_signTypedData_v4`), and return the signature.
 ///
-/// `typed_data` is a `@types.TypedData`: it validated the document when it was
+/// `typed_data` is an `@eip712.TypedData`: it validated the document when it was
 /// built, so what reaches the wallet is one it can be expected to accept, and
 /// a field with the wrong type was already reported by name. It goes over the
 /// wire *serialized* — v4 takes the document as a string, not as a nested
@@ -379,7 +379,7 @@ pub async fn[P : Provider] send_transaction(
 /// async fn[P : @provider.Provider] sign_permit(
 ///   p : P,
 ///   who : @types.Address,
-///   permit : @types.TypedData,
+///   permit : @eip712.TypedData,
 /// ) -> @types.Hex raise @provider.ProviderError {
 ///   @provider.sign_typed_data(p, who, permit)
 /// }
@@ -387,7 +387,7 @@ pub async fn[P : Provider] send_transaction(
 pub async fn[P : Provider] sign_typed_data(
   provider : P,
   who : @types.Address,
-  typed_data : @types.TypedData,
+  typed_data : @eip712.TypedData,
 ) -> @types.Hex raise ProviderError {
   invoke_rpc(
     provider,

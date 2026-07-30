@@ -63,13 +63,23 @@ Layout:
 - root package — re-exports the domain types so they can be spelled
   `@endor.Address`; deliberately holds no provider code, which keeps it and
   `types/` backend-agnostic
+- `codec/` — the wire's own arithmetic, and nothing else: hex digits (`nibble`,
+  `bytes_of_digits`, `digits_of_bytes`, `hex_body`), the 32-byte word
+  (`WORD_BYTES` / `WORD_DIGITS` / `WORD_BITS`, two's complement, padding in
+  either unit), and the ABI's width and size rules as predicates. A leaf
+  package: it names no domain type and has no error type of its own, so every
+  layer above states each rule once and raises whichever error is its own
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `TypedData`, `Block`, `TransactionReceipt`, `Log`, codecs.
-  Also `AbiType` / `AbiValue` / `AbiError` and the ABI's word rules (valid
-  widths and sizes, two's complement, one word's worth of hex digits): the ABI
-  encoder and EIP-712 check the same rules, and `abi` depends on `types`, so a
-  rule both layers need lives at this level
+  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs. Also
+  `AbiType` / `AbiValue` / `AbiError`, whose definitions belong with the domain
+  types both `abi` and `eip712` build on; the arithmetic their rules are stated
+  in is `codec`'s
+- `eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
+  validation it does when it is built, and the digest a wallet signs
+  (`encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator` /
+  `digest`). Depends on `types`, `codec` and `crypto`; only `sign_typed_data`
+  needs it, and the root re-exports the three types as `@endor.TypedData` &c
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
@@ -77,8 +87,8 @@ Layout:
 - `abi/` — the contract ABI: `encode` / `decode`, `signature` / `selector` /
   `event_topic` / `encode_call`, over the `AbiType` / `AbiValue` / `AbiError` it
   re-exports from `types` (spelled `@abi.AbiType`, as before). Depends on
-  `types` and `crypto` and on no transport, so calldata can be built with no
-  provider in hand
+  `types`, `codec` and `crypto` and on no transport, so calldata can be built
+  with no provider in hand
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
   and the answer decoded, plus the `Erc20` preset. `ContractError` keeps the
   wallet's failures (`Rpc`) apart from the ABI's (`Abi`)

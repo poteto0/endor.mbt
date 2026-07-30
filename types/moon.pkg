@@ -8,4 +8,7 @@ import {
   // EIP-55 checksum casing hashes the address with keccak256; `crypto` is a
   // leaf package, so depending on it here introduces no cycle.
   "poteto0/endor/crypto",
+  // hex digits are the wire's own alphabet, not a domain type: `codec` states
+  // how bytes and digits convert, and `abi` reads it the same way.
+  "poteto0/endor/codec",
 }

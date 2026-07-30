@@ -61,7 +61,7 @@ fn _decode_value(
       ignore(AbiType::checked_bits(bits, what="int"))
       let raw = _read_word_as_uint(data, at)
       // two's complement over the whole word: the top bit is the sign
-      Int(@types.word_to_signed(raw))
+      Int(@codec.word_to_signed(raw))
     }
     AbiType::Address => {
       let word = _read_word(data, at)
@@ -80,7 +80,7 @@ fn _decode_value(
     FixedBytes(size) => {
       let word = _read_word(data, at)
       Bytes(
-        @types.Hex::bytes_of_digits(
+        @codec.bytes_of_digits(
           word[:AbiType::checked_bytes_size(size) * 2].to_owned(),
         ),
       )
@@ -135,7 +135,7 @@ fn _read_index(data : String, at : Int, what~ : String) -> Int raise AbiError {
   let word = _read_word(data, at)
   let mut value = 0
   for i, c in word.iter2() {
-    let digit = @types.hex_nibble(c)
+    let digit = @codec.nibble(c)
     // only the last 6 digits can address data this side of 16 MB, so anything
     // above them is out of range by construction — and keeps `value` in `Int`
     // top top 58 bits must be all 0
@@ -165,5 +165,5 @@ fn _read_byte_string(data : String, at : Int) -> Bytes raise AbiError {
       "\{length} bytes claimed at byte \{from / 2}, past the end of \{data.length() / 2} bytes",
     )
   }
-  @types.Hex::bytes_of_digits(data[from:from + length * 2].to_owned())
+  @codec.bytes_of_digits(data[from:from + length * 2].to_owned())
 }

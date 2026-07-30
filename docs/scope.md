@@ -382,7 +382,9 @@ fits), and only the type tells a fixed-length array from a dynamic one.
 bytes that will not read back as the expected types). It is defined in `types`
 alongside `AbiType`, because `AbiType::name` checks the same width and size
 rules `@abi.encode` does, so both raise it; `abi` re-exports the type, and the
-three constructors are spelled `@types.InvalidData(…)`.
+three constructors are spelled `@types.InvalidData(…)`. The rules themselves are
+predicates in `@codec`, which is also where the hex-digit and word arithmetic
+both this layer and `@eip712` work in lives.
 
 Not covered: parsing a JSON ABI file, `bytesN` beyond 32, and decoding a log's
 indexed arguments.
@@ -488,5 +490,5 @@ The raw `Json` it returns can be decoded with the same codecs the helpers use �
 The typed RPC layer, the domain types and the contract layer are plain MoonBit.
 Only the injected provider itself is JS, so `supported_targets = "js"` is
 confined to `endor/ffi/js` and `endor/provider/browser`; the root package,
-`endor/types`, `endor/crypto`, `endor/abi`, `endor/contract` and
-`endor/provider` stay backend-agnostic.
+`endor/types`, `endor/codec`, `endor/crypto`, `endor/eip712`, `endor/abi`,
+`endor/contract` and `endor/provider` stay backend-agnostic.

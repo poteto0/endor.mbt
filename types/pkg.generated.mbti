@@ -7,13 +7,6 @@ import {
 }
 
 // Values
-pub const WORD_DIGITS : Int = 64
-
-pub fn hex_nibble(Char) -> Int
-
-pub fn word_to_signed(@bigint.BigInt) -> @bigint.BigInt
-
-pub fn word_to_unsigned(@bigint.BigInt) -> @bigint.BigInt
 
 // Errors
 pub(all) suberror AbiError {
@@ -23,7 +16,7 @@ pub(all) suberror AbiError {
 } derive(Eq)
 pub impl Show for AbiError
 
-pub suberror CodecError {
+pub(all) suberror CodecError {
   InvalidHex(String)
   InvalidLength(String)
   InvalidJson(String)
@@ -157,9 +150,7 @@ pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Hex::byte_length(Self) -> Int
-pub fn Hex::bytes_of_digits(String) -> Bytes
 pub fn Hex::digits(Self) -> String
-pub fn Hex::digits_of_bytes(Bytes) -> String
 pub fn Hex::from_bytes(Bytes) -> Self
 pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError
@@ -238,31 +229,6 @@ pub fn TxHash::from_string(String) -> Self raise CodecError
 pub fn TxHash::to_json(Self) -> Json
 pub fn TxHash::to_string(Self) -> String
 pub impl Show for TxHash
-
-pub struct TypedData {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn TypedData::digest(Self) -> Hex raise CodecError
-pub fn TypedData::domain_separator(Self) -> Hex raise CodecError
-pub fn TypedData::encode_type(Self, String) -> String raise CodecError
-pub fn TypedData::hash_struct(Self) -> Hex raise CodecError
-pub fn TypedData::new(TypedDataDomain, primary_type~ : String, types~ : Map[String, Array[TypedDataField]], message~ : Json) -> Self raise CodecError
-pub fn TypedData::primary_type(Self) -> String
-pub fn TypedData::to_json(Self) -> Json
-pub fn TypedData::type_hash(Self, String) -> Hex raise CodecError
-
-pub struct TypedDataDomain {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn TypedDataDomain::fields(Self) -> Array[TypedDataField]
-pub fn TypedDataDomain::new(name? : String, version? : String, chain_id? : ChainId, verifying_contract? : Address, salt? : Hex) -> Self raise CodecError
-pub fn TypedDataDomain::to_json(Self) -> Json
-
-pub struct TypedDataField {
-  // private fields
-} derive(Eq, @debug.Debug)
-pub fn TypedDataField::new(String, String) -> Self raise CodecError
-pub fn TypedDataField::to_json(Self) -> Json
 
 pub struct Wei {
   // private fields
