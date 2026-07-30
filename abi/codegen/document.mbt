@@ -131,13 +131,35 @@ fn read_event(
 /// constructor or a fallback has no name and is dropped before it gets here, so
 /// a nameless function or event is a truncated document rather than a legal
 /// one.
+///
+/// A name that is not a Solidity identifier is refused for the same reason, and
+/// it is refused *here* rather than where the name is used. The name is the one
+/// thing out of an ABI that this package writes into source text verbatim —
+/// `name="…"`, `what="…"`, and the signature in every doc comment — so a name
+/// holding a quote or a newline does not merely fail to compile, it closes the
+/// string literal and keeps writing, in a file the caller then hands to the
+/// compiler. Checking it at the door is what makes that unrepresentable: no
+/// emitter downstream can be written that forgets to.
+///
+/// Note which side of the line this falls on. It raises rather than skipping,
+/// because a member named `"a\"; …"` is not a member a compiler emitted and the
+/// rest of the document is no more trustworthy than that one. A name that *is*
+/// a Solidity identifier but not a MoonBit one — `match`, `type` — is the
+/// generator's own limit and is still skipped, in `function_block`.
 fn read_name(
   fields : Map[String, Json],
   at~ : Int,
   kind~ : String,
 ) -> String raise CodegenError {
   match fields.get("name") {
-    Some(String(s)) if s != "" => s
+    Some(String(s)) if s != "" =>
+      if is_abi_ident(s) {
+        s
+      } else {
+        raise InvalidAbi(
+          "the \{kind} at index \{at} has a `name` that is not an identifier",
+        )
+      }
     _ => raise InvalidAbi("the \{kind} at index \{at} has no `name`")
   }
 }

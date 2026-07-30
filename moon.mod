@@ -42,6 +42,9 @@ options(
   // this module that nothing shipped imports; `backend/anvil` in particular
   // installs a fake wallet over `globalThis.ethereum`, which a wallet SDK must
   // never hand a consumer. `just release-check` asserts they stayed out.
+  // `_codegen_check` is the scratch package `just codegen-check` compiles: it
+  // is gitignored and removed on the way out, but `moon package` reads the
+  // directory tree it finds, so a publish racing a check must not ship it.
   exclude: [
     "examples",
     "cmd",
@@ -52,5 +55,6 @@ options(
     "AGENTS.md",
     "docs",
     "fixtures",
+    "_codegen_check",
   ],
 )

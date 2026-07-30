@@ -50,10 +50,10 @@ fn print_abi_usage() -> Unit {
       #|the directory it is run from, so the generated files a repository holds
       #|are reproducible by anyone who clones it.
       #|
-      #|  version: v0.3.0
-      #|  abi:
-      #|    in: ./abi      # the directory of ABI documents to read
-      #|    out: ./outputs # where to write MoonBit, created if missing
+      #|version: v0.3.0
+      #|abi:
+      #|  in: ./abi      # the directory of ABI documents to read
+      #|  out: ./outputs # where to write MoonBit, created if missing
       #|
       #|One input becomes one output named after it — `erc20.abi` generates
       #|`erc20.mbt` holding `pub struct Erc20` — plus a `moon.pkg` alongside if
@@ -115,7 +115,12 @@ fn generate_all(config : Config) -> Int {
       }
     }
   }
-  write_package_config(config.abi_out)
+  // a run where every document failed wrote no source, and a `moon.pkg` on its
+  // own is a package with nothing in it — worse, one that then sits in the
+  // output directory looking like the last run half worked
+  if failed < inputs.length() {
+    write_package_config(config.abi_out)
+  }
   println("")
   println(
     "generated \{inputs.length() - failed} of \{inputs.length()} into \{config.abi_out}" +
@@ -135,6 +140,12 @@ const CONFIG_FILE = "endor.yaml"
 /// never passes it, because a config found somewhere other than the current
 /// directory would make the generated output depend on where the command was
 /// run from.
+///
+/// The `raise` is untyped because two unrelated errors reach it — `@fs`'s, for
+/// a file that is not there, and `ConfigError`, for one that is there and
+/// wrong — and MoonBit names one type or none. Naming one would mean wrapping
+/// the other, and the only caller prints both the same way, so nothing yet
+/// wants them apart. The day something does, that wrapper is what to add.
 fn read_config(path? : String = CONFIG_FILE) -> Config raise {
   parse_config(@fs.read_file_to_string(path))
 }

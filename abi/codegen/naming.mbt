@@ -68,6 +68,33 @@ pub fn snake_case(name : String) -> String {
 }
 
 ///|
+/// Whether a string is a Solidity identifier: what a member's `name` is allowed
+/// to be, and therefore what may be written into generated source verbatim.
+///
+/// This is not the same question as `is_value_ident`, and the difference is the
+/// whole point. `snake_case` maps every character it does not recognise to `_`,
+/// so a name full of quotes and newlines comes out of it as a perfectly good
+/// MoonBit identifier — while the *original* name is what a generated method
+/// carries in `name="…"`, in `what="…"` and in its doc comment. Checking only
+/// the transformed name would let the untransformed one close the string
+/// literal and keep writing, in a file the caller then compiles.
+///
+/// So the bytes that reach the source text are checked, not the bytes derived
+/// from them. `$` is in here because Solidity allows it in an identifier; it is
+/// inert in MoonBit source, which has no `$`-interpolation.
+fn is_abi_ident(name : String) -> Bool {
+  guard name.get_char(0) is Some(c) &&
+    (c.is_ascii_alphabetic() || c == '_' || c == '$') else {
+    return false
+  }
+  name
+  .iter()
+  .all(c => {
+    c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '_' || c == '$'
+  })
+}
+
+///|
 /// Whether a string can be spelled as a MoonBit value identifier — and is not
 /// a keyword, which would parse as something else entirely.
 fn is_value_ident(name : String) -> Bool {
@@ -99,10 +126,10 @@ fn is_type_ident(name : String) -> Bool {
 let keywords : Set[String] = Set::Set(
   [
     "as", "async", "break", "catch", "const", "continue", "defer", "derive", "else",
-    "enum", "extern", "false", "fn", "for", "guard", "if", "impl", "in", "init",
-    "is", "let", "loop", "match", "mut", "noraise", "not", "pub", "priv", "raise",
-    "return", "struct", "suberror", "test", "trait", "true", "try", "type", "typealias",
-    "using", "while", "with",
+    "enum", "extern", "false", "fn", "fnalias", "for", "guard", "if", "impl", "in",
+    "init", "is", "let", "loop", "match", "mut", "noraise", "not", "pub", "priv",
+    "raise", "return", "struct", "suberror", "test", "trait", "traitalias", "true",
+    "try", "type", "typealias", "using", "while", "with",
   ][:],
 )
 

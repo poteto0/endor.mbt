@@ -79,6 +79,14 @@ fn param_name(param : Param, at~ : Int, taken : Set[String]) -> String {
 /// `taken` carries the method names already emitted, so a Solidity overload —
 /// two functions of the same name and different parameters, which MoonBit has
 /// no way to spell — is reported rather than emitted twice.
+///
+/// A name MoonBit cannot spell is refused here, where a *parameter* of such a
+/// name is instead renamed by `dodge`. The asymmetry is deliberate: a parameter
+/// name is this generator's to choose — the ABI encodes arguments by position
+/// and nothing on the wire remembers what they were called — while a method
+/// name is what the caller looks up to find the function they mean. Renaming a
+/// `type()` getter to `type_()` would leave a method whose name appears nowhere
+/// in the ABI it came from, which is worse than saying it was not generated.
 fn function_block(
   struct_name : String,
   f : AbiFunction,
@@ -278,6 +286,10 @@ fn event_block(
     err => return Err("event `\{e.name}`: \{err}")
   }
   let fn_name = snake_case(e.name) + "_topic"
+  // unreachable as things stand — `read_name` has already proved the name is a
+  // Solidity identifier, and no keyword survives a `_topic` suffix. Kept
+  // because it costs a comparison and because the day the suffix changes is
+  // not the day anyone re-derives that argument.
   guard is_value_ident(fn_name) else {
     return Err(
       "event `\{signature}`: its name is not spellable as a MoonBit method",

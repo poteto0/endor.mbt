@@ -139,6 +139,14 @@ const NAME_COLUMN = 10
 /// Every refusal in this CLI has the same shape, and it is here so that
 /// changing it — a prefix, a stream, an exit code — is one edit rather than one
 /// per place something can be refused.
+///
+/// The stream is stdout, which is not where a diagnostic belongs: `endor-cli
+/// abi > report.txt` puts the errors in the report and leaves the terminal
+/// clean. It is stdout because neither `moonbitlang/core` nor `moonbitlang/x`
+/// exposes stderr, so the alternative is an FFI per backend for a CLI that is
+/// still experimental. The exit code carries the signal in the meantime, which
+/// is what a build script reads; when a stderr appears, this is the one place
+/// that has to change.
 fn refuse(message : String, usage : () -> Unit) -> Int {
   println(message)
   println("")

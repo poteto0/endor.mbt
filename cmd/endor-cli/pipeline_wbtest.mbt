@@ -126,6 +126,24 @@ test "one unusable ABI does not cost the others" {
 }
 
 ///|
+/// Nothing generated is nothing to package. A `moon.pkg` alone in the output
+/// directory is a package with no source in it, and it reads as a run that
+/// half worked — which is exactly the run that did not.
+test "a run where every document failed writes no package" {
+  let out = fresh("all-failed-out")
+  let config = {
+    version: None,
+    abi_in: given("all-failed-in", [
+      ("truncated.abi", "[{ \"type\": \"function\""),
+      ("9lives.abi", "[]"),
+    ]),
+    abi_out: out,
+  }
+  assert_eq(generate_all(config), 2)
+  assert_false(@fs.path_exists(join(out, "moon.pkg")))
+}
+
+///|
 test "an input directory that is not there is reported, not raised" {
   assert_eq(
     generate_all({

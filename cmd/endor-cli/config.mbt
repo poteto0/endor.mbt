@@ -49,6 +49,11 @@ pub impl Show for ConfigError with fn output(self, logger) {
 /// a document using them is rejected rather than half-understood. Unknown keys
 /// are ignored, so a newer `endor.yaml` still works with an older CLI.
 ///
+/// Comments are understood wherever YAML puts them, on their own line and
+/// after a value, because a config file people are meant to edit by hand is a
+/// config file people annotate — and a `#` swallowed into a path fails much
+/// later, as a directory that is not there, naming a string nobody typed.
+///
 /// ```
 /// let config = parse_config("abi:\n  in: ./abi\n  out: ./gen\n")
 /// inspect(config.abi_in, content="./abi")
@@ -68,7 +73,7 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
       raise Malformed("`\{line.trim()}` is not `key: value`")
     }
     let key = key.trim().to_owned()
-    let value = unquote(rest.trim().to_owned())
+    let value = unquote(strip_comment(rest.trim().to_owned()))
     match indent {
       0 => {
         section = key
@@ -97,6 +102,32 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
     raise Incomplete("`abi.out` says nothing: there is nowhere to write")
   }
   { version, abi_in, abi_out }
+}
+
+///|
+/// A value with its trailing comment taken off.
+///
+/// The `#` has to be preceded by a space to start one, which is what keeps a
+/// path like `./abi#2` whole — YAML draws the same line, and a directory whose
+/// name has a `#` in it is likelier than a caller who wanted an empty value.
+/// A quoted scalar is exempt up to its closing quote, so `"./a # b"` is a path
+/// and `"./a" # b` is a path with a comment after it.
+fn strip_comment(value : String) -> String {
+  let start = if value.has_prefix("\"") || value.has_prefix("'") {
+    let quote = value[:1].to_owned()
+    match value[1:].to_owned().find(quote) {
+      Some(close) => close + 2
+      // an unterminated quote is not a comment to strip; `unquote` leaves it
+      // alone too, and the caller sees the odd value they wrote
+      None => return value
+    }
+  } else {
+    0
+  }
+  match value[start:].to_owned().find(" #") {
+    Some(at) => value[:start + at].trim_end(chars=" ").to_owned()
+    None => value
+  }
 }
 
 ///|

@@ -677,6 +677,9 @@ test "read: a pre-0.6 ABI still says which functions only read" {
 /// A name MoonBit cannot spell is not worked around by inventing one: the
 /// generated method would no longer be traceable to the ABI it came from, and
 /// the caller is better told which member they have to reach by hand.
+///
+/// Only a function can reach this. An event's method is its name plus
+/// `_topic`, and no keyword survives having a suffix stuck on it.
 test "generate: a member MoonBit has no name for is skipped" {
   let out = @codegen.generate(
     "Odd",
@@ -684,17 +687,77 @@ test "generate: a member MoonBit has no name for is skipped" {
       #|[
       #|  { "type": "function", "name": "match", "stateMutability": "view",
       #|    "inputs": [], "outputs": [{ "name": "", "type": "bool" }] },
-      #|  { "type": "event", "name": "42", "inputs": [] }
+      #|  { "type": "event", "name": "guard", "inputs": [] }
       #|]
     ),
   )
   inspect(
     out.skipped.join("\n"),
-    content=(
-      #|`match()`: its name is not spellable as a MoonBit method
-      #|event `42()`: its name is not spellable as a MoonBit method
+    content="`match()`: its name is not spellable as a MoonBit method",
+  )
+  assert_true(out.code.contains("pub fn Odd::guard_topic()"))
+}
+
+///|
+/// The name is the one thing out of an ABI that reaches the generated file
+/// unchanged, so it is the one thing that can write the file. `snake_case`
+/// turns every character it does not know into `_`, which means a name built
+/// out of quotes and newlines passes an identifier check on its *transformed*
+/// spelling while its original bytes go into `name="…"` verbatim — closing the
+/// string literal and continuing as MoonBit code the caller then compiles.
+///
+/// An ABI is a document that arrives from elsewhere: pasted out of a block
+/// explorer, pulled from a registry, vendored by a dependency. So this is
+/// refused at the point the name is read, and refused for the whole document:
+/// a member named like this was not emitted by a compiler, and nothing else in
+/// the file is more trustworthy than it is.
+test "read: a name that could write the generated file is refused" {
+  let cases = [
+    (
+      (
+        #|[{ "type": "function", "name": "foo\") |> ignore\n  @provider.evil(",
+        #|   "stateMutability": "view", "inputs": [],
+        #|   "outputs": [{ "name": "", "type": "uint256" }] }]
+      ),
+      "a function name that closes the string literal",
+    ),
+    (
+      (
+        #|[{ "type": "event", "name": "E\n/// injected", "inputs": [] }]
+      ),
+      "an event name that breaks out of the doc comment",
+    ),
+    (
+      (
+        #|[{ "type": "function", "name": "42", "stateMutability": "view",
+        #|   "inputs": [], "outputs": [{ "name": "", "type": "bool" }] }]
+      ),
+      "a name no Solidity compiler could have emitted",
+    ),
+  ]
+  for c in cases {
+    try @codegen.generate("Hostile", c.0) catch {
+      e => assert_true(e is InvalidAbi(_))
+    } noraise {
+      _ => fail("expected \{c.1} to be refused")
+    }
+  }
+}
+
+///|
+/// `$` is a Solidity identifier character and an inert one in MoonBit source,
+/// so a name using it is generated rather than refused — the guard above is
+/// about what can write the file, not about tidiness.
+test "read: a `$` in a name is a name, not an injection" {
+  let out = @codegen.generate(
+    "Dollar",
+    (
+      #|[{ "type": "function", "name": "$peek", "stateMutability": "view",
+      #|   "inputs": [], "outputs": [{ "name": "", "type": "bool" }] }]
     ),
   )
+  assert_eq(out.members, ["$peek()"])
+  assert_true(out.code.contains("name=\"$peek\""))
 }
 
 ///|

@@ -25,6 +25,40 @@ test "parse_config: comments, blank lines and CRLF are not content" {
 }
 
 ///|
+/// The sample `endor-cli abi --help` prints, parsed as printed. A CLI whose own
+/// documented config its own reader refuses is the failure this pins: the
+/// comments are the reason the sample is worth reading, so they have to work.
+test "parse_config: the sample in the usage text is a config that works" {
+  let config = parse_config(
+    (
+      #|version: v0.3.0
+      #|abi:
+      #|  in: ./abi      # the directory of ABI documents to read
+      #|  out: ./outputs # where to write MoonBit, created if missing
+    ),
+  )
+  assert_eq(config.version, Some("v0.3.0"))
+  assert_eq(config.abi_in, "./abi")
+  assert_eq(config.abi_out, "./outputs")
+}
+
+///|
+/// A `#` only opens a comment where YAML says it does. The distinction matters
+/// in one direction only — a path silently truncated at a `#` is a directory
+/// that is not there, reported as a name the caller never typed.
+test "parse_config: a `#` inside a value is part of the value" {
+  let config = parse_config(
+    (
+      #|abi:
+      #|  in: ./abi#2
+      #|  out: "./out # not a comment" # but this is
+    ),
+  )
+  assert_eq(config.abi_in, "./abi#2")
+  assert_eq(config.abi_out, "./out # not a comment")
+}
+
+///|
 test "parse_config: a scalar may be quoted" {
   let config = parse_config(
     (
