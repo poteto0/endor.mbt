@@ -6,29 +6,25 @@ import {
 }
 
 // Values
-pub fn decode(Array[@types.AbiType], @types.Hex) -> Array[@types.AbiValue] raise AbiError
+pub fn decode(Array[@types.AbiType], @types.Hex) -> Array[@types.AbiValue] raise @types.AbiError
 
-pub fn encode(Array[@types.AbiType], Array[@types.AbiValue]) -> @types.Hex raise AbiError
+pub fn encode(Array[@types.AbiType], Array[@types.AbiValue]) -> @types.Hex raise @types.AbiError
 
-pub fn encode_call(name~ : String, inputs~ : Array[@types.AbiType], args~ : Array[@types.AbiValue]) -> @types.Hex raise AbiError
+pub fn encode_call(name~ : String, inputs~ : Array[@types.AbiType], args~ : Array[@types.AbiValue]) -> @types.Hex raise @types.AbiError
 
 pub fn event_topic(String) -> @types.Hex
 
 pub fn selector(String) -> @types.Hex
 
-pub fn signature(name~ : String, inputs~ : Array[@types.AbiType]) -> String raise AbiError
+pub fn signature(name~ : String, inputs~ : Array[@types.AbiType]) -> String raise @types.AbiError
 
 // Errors
-pub(all) suberror AbiError {
-  InvalidAbiType(String)
-  InvalidValue(String)
-  InvalidData(String)
-} derive(Eq)
-pub impl Show for AbiError
 
 // Types and methods
 
 // Type aliases
+pub using @types {type AbiError}
+
 pub using @types {type AbiType}
 
 pub using @types {type AbiValue}

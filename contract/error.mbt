@@ -21,7 +21,7 @@ pub(all) suberror ContractError {
   Rpc(@provider.ProviderError)
   /// The arguments could not be encoded, or the answer could not be read back
   /// as the types the caller expected.
-  Abi(@abi.AbiError)
+  Abi(@types.AbiError)
 } derive(Eq)
 
 ///|

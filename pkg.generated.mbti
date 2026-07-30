@@ -2,6 +2,7 @@
 package "poteto0/endor"
 
 import {
+  "poteto0/endor/eip712",
   "poteto0/endor/types",
 }
 
@@ -12,6 +13,8 @@ import {
 // Types and methods
 
 // Type aliases
+pub using @types {type AbiError}
+
 pub using @types {type AbiType}
 
 pub using @types {type AbiValue}
@@ -50,11 +53,11 @@ pub using @types {type TransactionRequest}
 
 pub using @types {type TxHash}
 
-pub using @types {type TypedData}
+pub using @eip712 {type TypedData}
 
-pub using @types {type TypedDataDomain}
+pub using @eip712 {type TypedDataDomain}
 
-pub using @types {type TypedDataField}
+pub using @eip712 {type TypedDataField}
 
 pub using @types {type Wei}
 

@@ -183,7 +183,7 @@ fn _uint_answer(
   what~ : String,
 ) -> BigInt raise @contract.ContractError {
   guard values is [Uint(n)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a number"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a number"))
   }
   n
 }
@@ -195,7 +195,7 @@ fn _string_answer(
   what~ : String,
 ) -> String raise @contract.ContractError {
   guard values is [String(s)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a string"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a string"))
   }
   s
 }

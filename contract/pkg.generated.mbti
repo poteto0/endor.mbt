@@ -3,7 +3,6 @@ package "poteto0/endor/contract"
 
 import {
   "moonbitlang/core/debug",
-  "poteto0/endor/abi",
   "poteto0/endor/provider",
   "poteto0/endor/types",
 }
@@ -13,7 +12,7 @@ import {
 // Errors
 pub(all) suberror ContractError {
   Rpc(@provider.ProviderError)
-  Abi(@abi.AbiError)
+  Abi(@types.AbiError)
 } derive(Eq)
 pub impl Show for ContractError
 

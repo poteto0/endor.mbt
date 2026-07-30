@@ -20,7 +20,7 @@ pub fn decode(
   types : Array[AbiType],
   data : @types.Hex,
 ) -> Array[AbiValue] raise AbiError {
-  _decode_block(types, _digits_of(data.to_string()), 0)
+  _decode_block(types, data.digits(), 0)
 }
 
 ///|
@@ -54,14 +54,14 @@ fn _decode_value(
 ) -> AbiValue raise AbiError {
   match t {
     Uint(bits) => {
-      ignore(_validate_bits(bits, "uint"))
+      ignore(AbiType::checked_bits(bits, what="uint"))
       Uint(_read_word_as_uint(data, at))
     }
     Int(bits) => {
-      ignore(_validate_bits(bits, "int"))
+      ignore(AbiType::checked_bits(bits, what="int"))
       let raw = _read_word_as_uint(data, at)
       // two's complement over the whole word: the top bit is the sign
-      Int(_to_signed(raw, 256))
+      Int(@codec.word_to_signed(raw))
     }
     AbiType::Address => {
       let word = _read_word(data, at)
@@ -79,7 +79,11 @@ fn _decode_value(
       }
     FixedBytes(size) => {
       let word = _read_word(data, at)
-      Bytes(_bytes_of_digits(word[:_validate_bytes_size(size) * 2].to_owned()))
+      Bytes(
+        @codec.bytes_of_digits(
+          word[:AbiType::checked_bytes_size(size) * 2].to_owned(),
+        ),
+      )
     }
     AbiType::Bytes => Bytes(_read_byte_string(data, at))
     AbiType::String =>
@@ -94,7 +98,11 @@ fn _decode_value(
     }
     FixedArray(elem, size) =>
       Array(
-        _decode_block(Array::make(_validate_array_size(size), elem), data, at),
+        _decode_block(
+          Array::make(AbiType::checked_array_size(size), elem),
+          data,
+          at,
+        ),
       )
     Tuple(elems) => Tuple(_decode_block(elems, data, at))
   }
@@ -127,7 +135,7 @@ fn _read_index(data : String, at : Int, what~ : String) -> Int raise AbiError {
   let word = _read_word(data, at)
   let mut value = 0
   for i, c in word.iter2() {
-    let digit = _nibble(c)
+    let digit = @codec.nibble(c)
     // only the last 6 digits can address data this side of 16 MB, so anything
     // above them is out of range by construction — and keeps `value` in `Int`
     // top top 58 bits must be all 0
@@ -157,5 +165,5 @@ fn _read_byte_string(data : String, at : Int) -> Bytes raise AbiError {
       "\{length} bytes claimed at byte \{from / 2}, past the end of \{data.length() / 2} bytes",
     )
   }
-  _bytes_of_digits(data[from:from + length * 2].to_owned())
+  @codec.bytes_of_digits(data[from:from + length * 2].to_owned())
 }

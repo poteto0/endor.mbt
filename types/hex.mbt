@@ -2,11 +2,7 @@
 /// Strip the `0x` prefix and return the (possibly empty) body, validating that
 /// every character is a hex digit. Raises `InvalidHex` otherwise.
 fn strip_0x(s : String) -> String raise CodecError {
-  guard s.has_prefix("0x") else { raise InvalidHex(s) }
-  let body = s[2:].to_owned()
-  for c in body {
-    guard c.is_ascii_hexdigit() else { raise InvalidHex(s) }
-  }
+  guard @codec.hex_body(s) is Some(body) else { raise InvalidHex(s) }
   body
 }
 
@@ -49,25 +45,12 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 }
 
 ///|
-/// The hex alphabet, as a `FixedArray` so a nibble can index it.
-let hex_digit : FixedArray[Char] = [
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-]
-
-///|
 /// Encode raw bytes as a `0x`-prefixed hex byte string. This is the direction
 /// nothing on the wire takes — a node always answers hex — but a caller has to,
 /// to hand a wallet something that was computed rather than read back: ABI
 /// calldata, or a `keccak256` digest.
 pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
-  let buf = StringBuilder::new()
-  buf.write_string("0x")
-  for b in bytes {
-    let n = b.to_int()
-    buf.write_char(hex_digit[n >> 4])
-    buf.write_char(hex_digit[n & 0x0f])
-  }
-  Hex::{ inner: buf.to_string() }
+  Hex::{ inner: "0x" + @codec.digits_of_bytes(bytes) }
 }
 
 ///|
@@ -84,15 +67,11 @@ pub fn Hex::to_string(self : Hex) -> String {
 }
 
 ///|
-/// The value of one hex digit. Total on purpose: every character reached here
-/// came from a validated `Hex`, so a non-hex character cannot occur.
-fn hex_nibble(c : Char) -> Int {
-  match c {
-    '0'..='9' => c.to_int() - '0'.to_int()
-    'a'..='f' => c.to_int() - 'a'.to_int() + 10
-    'A'..='F' => c.to_int() - 'A'.to_int() + 10
-    _ => 0
-  }
+/// The digits this value spells, without the `0x` — what a caller that works in
+/// hex digits rather than in bytes wants, and what saves it from knowing how
+/// long the prefix is.
+pub fn Hex::digits(self : Hex) -> String {
+  self.inner[2:].to_owned()
 }
 
 ///|
@@ -107,17 +86,7 @@ fn hex_nibble(c : Char) -> Int {
 /// }
 /// ```
 pub fn Hex::to_bytes(self : Hex) -> Bytes {
-  let digits = self.inner[2:].to_owned()
-  let out = Array::new(capacity=digits.length() / 2)
-  let mut high = 0
-  for i, c in digits.iter2() {
-    if i % 2 == 0 {
-      high = hex_nibble(c)
-    } else {
-      out.push(((high << 4) | hex_nibble(c)).to_byte())
-    }
-  }
-  Bytes::makei(out.length(), i => out[i])
+  @codec.bytes_of_digits(self.digits())
 }
 
 ///|

@@ -477,13 +477,13 @@ async test "a message is signed by the account that owns it" {
 /// document may say; what a node accepts is decided here.
 async test "typed data is signed as an eip-712 document" {
   @anvil.on(provider => {
-    let mail = @types.TypedData::new(
-      @types.TypedDataDomain::new(name="Endor", chain_id=@anvil.chain_id()),
+    let mail = @eip712.TypedData::new(
+      @eip712.TypedDataDomain::new(name="Endor", chain_id=@anvil.chain_id()),
       primary_type="Mail",
       types={
         "Mail": [
-          @types.TypedDataField::new("to", "address"),
-          @types.TypedDataField::new("contents", "string"),
+          @eip712.TypedDataField::new("to", "address"),
+          @eip712.TypedDataField::new("contents", "string"),
         ],
       },
       message={

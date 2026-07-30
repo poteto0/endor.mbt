@@ -7,13 +7,13 @@
 /// byte count, so `uint256` is `Uint(256)`, `uint8` is `Uint(8)` and `bytes32`
 /// is `FixedBytes(32)`.
 ///
-/// It lives here rather than in `abi/` because EIP-712's own atomic types
-/// (see `TypedData`'s digest methods) are the same set by design — EIP-712
-/// hashes its atomic values the way the ABI encodes them — and `abi` depends
-/// on `types`, not the other way around, so a type both layers need has to
-/// live at this level. `abi` re-exports it (`@abi.AbiType`), and its own
-/// package still owns everything ABI-specific built on top: `name`,
-/// `is_dynamic`, `head_digits`, `encode`, `decode`.
+/// It lives here rather than in `abi/` because EIP-712's own atomic types are
+/// the same set by design — `@eip712` hashes an atomic value the way the ABI
+/// encodes it — and both `abi` and `eip712` depend on `types`, not the other way
+/// around, so a type both layers need has to live at this level. `abi`
+/// re-exports it (`@abi.AbiType`) and owns what is built on top: `encode`,
+/// `decode`, the selector. The word arithmetic its rules are stated in —
+/// valid widths, `2^bits`, one word's worth of hex digits — is `@codec`'s.
 ///
 /// ```
 /// // (address to, uint256 amount)
@@ -89,15 +89,12 @@ pub impl Show for AbiValue with fn output(self, logger) {
 }
 
 ///|
-/// How many hex digits one ABI word takes — used only by `AbiType::head_digits`
-/// here; `abi/` keeps its own copy for the encoding it does with them.
-const WORD_DIGITS = 64
-
-///|
-/// A bit width `uintN` / `intN` can actually have.
-fn validate_bits(bits : Int, what : String) -> Int raise CodecError {
-  guard bits >= 8 && bits <= 256 && bits % 8 == 0 else {
-    raise InvalidLength(
+/// `bits` if `uintN` / `intN` can have that width, `InvalidAbiType` otherwise.
+/// `what` names which of the two is being checked, so the message spells the
+/// type the caller wrote.
+pub fn AbiType::checked_bits(bits : Int, what~ : String) -> Int raise AbiError {
+  guard @codec.is_valid_bits(bits) else {
+    raise InvalidAbiType(
       "\{what}\{bits}: width must be a multiple of 8 in 8..=256",
     )
   }
@@ -105,22 +102,43 @@ fn validate_bits(bits : Int, what : String) -> Int raise CodecError {
 }
 
 ///|
-/// A size `bytesN` can actually have. `bytes0` is not a type; the empty
-/// dynamic `bytes` is.
-fn validate_bytes_size(n : Int) -> Int raise CodecError {
-  guard n >= 1 && n <= 32 else {
-    raise InvalidLength("bytes\{n}: size must be in 1..=32")
+/// `n` if `bytesN` can have that size, `InvalidAbiType` otherwise.
+pub fn AbiType::checked_bytes_size(n : Int) -> Int raise AbiError {
+  guard @codec.is_valid_bytes_size(n) else {
+    raise InvalidAbiType("bytes\{n}: size must be in 1..=32")
   }
   n
 }
 
 ///|
-/// A length `T[k]` can actually have.
-fn validate_array_size(k : Int) -> Int raise CodecError {
-  guard k >= 0 else {
-    raise InvalidLength("T[\{k}]: length cannot be negative")
+/// `k` if `T[k]` can have that length, `InvalidAbiType` otherwise.
+pub fn AbiType::checked_array_size(k : Int) -> Int raise AbiError {
+  guard @codec.is_valid_array_size(k) else {
+    raise InvalidAbiType("T[\{k}]: length cannot be negative")
   }
   k
+}
+
+///|
+/// `n` if a `uintN` of this width holds it, `AbiError` otherwise — the width
+/// rule and the range rule in the order a caller needs them, since `uint7` is
+/// wrong about the type and `uint8(300)` about the value.
+pub fn AbiValue::checked_uint(n : BigInt, bits~ : Int) -> BigInt raise AbiError {
+  let bits = AbiType::checked_bits(bits, what="uint")
+  guard @codec.fits_uint(n, bits~) else {
+    raise InvalidValue("uint\{bits} cannot hold \{n}")
+  }
+  n
+}
+
+///|
+/// `n` if an `intN` of this width holds it, `AbiError` otherwise.
+pub fn AbiValue::checked_int(n : BigInt, bits~ : Int) -> BigInt raise AbiError {
+  let bits = AbiType::checked_bits(bits, what="int")
+  guard @codec.fits_int(n, bits~) else {
+    raise InvalidValue("int\{bits} cannot hold \{n}")
+  }
+  n
 }
 
 ///|
@@ -129,9 +147,7 @@ fn validate_array_size(k : Int) -> Int raise CodecError {
 ///
 /// It validates as it renders, because a type that cannot exist has no
 /// canonical name: hashing `uint7(…)` would produce a selector no contract
-/// answers to, which is worse than raising. This raises `CodecError` rather
-/// than `abi`'s own `AbiError`: `abi` depends on `types`, not the other way
-/// round, so the error a `types`-level check raises has to be `types`' own.
+/// answers to, which is worse than raising.
 ///
 /// ```mbt check
 /// test "doc: abi type" {
@@ -142,17 +158,17 @@ fn validate_array_size(k : Int) -> Int raise CodecError {
 ///   )
 /// }
 /// ```
-pub fn AbiType::name(self : AbiType) -> String raise CodecError {
+pub fn AbiType::name(self : AbiType) -> String raise AbiError {
   match self {
-    Uint(bits) => "uint\{validate_bits(bits, "uint")}"
-    Int(bits) => "int\{validate_bits(bits, "int")}"
+    Uint(bits) => "uint\{AbiType::checked_bits(bits, what="uint")}"
+    Int(bits) => "int\{AbiType::checked_bits(bits, what="int")}"
     Address => "address"
     Bool => "bool"
-    FixedBytes(n) => "bytes\{validate_bytes_size(n)}"
+    FixedBytes(n) => "bytes\{AbiType::checked_bytes_size(n)}"
     Bytes => "bytes"
     String => "string"
     Array(elem) => "\{elem.name()}[]"
-    FixedArray(elem, k) => "\{elem.name()}[\{validate_array_size(k)}]"
+    FixedArray(elem, k) => "\{elem.name()}[\{AbiType::checked_array_size(k)}]"
     Tuple(elems) => {
       let parts = []
       for elem in elems {
@@ -182,12 +198,12 @@ pub fn AbiType::is_dynamic(self : AbiType) -> Bool {
 /// flattened size of a static compound, which is written inline.
 pub fn AbiType::head_digits(self : AbiType) -> Int {
   if self.is_dynamic() {
-    return WORD_DIGITS
+    return @codec.WORD_DIGITS
   }
   match self {
     FixedArray(elem, k) => elem.head_digits() * k
     Tuple(elems) =>
       elems.iter().fold(init=0, (sum, elem) => sum + elem.head_digits())
-    _ => WORD_DIGITS
+    _ => @codec.WORD_DIGITS
   }
 }

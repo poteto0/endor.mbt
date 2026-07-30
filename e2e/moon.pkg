@@ -1,5 +1,6 @@
 import {
   "poteto0/endor/types",
+  "poteto0/endor/eip712",
   "poteto0/endor/provider",
   "poteto0/endor/contract",
   "poteto0/endor/contract/erc20",

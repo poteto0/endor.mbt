@@ -48,6 +48,13 @@ pub fn Address::to_string(self : Address) -> String {
 }
 
 ///|
+/// The 40 hex digits this address spells, without the `0x` — what a caller
+/// working in digits packs into a word.
+pub fn Address::digits(self : Address) -> String {
+  self.inner[2:].to_owned()
+}
+
+///|
 /// The EIP-55 checksummed spelling, for display to a human.
 ///
 /// ```
@@ -55,7 +62,7 @@ pub fn Address::to_string(self : Address) -> String {
 /// inspect(a.to_checksum_string(), content="0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
 /// ```
 pub fn Address::to_checksum_string(self : Address) -> String {
-  "0x" + eip55_body(self.inner[2:].to_owned())
+  "0x" + eip55_body(self.digits())
 }
 
 ///|
