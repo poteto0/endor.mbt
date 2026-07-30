@@ -55,16 +55,30 @@ fn _decode_value(
   match t {
     Uint(bits) => {
       ignore(AbiType::checked_bits(bits, what="uint"))
-      Uint(_read_word_as_uint(data, at))
+      let val = _read_word_as_uint(data, at)
+      // you can use @codec.fits_uint but write this like int case 
+      if !_is_valid_uint_bits_word(val, bits) {
+        raise InvalidData("Uint(\{bits}) encoding")
+      }
+      Uint(val)
     }
     Int(bits) => {
       ignore(AbiType::checked_bits(bits, what="int"))
       let raw = _read_word_as_uint(data, at)
+      // ? if validate val after to_signed,
+      // ? int(8) value 127 is valid like 0xfffffffffff.....7f
+      // ? it should be kicked
+      if !_is_valid_int_bits_word(raw, bits) {
+        raise InvalidData("Int(\{bits}) encoding")
+      }
       // two's complement over the whole word: the top bit is the sign
       Int(@codec.word_to_signed(raw))
     }
     AbiType::Address => {
       let word = _read_word(data, at)
+      if !_is_valid_address_word(word) {
+        raise InvalidData("Address encoding")
+      }
       Address(
         @types.Address::from_string("0x" + word[WORD_DIGITS - 40:].to_owned()) catch {
           e => raise InvalidData("address: \{e}")
@@ -79,6 +93,9 @@ fn _decode_value(
       }
     FixedBytes(size) => {
       let word = _read_word(data, at)
+      if !_is_valid_bytes_word(word, size) {
+        raise InvalidData("FixedBytes(\{size}) encoding")
+      }
       Bytes(
         @codec.bytes_of_digits(word[:AbiType::checked_bytes_size(size) * 2]),
       )
