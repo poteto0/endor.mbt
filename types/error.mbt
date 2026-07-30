@@ -1,6 +1,12 @@
 ///|
-/// Errors raised by codecs in the `types` package when parsing or validating
-/// on-the-wire representations (hex strings, JSON) into domain types.
+/// Errors raised when parsing or validating on-the-wire representations (hex
+/// strings, JSON) into domain types.
+///
+/// It is `pub(all)` for the same reason `AbiError` is: a layer built on the
+/// domain types validates the wire the same way and has the same four things to
+/// say about it. `@eip712` raises `InvalidJson` for a document whose shape does
+/// not match what it declares, and `InvalidLength` for a number that does not
+/// fit the width its field is declared at.
 ///
 /// ```
 /// try @types.Address::from_string("nope") catch {
@@ -9,7 +15,7 @@
 ///   _ => fail("expected an error")
 /// }
 /// ```
-pub suberror CodecError {
+pub(all) suberror CodecError {
   /// The string is not a valid `0x`-prefixed hex value.
   InvalidHex(String)
   /// The value has the wrong byte length for the target type.

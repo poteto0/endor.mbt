@@ -7,13 +7,13 @@
 /// byte count, so `uint256` is `Uint(256)`, `uint8` is `Uint(8)` and `bytes32`
 /// is `FixedBytes(32)`.
 ///
-/// It lives here rather than in `abi/` because EIP-712's own atomic types
-/// (see `TypedData`'s digest methods) are the same set by design — EIP-712
-/// hashes its atomic values the way the ABI encodes them — and `abi` depends
-/// on `types`, not the other way around, so a type both layers need has to
-/// live at this level. `abi` re-exports it (`@abi.AbiType`), and its own
-/// package still owns everything ABI-specific built on top: `name`,
-/// `is_dynamic`, `head_digits`, `encode`, `decode`.
+/// It lives here rather than in `abi/` because EIP-712's own atomic types are
+/// the same set by design — `@eip712` hashes an atomic value the way the ABI
+/// encodes it — and both `abi` and `eip712` depend on `types`, not the other way
+/// around, so a type both layers need has to live at this level. `abi`
+/// re-exports it (`@abi.AbiType`) and owns what is built on top: `encode`,
+/// `decode`, the selector. The word arithmetic its rules are stated in —
+/// valid widths, `2^bits`, one word's worth of hex digits — is `@codec`'s.
 ///
 /// ```
 /// // (address to, uint256 amount)
@@ -89,65 +89,11 @@ pub impl Show for AbiValue with fn output(self, logger) {
 }
 
 ///|
-/// How wide one ABI word is. Everything the ABI encodes — and everything
-/// EIP-712 hashes — is laid out in words this size, so both the byte-level
-/// encoder in `typed_data_digest.mbt` and the digit count below start here.
-const WORD_BYTES = 32
-
-///|
-/// How many hex digits one ABI word takes. `abi/` works in hex digits
-/// throughout — `Hex` is a hex string, so staying in that alphabet keeps
-/// encoding and decoding to slicing rather than byte arithmetic. It is public
-/// because both layers count in these digits: `AbiType::head_digits` here,
-/// every word `abi/` writes there.
-pub const WORD_DIGITS : Int = WORD_BYTES * 2
-
-///|
-/// Whether `bits` is a width `uintN` / `intN` can actually have.
-///
-/// This and the four below are the ABI's word rules as plain predicates, so the
-/// one statement of each rule serves every caller: the `checked_…` functions
-/// turn them into an `AbiError`, EIP-712 turns two of them into a `CodecError`
-/// naming the field, and `TypedData::classify_elementary` only asks the
-/// question (a type name it does not recognize is not an error — it is a struct
-/// name).
-fn is_valid_bits(bits : Int) -> Bool {
-  bits >= 8 && bits <= 256 && bits % 8 == 0
-}
-
-///|
-/// Whether `n` is a size `bytesN` can actually have. `bytes0` is not a type;
-/// the empty dynamic `bytes` is.
-fn is_valid_bytes_size(n : Int) -> Bool {
-  n >= 1 && n <= WORD_BYTES
-}
-
-///|
-/// Whether `k` is a length `T[k]` can actually have.
-fn is_valid_array_size(k : Int) -> Bool {
-  k >= 0
-}
-
-///|
-/// Whether a `uintN` of this width holds `n`.
-fn fits_uint(n : BigInt, bits~ : Int) -> Bool {
-  n >= 0N && n < two_pow(bits)
-}
-
-///|
-/// Whether an `intN` of this width holds `n` — two's complement, so the range
-/// is one wider below zero than above.
-fn fits_int(n : BigInt, bits~ : Int) -> Bool {
-  let half = two_pow(bits - 1)
-  n >= -half && n < half
-}
-
-///|
 /// `bits` if `uintN` / `intN` can have that width, `InvalidAbiType` otherwise.
 /// `what` names which of the two is being checked, so the message spells the
 /// type the caller wrote.
 pub fn AbiType::checked_bits(bits : Int, what~ : String) -> Int raise AbiError {
-  guard is_valid_bits(bits) else {
+  guard @codec.is_valid_bits(bits) else {
     raise InvalidAbiType(
       "\{what}\{bits}: width must be a multiple of 8 in 8..=256",
     )
@@ -158,7 +104,7 @@ pub fn AbiType::checked_bits(bits : Int, what~ : String) -> Int raise AbiError {
 ///|
 /// `n` if `bytesN` can have that size, `InvalidAbiType` otherwise.
 pub fn AbiType::checked_bytes_size(n : Int) -> Int raise AbiError {
-  guard is_valid_bytes_size(n) else {
+  guard @codec.is_valid_bytes_size(n) else {
     raise InvalidAbiType("bytes\{n}: size must be in 1..=32")
   }
   n
@@ -167,7 +113,7 @@ pub fn AbiType::checked_bytes_size(n : Int) -> Int raise AbiError {
 ///|
 /// `k` if `T[k]` can have that length, `InvalidAbiType` otherwise.
 pub fn AbiType::checked_array_size(k : Int) -> Int raise AbiError {
-  guard is_valid_array_size(k) else {
+  guard @codec.is_valid_array_size(k) else {
     raise InvalidAbiType("T[\{k}]: length cannot be negative")
   }
   k
@@ -179,7 +125,7 @@ pub fn AbiType::checked_array_size(k : Int) -> Int raise AbiError {
 /// wrong about the type and `uint8(300)` about the value.
 pub fn AbiValue::checked_uint(n : BigInt, bits~ : Int) -> BigInt raise AbiError {
   let bits = AbiType::checked_bits(bits, what="uint")
-  guard fits_uint(n, bits~) else {
+  guard @codec.fits_uint(n, bits~) else {
     raise InvalidValue("uint\{bits} cannot hold \{n}")
   }
   n
@@ -189,48 +135,11 @@ pub fn AbiValue::checked_uint(n : BigInt, bits~ : Int) -> BigInt raise AbiError 
 /// `n` if an `intN` of this width holds it, `AbiError` otherwise.
 pub fn AbiValue::checked_int(n : BigInt, bits~ : Int) -> BigInt raise AbiError {
   let bits = AbiType::checked_bits(bits, what="int")
-  guard fits_int(n, bits~) else {
+  guard @codec.fits_int(n, bits~) else {
     raise InvalidValue("int\{bits} cannot hold \{n}")
   }
   n
 }
-
-///|
-/// `2^bits`, the modulus a `uintN` lives in — and, one bit down, the bound its
-/// signed counterpart is symmetric around.
-fn two_pow(bits : Int) -> BigInt {
-  1N << bits
-}
-
-///|
-/// One word's bits read as a signed value: the top bit is the sign, so anything
-/// at or above `2^255` is that much below zero (two's complement).
-///
-/// A narrower `intN` is sign-extended to the whole word on the wire, so the
-/// width never enters here — which is why `abi`'s `int8` and EIP-712's `int256`
-/// can share one function.
-pub fn word_to_signed(val : BigInt) -> BigInt {
-  if val >= two_pow(WORD_BITS - 1) {
-    val - two_pow(WORD_BITS)
-  } else {
-    val
-  }
-}
-
-///|
-/// A signed value as the word that spells it: unchanged if it is already
-/// non-negative, `val + 2^256` otherwise.
-pub fn word_to_unsigned(val : BigInt) -> BigInt {
-  if val < 0N {
-    val + two_pow(WORD_BITS)
-  } else {
-    val
-  }
-}
-
-///|
-/// How many bits one word holds — the width every value on the wire ends up at.
-const WORD_BITS : Int = WORD_BYTES * 8
 
 ///|
 /// The canonical name the ABI spec gives this type — what a function signature
@@ -289,12 +198,12 @@ pub fn AbiType::is_dynamic(self : AbiType) -> Bool {
 /// flattened size of a static compound, which is written inline.
 pub fn AbiType::head_digits(self : AbiType) -> Int {
   if self.is_dynamic() {
-    return WORD_DIGITS
+    return @codec.WORD_DIGITS
   }
   match self {
     FixedArray(elem, k) => elem.head_digits() * k
     Tuple(elems) =>
       elems.iter().fold(init=0, (sum, elem) => sum + elem.head_digits())
-    _ => WORD_DIGITS
+    _ => @codec.WORD_DIGITS
   }
 }

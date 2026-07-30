@@ -4,7 +4,7 @@
 ///
 /// ```mbt check
 /// test "doc: typed data field" {
-///   let f = @types.TypedDataField::new("contents", "string")
+///   let f = TypedDataField::new("contents", "string")
 ///   inspect(
 ///     f.to_json().stringify(),
 ///     content=(
@@ -25,12 +25,14 @@ pub struct TypedDataField {
 pub fn TypedDataField::new(
   name : String,
   type_name : String,
-) -> TypedDataField raise CodecError {
+) -> TypedDataField raise @types.CodecError {
   guard !name.is_empty() else {
-    raise InvalidJson("typed data field has no name")
+    raise @types.InvalidJson("typed data field has no name")
   }
   guard !base_type(type_name).is_empty() else {
-    raise InvalidJson("typed data field \{name} has no type: \{type_name}")
+    raise @types.InvalidJson(
+      "typed data field \{name} has no type: \{type_name}",
+    )
   }
   TypedDataField::{ name, type_name }
 }
@@ -55,7 +57,7 @@ pub fn TypedDataField::to_json(self : TypedDataField) -> Json {
 ///
 /// ```mbt check
 /// test "doc: typed data domain" {
-///   let domain = @types.TypedDataDomain::new(
+///   let domain = TypedDataDomain::new(
 ///     name="Ether Mail",
 ///     version="1",
 ///     chain_id=@types.ChainId::mainnet(),
@@ -71,9 +73,9 @@ pub fn TypedDataField::to_json(self : TypedDataField) -> Json {
 pub struct TypedDataDomain {
   priv name : String?
   priv version : String?
-  priv chain_id : ChainId?
-  priv verifying_contract : Address?
-  priv salt : Hex?
+  priv chain_id : @types.ChainId?
+  priv verifying_contract : @types.Address?
+  priv salt : @types.Hex?
 } derive(Eq, Debug)
 
 ///|
@@ -82,13 +84,15 @@ pub struct TypedDataDomain {
 pub fn TypedDataDomain::new(
   name? : String,
   version? : String,
-  chain_id? : ChainId,
-  verifying_contract? : Address,
-  salt? : Hex,
-) -> TypedDataDomain raise CodecError {
+  chain_id? : @types.ChainId,
+  verifying_contract? : @types.Address,
+  salt? : @types.Hex,
+) -> TypedDataDomain raise @types.CodecError {
   if salt is Some(s) {
     guard s.byte_length() == 32 else {
-      raise InvalidLength("typed data domain salt must be 32 bytes: \{s}")
+      raise @types.InvalidLength(
+        "typed data domain salt must be 32 bytes: \{s}",
+      )
     }
   }
   TypedDataDomain::{ name, version, chain_id, verifying_contract, salt }
@@ -169,16 +173,13 @@ pub fn TypedDataDomain::to_json(self : TypedDataDomain) -> Json {
 ///
 /// ```mbt check
 /// test "doc: typed data" {
-///   let mail = @types.TypedData::new(
-///     @types.TypedDataDomain::new(
-///       name="Ether Mail",
-///       chain_id=@types.ChainId::mainnet(),
-///     ),
+///   let mail = TypedData::new(
+///     TypedDataDomain::new(name="Ether Mail", chain_id=@types.ChainId::mainnet()),
 ///     primary_type="Mail",
 ///     types={
 ///       "Mail": [
-///         @types.TypedDataField::new("from", "address"),
-///         @types.TypedDataField::new("contents", "string"),
+///         TypedDataField::new("from", "address"),
+///         TypedDataField::new("contents", "string"),
 ///       ],
 ///     },
 ///     message={
@@ -207,27 +208,29 @@ pub fn TypedData::new(
   primary_type~ : String,
   types~ : Map[String, Array[TypedDataField]],
   message~ : Json,
-) -> TypedData raise CodecError {
+) -> TypedData raise @types.CodecError {
   guard primary_type != DOMAIN_TYPE else {
-    raise InvalidJson("primaryType must be a struct type, not \{DOMAIN_TYPE}")
+    raise @types.InvalidJson(
+      "primaryType must be a struct type, not \{DOMAIN_TYPE}",
+    )
   }
   for name, fields in types {
     guard name != DOMAIN_TYPE else {
-      raise InvalidJson(
+      raise @types.InvalidJson(
         "\{DOMAIN_TYPE} is derived from the domain and must not be declared",
       )
     }
     for f in fields {
       let base = base_type(f.type_name)
       guard is_elementary(base) || types.get(base) is Some(_) else {
-        raise InvalidJson(
+        raise @types.InvalidJson(
           "\{name}.\{f.name} has type \{f.type_name}, which is not defined",
         )
       }
     }
   }
   guard types.get(primary_type) is Some(_) else {
-    raise InvalidJson("primaryType \{primary_type} is not defined")
+    raise @types.InvalidJson("primaryType \{primary_type} is not defined")
   }
   validate_value(types, primary_type, message, path=primary_type)
   TypedData::{ types, primary_type, domain, message }
@@ -322,34 +325,34 @@ fn parse_size(s : String) -> Int? {
 /// `int8`…`int256` in steps of 8 — or `None` if it is neither elementary nor
 /// (necessarily) a struct name.
 ///
-/// This reuses `AbiType` rather than a type of its own: EIP-712's atomic
+/// This reuses `@types.AbiType` rather than a type of its own: EIP-712's atomic
 /// types are, by design, exactly the ABI's own (EIP-712 hashes an atomic
 /// value the way the ABI encodes it), and the two now live in the same
 /// package. Only the seven atomic variants are ever returned here —
 /// `Array`/`FixedArray`/`Tuple` are the ABI's compound types, which have no
 /// place in this classification (an EIP-712 array or struct field is handled
 /// by `array_element` / the document's own `types` map instead).
-fn classify_elementary(type_name : String) -> AbiType? {
+fn classify_elementary(type_name : String) -> @types.AbiType? {
   match type_name {
     "string" => Some(String)
     "bytes" => Some(Bytes)
     "bool" => Some(Bool)
-    "address" => Some(Address)
+    "address" => Some(@types.Address)
     _ =>
       if elementary_size(type_name, prefix="bytes") is Some(n) {
-        if is_valid_bytes_size(n) {
+        if @codec.is_valid_bytes_size(n) {
           Some(FixedBytes(n))
         } else {
           None
         }
       } else if elementary_size(type_name, prefix="uint") is Some(bits) {
-        if is_valid_bits(bits) {
+        if @codec.is_valid_bits(bits) {
           Some(Uint(bits))
         } else {
           None
         }
       } else if elementary_size(type_name, prefix="int") is Some(bits) {
-        if is_valid_bits(bits) {
+        if @codec.is_valid_bits(bits) {
           Some(Int(bits))
         } else {
           None
@@ -383,14 +386,14 @@ fn validate_value(
   type_name : String,
   value : Json,
   path~ : String,
-) -> Unit raise CodecError {
+) -> Unit raise @types.CodecError {
   if array_element(type_name) is Some((element, length)) {
     guard value is Array(items) else {
-      raise InvalidJson("\{path} must be an array (\{type_name})")
+      raise @types.InvalidJson("\{path} must be an array (\{type_name})")
     }
     if length is Some(n) {
       guard items.length() == n else {
-        raise InvalidLength(
+        raise @types.InvalidLength(
           "\{path} must have \{n} items (\{type_name}), got \{items.length()}",
         )
       }
@@ -402,11 +405,11 @@ fn validate_value(
   }
   if types.get(type_name) is Some(fields) {
     guard value is Object(members) else {
-      raise InvalidJson("\{path} must be an object (\{type_name})")
+      raise @types.InvalidJson("\{path} must be an object (\{type_name})")
     }
     for f in fields {
       guard members.get(f.name) is Some(field_value) else {
-        raise InvalidJson(
+        raise @types.InvalidJson(
           "\{path} has no \{f.name}, which \{type_name} declares",
         )
       }
@@ -416,7 +419,7 @@ fn validate_value(
     // one means the caller believes something the signature will not say
     for name, _ in members {
       guard declares(fields, name) else {
-        raise InvalidJson(
+        raise @types.InvalidJson(
           "\{path} has \{name}, which \{type_name} does not declare",
         )
       }
@@ -444,49 +447,51 @@ fn validate_elementary(
   type_name : String,
   value : Json,
   path~ : String,
-) -> Unit raise CodecError {
+) -> Unit raise @types.CodecError {
   match classify_elementary(type_name) {
     Some(String) => {
       guard value is String(_) else {
-        raise InvalidJson("\{path} must be a string")
+        raise @types.InvalidJson("\{path} must be a string")
       }
     }
     Some(Bool) => {
       guard value is (True | False) else {
-        raise InvalidJson("\{path} must be a boolean")
+        raise @types.InvalidJson("\{path} must be a boolean")
       }
     }
-    Some(Address) => {
+    Some(@types.Address) => {
       guard value is String(s) else {
-        raise InvalidJson("\{path} must be an address string")
+        raise @types.InvalidJson("\{path} must be an address string")
       }
-      ignore(Address::from_string(s))
+      ignore(@types.Address::from_string(s))
     }
     Some(Bytes) => {
       guard value is String(s) else {
-        raise InvalidJson("\{path} must be a hex string")
+        raise @types.InvalidJson("\{path} must be a hex string")
       }
-      ignore(Hex::from_string(s))
+      ignore(@types.Hex::from_string(s))
     }
     Some(FixedBytes(n)) => {
       guard value is String(s) else {
-        raise InvalidJson("\{path} must be a hex string (\{type_name})")
+        raise @types.InvalidJson("\{path} must be a hex string (\{type_name})")
       }
-      let hex = Hex::from_string(s)
+      let hex = @types.Hex::from_string(s)
       guard hex.byte_length() == n else {
-        raise InvalidLength("\{path} must be \{n} bytes (\{type_name}): \{s}")
+        raise @types.InvalidLength(
+          "\{path} must be \{n} bytes (\{type_name}): \{s}",
+        )
       }
     }
     Some(Uint(bits)) =>
       validate_integer(value, bits, signed=false, path~, type_name~)
     Some(Int(bits)) =>
       validate_integer(value, bits, signed=true, path~, type_name~)
-    // `classify_elementary` never returns `AbiType`'s compound variants —
+    // `classify_elementary` never returns `@types.AbiType`'s compound variants —
     // only `array_element` and the document's `types` map produce arrays and
     // structs here — but the match still has to cover them, and raising is
     // what the rest of this file does with a type name it cannot use.
     Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
-      raise InvalidJson("\{path} has unknown type \{type_name}")
+      raise @types.InvalidJson("\{path} has unknown type \{type_name}")
   }
 }
 
@@ -498,12 +503,12 @@ fn integer_value(
   value : Json,
   path~ : String,
   type_name~ : String,
-) -> BigInt raise CodecError {
+) -> BigInt raise @types.CodecError {
   match value {
     Number(d, ..) => {
       let i = d.to_int64()
       guard i.to_double() == d else {
-        raise InvalidJson(
+        raise @types.InvalidJson(
           "\{path} must be a whole number a double still holds exactly (\{type_name}); pass it as a decimal string",
         )
       }
@@ -511,7 +516,7 @@ fn integer_value(
     }
     String(s) => parse_integer_string(s, path~, type_name~)
     _ =>
-      raise InvalidJson(
+      raise @types.InvalidJson(
         "\{path} must be a number or a numeric string (\{type_name})",
       )
   }
@@ -528,11 +533,15 @@ fn validate_integer(
   signed~ : Bool,
   path~ : String,
   type_name~ : String,
-) -> Unit raise CodecError {
+) -> Unit raise @types.CodecError {
   let n = integer_value(value, path~, type_name~)
-  let fits = if signed { fits_int(n, bits~) } else { fits_uint(n, bits~) }
+  let fits = if signed {
+    @codec.fits_int(n, bits~)
+  } else {
+    @codec.fits_uint(n, bits~)
+  }
   guard fits else {
-    raise InvalidLength("\{path} does not fit \{type_name}: \{n}")
+    raise @types.InvalidLength("\{path} does not fit \{type_name}: \{n}")
   }
 }
 
@@ -543,12 +552,19 @@ fn parse_integer_string(
   s : String,
   path~ : String,
   type_name~ : String,
-) -> BigInt raise CodecError {
+) -> BigInt raise @types.CodecError {
   if s.has_prefix("0x") || s.has_prefix("-0x") {
     let negative = s.has_prefix("-")
-    let body = strip_0x(if negative { s[1:].to_owned() } else { s })
+    let hex = if negative { s[1:].to_owned() } else { s }
+    guard @codec.hex_body(hex) is Some(body) else {
+      raise @types.InvalidHex(
+        "\{path} is not a hex quantity (\{type_name}): \{s}",
+      )
+    }
     guard body.length() > 0 else {
-      raise InvalidHex("\{path} is an empty quantity (\{type_name}): \{s}")
+      raise @types.InvalidHex(
+        "\{path} is an empty quantity (\{type_name}): \{s}",
+      )
     }
     let magnitude = BigInt::from_string(body, radix=16)
     return if negative { -magnitude } else { magnitude }
@@ -556,11 +572,11 @@ fn parse_integer_string(
   let negative = s.has_prefix("-")
   let digits = if negative { s[1:].to_owned() } else { s }
   guard digits.length() > 0 else {
-    raise InvalidJson("\{path} is not a number (\{type_name}): \{s}")
+    raise @types.InvalidJson("\{path} is not a number (\{type_name}): \{s}")
   }
   for c in digits {
     guard c.is_ascii_digit() else {
-      raise InvalidJson("\{path} is not a number (\{type_name}): \{s}")
+      raise @types.InvalidJson("\{path} is not a number (\{type_name}): \{s}")
     }
   }
   let magnitude = BigInt::from_string(digits)

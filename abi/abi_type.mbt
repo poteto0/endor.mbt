@@ -1,7 +1,7 @@
 ///|
-/// `types`' word width, aliased because this package counts in these digits at
-/// eight call sites.
-const WORD_DIGITS : Int = @types.WORD_DIGITS
+/// How many hex digits one ABI word takes, as `@codec` states it — this package
+/// slices in these digits everywhere.
+const WORD_DIGITS : Int = @codec.WORD_DIGITS
 
 ///|
 /// `AbiType` — and the `name` / `is_dynamic` / `head_digits` methods on it, and

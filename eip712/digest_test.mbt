@@ -3,23 +3,23 @@
 /// `typed_data_test.mbt`'s trimmed fixture): both `Person`s are present, which
 /// is what lets every hash here be checked against the spec's own published
 /// values.
-fn full_mail_types() -> Map[String, Array[@types.TypedDataField]] raise @types.CodecError {
+fn full_mail_types() -> Map[String, Array[@eip712.TypedDataField]] raise @types.CodecError {
   {
     "Person": [
-      @types.TypedDataField::new("name", "string"),
-      @types.TypedDataField::new("wallet", "address"),
+      @eip712.TypedDataField::new("name", "string"),
+      @eip712.TypedDataField::new("wallet", "address"),
     ],
     "Mail": [
-      @types.TypedDataField::new("from", "Person"),
-      @types.TypedDataField::new("to", "Person"),
-      @types.TypedDataField::new("contents", "string"),
+      @eip712.TypedDataField::new("from", "Person"),
+      @eip712.TypedDataField::new("to", "Person"),
+      @eip712.TypedDataField::new("contents", "string"),
     ],
   }
 }
 
 ///|
-fn full_mail_domain() -> @types.TypedDataDomain raise @types.CodecError {
-  @types.TypedDataDomain::new(
+fn full_mail_domain() -> @eip712.TypedDataDomain raise @types.CodecError {
+  @eip712.TypedDataDomain::new(
     name="Ether Mail",
     version="1",
     chain_id=@types.ChainId::mainnet(),
@@ -45,8 +45,8 @@ fn full_mail_message() -> Json {
 }
 
 ///|
-fn full_mail() -> @types.TypedData raise @types.CodecError {
-  @types.TypedData::new(
+fn full_mail() -> @eip712.TypedData raise @types.CodecError {
+  @eip712.TypedData::new(
     full_mail_domain(),
     primary_type="Mail",
     types=full_mail_types(),
@@ -111,13 +111,13 @@ test "digest matches the EIP-712 spec's Mail example" {
 test "encodeType and typeHash raise on an undefined type name" {
   let doc = full_mail()
   try doc.encode_type("NoSuchType") |> ignore catch {
-    InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
+    @types.InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
     e => fail("expected InvalidJson, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }
   try doc.type_hash("NoSuchType") |> ignore catch {
-    InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
+    @types.InvalidJson(m) => inspect(m, content="NoSuchType is not defined")
     e => fail("expected InvalidJson, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
@@ -129,10 +129,10 @@ test "encodeType and typeHash raise on an undefined type name" {
 /// concatenated — checked against an independent computation rather than a
 /// published vector, since the spec's own example carries no array.
 test "hashStruct of an array field hashes its concatenated elements" {
-  let doc = @types.TypedData::new(
-    @types.TypedDataDomain::new(name="Endor"),
+  let doc = @eip712.TypedData::new(
+    @eip712.TypedDataDomain::new(name="Endor"),
     primary_type="Only",
-    types={ "Only": [@types.TypedDataField::new("it", "uint256[]")] },
+    types={ "Only": [@eip712.TypedDataField::new("it", "uint256[]")] },
     message={ "it": [Json::number(1), Json::number(2), Json::number(3)] },
   )
   inspect(

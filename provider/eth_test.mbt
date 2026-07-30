@@ -1084,17 +1084,17 @@ async test "error send answered with a malformed hash" {
 /// typed-data signature carries. What the document may and may not say is
 /// covered in `types/`; here it is only a payload the RPC layer has to
 /// serialize and pass through unchanged.
-fn permit_typed_data() -> @types.TypedData {
-  @types.TypedData::new(
-    @types.TypedDataDomain::new(
+fn permit_typed_data() -> @eip712.TypedData {
+  @eip712.TypedData::new(
+    @eip712.TypedDataDomain::new(
       name="Endor",
       chain_id=@types.ChainId::mainnet(),
     ),
     primary_type="Permit",
     types={
       "Permit": [
-        @types.TypedDataField::new("holder", "address"),
-        @types.TypedDataField::new("value", "uint256"),
+        @eip712.TypedDataField::new("holder", "address"),
+        @eip712.TypedDataField::new("value", "uint256"),
       ],
     },
     message={

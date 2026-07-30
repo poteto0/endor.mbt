@@ -28,9 +28,7 @@ pub fn encode(
   types : Array[AbiType],
   values : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  @types.Hex::from_bytes(
-    @types.Hex::bytes_of_digits(_encode_block(types, values)),
-  )
+  @types.Hex::from_bytes(@codec.bytes_of_digits(_encode_block(types, values)))
 }
 
 ///|
@@ -56,7 +54,7 @@ fn _encode_block(
   for i, t in types {
     if t.is_dynamic() {
       let offset = (head_digits + tail_digits) / 2
-      heads.push(_left_pad(offset.to_string(radix=16)))
+      heads.push(@codec.digits_left_pad(offset.to_string(radix=16)))
       let tail = _encode_value(t, values[i])
       tail_digits += tail.length()
       tails.push(tail)
@@ -81,31 +79,35 @@ fn _encode_block(
 fn _encode_value(t : AbiType, v : AbiValue) -> String raise AbiError {
   match (t, v) {
     (Uint(bits), Uint(n)) =>
-      _left_pad(AbiValue::checked_uint(n, bits~).to_string(radix=16))
+      @codec.digits_left_pad(
+        AbiValue::checked_uint(n, bits~).to_string(radix=16),
+      )
     (Int(bits), Int(n)) =>
       // two's complement: a negative value is the word that many below 2^256
-      _left_pad(
-        @types.word_to_unsigned(AbiValue::checked_int(n, bits~)).to_string(
+      @codec.digits_left_pad(
+        @codec.word_to_unsigned(AbiValue::checked_int(n, bits~)).to_string(
           radix=16,
         ),
       )
-    (AbiType::Address, AbiValue::Address(a)) => _left_pad(a.digits())
-    (AbiType::Bool, AbiValue::Bool(b)) => _left_pad(if b { "1" } else { "0" })
+    (AbiType::Address, AbiValue::Address(a)) =>
+      @codec.digits_left_pad(a.digits())
+    (AbiType::Bool, AbiValue::Bool(b)) =>
+      @codec.digits_left_pad(if b { "1" } else { "0" })
     (FixedBytes(size), Bytes(b)) => {
       guard b.length() == AbiType::checked_bytes_size(size) else {
         raise InvalidValue(
           "bytes\{size} needs \{size} bytes, got \{b.length()}",
         )
       }
-      _right_pad(@types.Hex::digits_of_bytes(b))
+      @codec.digits_right_pad(@codec.digits_of_bytes(b))
     }
     (AbiType::Bytes, AbiValue::Bytes(b)) =>
-      _left_pad(b.length().to_string(radix=16)) +
-      _right_pad(@types.Hex::digits_of_bytes(b))
+      @codec.digits_left_pad(b.length().to_string(radix=16)) +
+      @codec.digits_right_pad(@codec.digits_of_bytes(b))
     (AbiType::String, AbiValue::String(s)) =>
       _encode_value(AbiType::Bytes, AbiValue::Bytes(@utf8.encode(s)))
     (Array(elem), Array(xs)) =>
-      _left_pad(xs.length().to_string(radix=16)) +
+      @codec.digits_left_pad(xs.length().to_string(radix=16)) +
       _encode_block(Array::make(xs.length(), elem), xs)
     (FixedArray(elem, size), Array(xs)) => {
       guard xs.length() == AbiType::checked_array_size(size) else {
