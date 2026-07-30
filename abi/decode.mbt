@@ -80,9 +80,7 @@ fn _decode_value(
     FixedBytes(size) => {
       let word = _read_word(data, at)
       Bytes(
-        @codec.bytes_of_digits(
-          word[:AbiType::checked_bytes_size(size) * 2].to_owned(),
-        ),
+        @codec.bytes_of_digits(word[:AbiType::checked_bytes_size(size) * 2]),
       )
     }
     AbiType::Bytes => Bytes(_read_byte_string(data, at))
@@ -165,5 +163,5 @@ fn _read_byte_string(data : String, at : Int) -> Bytes raise AbiError {
       "\{length} bytes claimed at byte \{from / 2}, past the end of \{data.length() / 2} bytes",
     )
   }
-  @codec.bytes_of_digits(data[from:from + length * 2].to_owned())
+  @codec.bytes_of_digits(data[from:from + length * 2])
 }

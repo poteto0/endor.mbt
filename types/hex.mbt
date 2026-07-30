@@ -37,11 +37,39 @@ pub struct Hex {
 ///|
 /// Parse and validate a `0x`-prefixed hex byte string (even length).
 pub fn Hex::from_string(s : String) -> Hex raise CodecError {
-  let n = normalize_hex(s)
-  guard (n.length() - 2) % 2 == 0 else {
-    raise InvalidLength("hex byte string must have even length: \{s}")
+  guard s.has_prefix("0x") else { raise InvalidHex(s) }
+  Hex::from_digits(s[2:])
+}
+
+///|
+/// Build a hex byte string from the digits alone, with no `0x` and no bytes in
+/// between — what a caller that already computed the digits wants, since
+/// spelling them as `Bytes` only to have them spelled back costs two passes and
+/// two copies over the whole value. ABI calldata is built this way.
+///
+/// This is where both of `Hex`'s rules are stated: `from_string` is this with
+/// the prefix taken off first. A shortcut past the representation is not a
+/// shortcut past the rule.
+///
+/// ```mbt check
+/// test "doc: hex from digits" {
+///   let h = @types.Hex::from_digits("DEAD")
+///   inspect(h, content="0xdead")
+/// }
+/// ```
+pub fn Hex::from_digits(digits : StringView) -> Hex raise CodecError {
+  // the common case — an encoder's own output, or a node's answer — is already
+  // in normal form, and asking that first spares it a second walk to lowercase
+  let normal = if @codec.is_lower_hex_digits(digits) {
+    digits
+  } else {
+    guard @codec.is_hex_digits(digits) else { raise InvalidHex("0x\{digits}") }
+    digits.to_lower()
   }
-  Hex::{ inner: n }
+  guard normal.length() % 2 == 0 else {
+    raise InvalidLength("hex byte string must have even length: 0x\{digits}")
+  }
+  Hex::{ inner: "0x" + normal.to_owned() }
 }
 
 ///|
@@ -71,7 +99,14 @@ pub fn Hex::to_string(self : Hex) -> String {
 /// hex digits rather than in bytes wants, and what saves it from knowing how
 /// long the prefix is.
 pub fn Hex::digits(self : Hex) -> String {
-  self.inner[2:].to_owned()
+  self.digits_view().to_owned()
+}
+
+///|
+/// The digits without copying them out, for the callers inside this package
+/// that only read them. The one place that knows how long the prefix is.
+fn Hex::digits_view(self : Hex) -> StringView {
+  self.inner[2:]
 }
 
 ///|
@@ -86,13 +121,13 @@ pub fn Hex::digits(self : Hex) -> String {
 /// }
 /// ```
 pub fn Hex::to_bytes(self : Hex) -> Bytes {
-  @codec.bytes_of_digits(self.digits())
+  @codec.bytes_of_digits(self.digits_view())
 }
 
 ///|
 /// How many bytes the value holds.
 pub fn Hex::byte_length(self : Hex) -> Int {
-  (self.inner.length() - 2) / 2
+  self.digits_view().length() / 2
 }
 
 ///|

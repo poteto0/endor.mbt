@@ -1,8 +1,11 @@
 ///|
-/// The hex alphabet, as a `FixedArray` so a nibble can index it.
-let hex_digit : FixedArray[Char] = [
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-]
+/// The two digits each of the 256 byte values spells, precomputed. Every hex
+/// string this package writes is a run of these, so writing a whole byte at a
+/// time costs one lookup where writing digit by digit costs a branch and a
+/// buffer append per nibble.
+let byte_digits : FixedArray[String] = FixedArray::makei(256, n => {
+  n.to_byte().to_hex()
+})
 
 ///|
 /// The value of one hex digit. Total on purpose: every character reached here
@@ -10,10 +13,18 @@ let hex_digit : FixedArray[Char] = [
 /// digits, so a non-hex character cannot occur, and raising for it would put an
 /// impossible error case in every caller's signature.
 pub fn nibble(c : Char) -> Int {
-  match c {
-    '0'..='9' => c.to_int() - '0'.to_int()
-    'a'..='f' => c.to_int() - 'a'.to_int() + 10
-    'A'..='F' => c.to_int() - 'A'.to_int() + 10
+  nibble_of_code(c.to_int())
+}
+
+///|
+/// `nibble`, over a UTF-16 code unit rather than a `Char` — what reading a hex
+/// string by index gives, and what `bytes_of_digits` walks. Every hex digit is
+/// ASCII, so the two agree wherever the input really is one.
+fn nibble_of_code(u : Int) -> Int {
+  match u {
+    0x30..=0x39 => u - 0x30 // '0'..='9'
+    0x61..=0x66 => u - 0x61 + 10 // 'a'..='f'
+    0x41..=0x46 => u - 0x41 + 10 // 'A'..='F'
     _ => 0
   }
 }
@@ -25,9 +36,7 @@ pub fn nibble(c : Char) -> Int {
 pub fn digits_of_bytes(bytes : Bytes) -> String {
   let buf = StringBuilder::new()
   for b in bytes {
-    let n = b.to_int()
-    buf.write_char(hex_digit[n >> 4])
-    buf.write_char(hex_digit[n & 0x0f])
+    buf.write_string(byte_digits[b.to_int()])
   }
   buf.to_string()
 }
@@ -37,17 +46,47 @@ pub fn digits_of_bytes(bytes : Bytes) -> String {
 /// `nibble` is: a trailing half byte is dropped rather than raising, because
 /// every caller either holds a validated `@types.Hex` or slices whole words out
 /// of one.
-pub fn bytes_of_digits(digits : String) -> Bytes {
-  let out = Array::new(capacity=digits.length() / 2)
-  let mut high = 0
-  for i, c in digits.iter2() {
-    if i % 2 == 0 {
-      high = nibble(c)
-    } else {
-      out.push(((high << 4) | nibble(c)).to_byte())
-    }
+///
+/// Takes a view so a caller that holds the digits inside a longer string — a
+/// `@types.Hex` holds them after its `0x` — can hand over the part it means
+/// without copying it out first.
+pub fn bytes_of_digits(digits : StringView) -> Bytes {
+  Bytes::makei(digits.length() / 2, i => {
+    let high = nibble_of_code(digits.unsafe_get(i * 2).to_int())
+    let low = nibble_of_code(digits.unsafe_get(i * 2 + 1).to_int())
+    ((high << 4) | low).to_byte()
+  })
+}
+
+///|
+/// Whether every character of `s` is a hex digit. The alphabet half of the
+/// wire's spelling rule, asked on its own by a caller that already holds the
+/// digits rather than a `0x`-prefixed string.
+pub fn is_hex_digits(s : StringView) -> Bool {
+  scan_digits(s, lower_only=false)
+}
+
+///|
+/// Whether `s` is hex digits already in their normal form — no uppercase, so
+/// nothing has to be lowercased. Everything this package writes is, so a caller
+/// that would otherwise validate and then lowercase can ask both questions in
+/// the one pass this answers in.
+pub fn is_lower_hex_digits(s : StringView) -> Bool {
+  scan_digits(s, lower_only=true)
+}
+
+///|
+/// The pass both predicates above are: one walk over the code units, since a
+/// hex digit is ASCII and decoding each into a `Char` costs more than the test.
+fn scan_digits(s : StringView, lower_only~ : Bool) -> Bool {
+  for i in 0..<s.length() {
+    let u = s.unsafe_get(i).to_int()
+    let ok = (u >= 0x30 && u <= 0x39) || // '0'..='9'
+      (u >= 0x61 && u <= 0x66) || // 'a'..='f'
+      (!lower_only && u >= 0x41 && u <= 0x46) // 'A'..='F'
+    guard ok else { return false }
   }
-  Bytes::makei(out.length(), i => out[i])
+  true
 }
 
 ///|
@@ -58,9 +97,7 @@ pub fn bytes_of_digits(digits : String) -> Bytes {
 /// error is its own.
 pub fn hex_body(s : String) -> String? {
   guard s.has_prefix("0x") else { return None }
-  let body = s[2:].to_owned()
-  for c in body {
-    guard c.is_ascii_hexdigit() else { return None }
-  }
-  Some(body)
+  let body = s[2:]
+  guard is_hex_digits(body) else { return None }
+  Some(body.to_owned())
 }

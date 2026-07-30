@@ -12,7 +12,7 @@ pub const WORD_BYTES : Int = 32
 
 pub const WORD_DIGITS : Int = 64
 
-pub fn bytes_of_digits(String) -> Bytes
+pub fn bytes_of_digits(StringView) -> Bytes
 
 pub fn concat_words(Array[Bytes]) -> Bytes
 
@@ -27,6 +27,10 @@ pub fn fits_int(@bigint.BigInt, bits~ : Int) -> Bool
 pub fn fits_uint(@bigint.BigInt, bits~ : Int) -> Bool
 
 pub fn hex_body(String) -> String?
+
+pub fn is_hex_digits(StringView) -> Bool
+
+pub fn is_lower_hex_digits(StringView) -> Bool
 
 pub fn is_valid_array_size(Int) -> Bool
 

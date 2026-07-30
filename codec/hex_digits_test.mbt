@@ -50,6 +50,10 @@ test "a value is padded into whole words" {
     @codec.digits_left_pad("ab"),
     content="00000000000000000000000000000000000000000000000000000000000000ab",
   )
+  // the two boundaries: nothing to pad, and a word that is already whole
+  inspect(@codec.digits_left_pad("").length(), content="64")
+  inspect(@codec.digits_left_pad("0".repeat(64)).length(), content="64")
+  inspect(@codec.digits_right_pad("").length(), content="0")
   inspect(@codec.digits_right_pad("ab").length(), content="64")
   inspect(
     @codec.digits_right_pad(@codec.digits_left_pad("ab")).length(),
@@ -64,4 +68,16 @@ test "a value is padded into whole words" {
     @codec.concat_words([b"\x00".repeat(32), b"\x11".repeat(32)]).length(),
     64,
   )
+}
+
+///|
+/// Every one of the 256 byte values spells the two digits it should, and reads
+/// back — a byte at a time is how a hex string is written and read.
+test "every byte spells its own two digits" {
+  let all = Bytes::makei(256, i => i.to_byte())
+  let digits = @codec.digits_of_bytes(all)
+  assert_eq(digits.length(), 512)
+  assert_eq(digits[0:6].to_owned(), "000102")
+  assert_eq(digits[506:].to_owned(), "fdfeff")
+  assert_eq(@codec.bytes_of_digits(digits), all)
 }

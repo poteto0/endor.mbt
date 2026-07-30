@@ -95,3 +95,41 @@ test "can measure hex length" {
   inspect(@types.Hex::from_string("0x").is_empty(), content="true")
   inspect(@types.Hex::from_string("0x00").is_empty(), content="false")
 }
+
+///|
+/// `from_digits` is the shortcut past `Bytes` that `@abi.encode` takes: it must
+/// land on exactly the value the same digits would have reached the long way,
+/// and it must still refuse what `from_string` refuses.
+test "can create from digits alone" {
+  assert_eq(
+    @types.Hex::from_digits("deadbeef"),
+    @types.Hex::from_string("0xdeadbeef"),
+  )
+  assert_eq(@types.Hex::from_digits("DEADBEEF").to_string(), "0xdeadbeef")
+  assert_eq(@types.Hex::from_digits("").to_string(), "0x")
+  refuses("abc", "InvalidLength(hex byte string must have even length: 0xabc)")
+  refuses("0g", "InvalidHex(0x0g)")
+  // the `0x` belongs to `from_string`; digits here are digits and nothing else
+  refuses("0xab", "InvalidHex(0x0xab)")
+}
+
+///|
+/// `Hex::from_digits` for the cases that must not build a value.
+fn refuses(digits : String, expected : String) -> Unit raise {
+  try @types.Hex::from_digits(digits) catch {
+    e => assert_eq("\{e}", expected)
+  } noraise {
+    h => fail("expected \{digits} to be refused, got \{h}")
+  }
+}
+
+///|
+/// Both directions over a payload far longer than one word: what a digest or an
+/// `eth_getCode` answer is, rather than the four bytes the cases above use.
+test "a large value survives the round trip" {
+  let payload = Bytes::makei(10_000, i => (i * 7 % 256).to_byte())
+  let h = @types.Hex::from_bytes(payload)
+  assert_eq(h.byte_length(), 10_000)
+  assert_eq(h.to_bytes(), payload)
+  assert_eq(@types.Hex::from_digits(h.digits()), h)
+}
