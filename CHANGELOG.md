@@ -53,6 +53,7 @@ applies.
 - `types/` no longer `abort`s anywhere: the two exhaustiveness-only branches in
   EIP-712 validation and encoding raise `InvalidJson` like every other
   unusable type name. (#56)
+- validate abi value word on abi decoding. (#53)
 
 ### Performance
 

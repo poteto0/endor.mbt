@@ -178,3 +178,43 @@ test "invalid utf-8 string is refused" {
     content="InvalidData(string is not valid UTF-8)",
   )
 }
+
+///|
+test "error on invalid value" {
+  inspect(
+    refused(() => {
+      decode_ignoring(
+        [Uint(8)],
+        "0x00000000000000000000000000000000000000000000000000000000000001ff",
+      )
+    }),
+    content="InvalidData(Uint(8) encoding)",
+  )
+  inspect(
+    refused(() => {
+      decode_ignoring(
+        [Int(8)],
+        "0x00000000000000000000000000000000000000000000000000000000000000c8",
+      )
+    }),
+    content="InvalidData(Int(8) encoding)",
+  )
+  inspect(
+    refused(() => {
+      decode_ignoring(
+        [Address],
+        "0xdeadbeefdeadbeefdeadbeefdeadbeef00000000000000000000000000000001",
+      )
+    }),
+    content="InvalidData(Address encoding)",
+  )
+  inspect(
+    refused(() => {
+      decode_ignoring(
+        [FixedBytes(1)],
+        "0x1111111111111111111111111111111111111111111111111111111111111111",
+      )
+    }),
+    content="InvalidData(FixedBytes(1) encoding)",
+  )
+}
