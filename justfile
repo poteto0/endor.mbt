@@ -76,7 +76,7 @@ info-check: info
 archive-check:
   #!/usr/bin/env bash
   set -euo pipefail
-  ships=$'LICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\nabi\ncontract\nprovider\nffi'
+  ships=$'CHANGELOG.md\nLICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\ncodec\neip712\nabi\ncontract\nprovider\nffi'
   # the file list goes to stderr, interleaved with progress lines that all
   # contain spaces, unlike archive paths
   extra=$(moon package --list 2>&1 | grep -v ' ' | cut -d/ -f1 | sort -u \
@@ -97,14 +97,20 @@ archive-check:
 cli-check:
   @cd cmd && moon check --target native
 
+# scoped to the CLI's own package. `cli-check` compiles the SDK for `native`,
+# which is the part that has to hold — the CLI links it — but the SDK's *tests*
+# are written for the target it pins, and `just unit-test` runs them there.
+# Letting them run here instead turns every `js`-only corner of `moonbitlang/
+# core` (`BigInt::from_string` on a `0x` literal, say) into a CLI failure about
+# a package the CLI never calls.
 alias cli-ut := cli-test
 [group("ci")]
 cli-test opts="":
-  @cd cmd && moon test --target native {{opts}}
+  @cd cmd && moon test --target native -p poteto0/endor-cli/endor-cli {{opts}}
 
 [group("ci")]
 cli-test-coverage:
-  @cd cmd && moon coverage clean && moon test --enable-coverage --target native
+  @cd cmd && moon coverage clean && moon test --enable-coverage --target native -p poteto0/endor-cli/endor-cli
   @cd cmd && moon coverage report -f summary
 
 # the check the ABI generator itself cannot make: that what it wrote compiles.

@@ -3,6 +3,7 @@ package "poteto0/endor/provider"
 
 import {
   "moonbitlang/core/debug",
+  "poteto0/endor/eip712",
   "poteto0/endor/types",
 }
 
@@ -45,7 +46,7 @@ pub async fn[P : Provider] send_transaction(P, @types.TransactionRequest) -> @ty
 
 pub async fn[P : Provider] sign_message(P, @types.Address, String) -> @types.Hex raise ProviderError
 
-pub async fn[P : Provider] sign_typed_data(P, @types.Address, @types.TypedData) -> @types.Hex raise ProviderError
+pub async fn[P : Provider] sign_typed_data(P, @types.Address, @eip712.TypedData) -> @types.Hex raise ProviderError
 
 pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise ProviderError
 

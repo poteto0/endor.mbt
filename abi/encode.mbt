@@ -28,7 +28,21 @@ pub fn encode(
   types : Array[AbiType],
   values : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  @types.Hex::from_bytes(_bytes_of_digits(_encode_block(types, values)))
+  _hex_of_digits(_encode_block(types, values))
+}
+
+///|
+/// The encoded digits as the `Hex` they spell — the whole write side ends here,
+/// with no detour through `Bytes` and back.
+///
+/// `_encode_block` writes nothing but whole words of lowercase digits, so the
+/// check `from_digits` makes cannot fail from either caller; making it anyway
+/// is what keeps the shortcut past the representation from also being a
+/// shortcut past the rule.
+fn _hex_of_digits(digits : String) -> @types.Hex raise AbiError {
+  @types.Hex::from_digits(digits) catch {
+    e => raise InvalidValue("encoded calldata: \{e}")
+  }
 }
 
 ///|
@@ -54,7 +68,7 @@ fn _encode_block(
   for i, t in types {
     if t.is_dynamic() {
       let offset = (head_digits + tail_digits) / 2
-      heads.push(_left_pad(offset.to_string(radix=16)))
+      heads.push(@codec.digits_left_pad(offset.to_string(radix=16)))
       let tail = _encode_value(t, values[i])
       tail_digits += tail.length()
       tails.push(tail)
@@ -78,48 +92,46 @@ fn _encode_block(
 /// block for anything compound.
 fn _encode_value(t : AbiType, v : AbiValue) -> String raise AbiError {
   match (t, v) {
-    (Uint(bits), Uint(n)) => {
-      guard n >= 0N && n < _two_pow(_validate_bits(bits, "uint")) else {
-        raise InvalidValue("uint\{bits} cannot hold \{n}")
-      }
-      _left_pad(n.to_string(radix=16))
-    }
-    (Int(bits), Int(n)) => {
-      let half = _two_pow(_validate_bits(bits, "int") - 1)
-      guard n >= 0N - half && n < half else {
-        raise InvalidValue("int\{bits} cannot hold \{n}")
-      }
+    (Uint(bits), Uint(n)) =>
+      @codec.digits_left_pad(
+        AbiValue::checked_uint(n, bits~).to_string(radix=16),
+      )
+    (Int(bits), Int(n)) =>
       // two's complement: a negative value is the word that many below 2^256
-      _left_pad(_to_unsigned(n, 256).to_string(radix=16))
-    }
+      @codec.digits_left_pad(
+        @codec.word_to_unsigned(AbiValue::checked_int(n, bits~)).to_string(
+          radix=16,
+        ),
+      )
     (AbiType::Address, AbiValue::Address(a)) =>
-      _left_pad(_digits_of(a.to_string()))
-    (AbiType::Bool, AbiValue::Bool(b)) => _left_pad(if b { "1" } else { "0" })
+      @codec.digits_left_pad(a.digits())
+    (AbiType::Bool, AbiValue::Bool(b)) =>
+      @codec.digits_left_pad(if b { "1" } else { "0" })
     (FixedBytes(size), Bytes(b)) => {
-      guard b.length() == _validate_bytes_size(size) else {
+      guard b.length() == AbiType::checked_bytes_size(size) else {
         raise InvalidValue(
           "bytes\{size} needs \{size} bytes, got \{b.length()}",
         )
       }
-      _right_pad(_digits_of_bytes(b))
+      @codec.digits_right_pad(@codec.digits_of_bytes(b))
     }
     (AbiType::Bytes, AbiValue::Bytes(b)) =>
-      _left_pad(b.length().to_string(radix=16)) +
-      _right_pad(_digits_of_bytes(b))
+      @codec.digits_left_pad(b.length().to_string(radix=16)) +
+      @codec.digits_right_pad(@codec.digits_of_bytes(b))
     (AbiType::String, AbiValue::String(s)) =>
       _encode_value(AbiType::Bytes, AbiValue::Bytes(@utf8.encode(s)))
     (Array(elem), Array(xs)) =>
-      _left_pad(xs.length().to_string(radix=16)) +
+      @codec.digits_left_pad(xs.length().to_string(radix=16)) +
       _encode_block(Array::make(xs.length(), elem), xs)
     (FixedArray(elem, size), Array(xs)) => {
-      guard xs.length() == _validate_array_size(size) else {
+      guard xs.length() == AbiType::checked_array_size(size) else {
         raise InvalidValue(
-          "\{_name(t)} needs \{size} elements, got \{xs.length()}",
+          "\{t.name()} needs \{size} elements, got \{xs.length()}",
         )
       }
       _encode_block(Array::make(size, elem), xs)
     }
     (Tuple(elems), Tuple(vs)) => _encode_block(elems, vs)
-    _ => raise InvalidValue("\{v} is not a \{_name(t)}")
+    _ => raise InvalidValue("\{v} is not a \{t.name()}")
   }
 }

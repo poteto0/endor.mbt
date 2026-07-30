@@ -4,7 +4,6 @@ package "poteto0/endor/contract"
 import {
   "moonbitlang/core/bigint",
   "moonbitlang/core/debug",
-  "poteto0/endor/abi",
   "poteto0/endor/provider",
   "poteto0/endor/types",
 }
@@ -23,7 +22,7 @@ pub fn uint_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt rai
 // Errors
 pub(all) suberror ContractError {
   Rpc(@provider.ProviderError)
-  Abi(@abi.AbiError)
+  Abi(@types.AbiError)
 } derive(Eq)
 pub impl Show for ContractError
 

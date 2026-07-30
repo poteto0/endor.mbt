@@ -11,20 +11,30 @@
 /// `encodeType(type_name)`: its own member list, followed by every struct
 /// type it references (directly or through another struct), alphabetized —
 /// `Mail(Person from,Person to,string contents)Person(string name,address wallet)`.
-pub fn TypedData::encode_type(self : TypedData, type_name : String) -> String {
+/// A type name the document does not define raises `InvalidJson`.
+pub fn TypedData::encode_type(
+  self : TypedData,
+  type_name : String,
+) -> String raise @types.CodecError {
   encode_type(self.types, type_name)
 }
 
 ///|
-/// `typeHash(type_name)` = `keccak256(encodeType(type_name))`.
-pub fn TypedData::type_hash(self : TypedData, type_name : String) -> Hex {
-  Hex::from_bytes(type_hash(self.types, type_name))
+/// `typeHash(type_name)` = `keccak256(encodeType(type_name))`. A type name the
+/// document does not define raises `InvalidJson`.
+pub fn TypedData::type_hash(
+  self : TypedData,
+  type_name : String,
+) -> @types.Hex raise @types.CodecError {
+  @types.Hex::from_bytes(type_hash(self.types, type_name))
 }
 
 ///|
 /// `hashStruct(s)` for the message, at whatever type it declares itself as.
-pub fn TypedData::hash_struct(self : TypedData) -> Hex raise CodecError {
-  Hex::from_bytes(
+pub fn TypedData::hash_struct(
+  self : TypedData,
+) -> @types.Hex raise @types.CodecError {
+  @types.Hex::from_bytes(
     @crypto.keccak256(encode_data(self.types, self.primary_type, self.message)),
   )
 }
@@ -32,35 +42,42 @@ pub fn TypedData::hash_struct(self : TypedData) -> Hex raise CodecError {
 ///|
 /// `domainSeparator` — `hashStruct` of the document's `EIP712Domain` value,
 /// built over only the fields the domain actually carries.
-pub fn TypedData::domain_separator(self : TypedData) -> Hex raise CodecError {
-  Hex::from_bytes(domain_separator_bytes(self.domain))
+pub fn TypedData::domain_separator(
+  self : TypedData,
+) -> @types.Hex raise @types.CodecError {
+  @types.Hex::from_bytes(domain_separator_bytes(self.domain))
 }
 
 ///|
 /// `digest` = `keccak256(0x19 0x01 ‖ domainSeparator ‖ hashStruct(message))` —
 /// the hash a wallet actually signs, and what `isValidSignature` on an
 /// EIP-1271 contract wallet takes.
-pub fn TypedData::digest(self : TypedData) -> Hex raise CodecError {
+pub fn TypedData::digest(
+  self : TypedData,
+) -> @types.Hex raise @types.CodecError {
   let domain_sep = domain_separator_bytes(self.domain)
   let message_hash = @crypto.keccak256(
     encode_data(self.types, self.primary_type, self.message),
   )
-  let signed = Bytes::makei(66, i => {
+  // `0x19 0x01` then the two 32-byte hashes
+  let signed = Bytes::makei(2 + 2 * @codec.WORD_BYTES, i => {
     if i == 0 {
       b'\x19'
     } else if i == 1 {
       b'\x01'
-    } else if i < 34 {
+    } else if i < 2 + @codec.WORD_BYTES {
       domain_sep[i - 2]
     } else {
-      message_hash[i - 34]
+      message_hash[i - 2 - @codec.WORD_BYTES]
     }
   })
-  Hex::from_bytes(@crypto.keccak256(signed))
+  @types.Hex::from_bytes(@crypto.keccak256(signed))
 }
 
 ///|
-fn domain_separator_bytes(domain : TypedDataDomain) -> Bytes raise CodecError {
+fn domain_separator_bytes(
+  domain : TypedDataDomain,
+) -> Bytes raise @types.CodecError {
   let types : Map[String, Array[TypedDataField]] = Map([
     (DOMAIN_TYPE, domain.fields()),
   ])
@@ -71,7 +88,7 @@ fn domain_separator_bytes(domain : TypedDataDomain) -> Bytes raise CodecError {
 fn encode_type(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
-) -> String {
+) -> String raise @types.CodecError {
   let out = StringBuilder::new()
   out.write_string(struct_signature(types, type_name))
   for name in referenced_type_names(types, type_name) {
@@ -87,10 +104,26 @@ fn encode_type(
 fn struct_signature(
   types : Map[String, Array[TypedDataField]],
   name : String,
-) -> String {
-  let fields = types.get(name).unwrap()
-  let members = fields.map(f => "\{f.type_name} \{f.name}").join(",")
+) -> String raise @types.CodecError {
+  let members = fields_of(types, name)
+    .map(f => "\{f.type_name} \{f.name}")
+    .join(",")
   "\{name}(\{members})"
+}
+
+///|
+/// A type's declared fields, or the error every caller here reports for a type
+/// name the document never defined. Type names are strings and an EIP-712
+/// document is often assembled at runtime, so this is an ordinary caller
+/// mistake rather than a bug — one place owns the wording.
+fn fields_of(
+  types : Map[String, Array[TypedDataField]],
+  type_name : String,
+) -> Array[TypedDataField] raise @types.CodecError {
+  guard types.get(type_name) is Some(fields) else {
+    raise @types.InvalidJson("\{type_name} is not defined")
+  }
+  fields
 }
 
 ///|
@@ -128,7 +161,7 @@ fn collect_referenced(
 fn type_hash(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
-) -> Bytes {
+) -> Bytes raise @types.CodecError {
   @crypto.keccak256_string(encode_type(types, type_name))
 }
 
@@ -141,23 +174,20 @@ fn encode_data(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
   value : Json,
-) -> Bytes raise CodecError {
+) -> Bytes raise @types.CodecError {
   guard value is Object(members) else {
-    raise InvalidJson("\{type_name} value must be an object")
+    raise @types.InvalidJson("\{type_name} value must be an object")
   }
-  let fields = match types.get(type_name) {
-    Some(fs) => fs
-    None => raise InvalidJson("\{type_name} is not defined")
-  }
+  let fields = fields_of(types, type_name)
   let words = [type_hash(types, type_name)]
   for f in fields {
     let v = match members.get(f.name) {
       Some(v) => v
-      None => raise InvalidJson("\{type_name}.\{f.name} is missing")
+      None => raise @types.InvalidJson("\{type_name}.\{f.name} is missing")
     }
     words.push(encode_value(types, f.type_name, v))
   }
-  concat_words(words)
+  @codec.concat_words(words)
 }
 
 ///|
@@ -169,13 +199,13 @@ fn encode_value(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
   value : Json,
-) -> Bytes raise CodecError {
+) -> Bytes raise @types.CodecError {
   if array_element(type_name) is Some((element, _)) {
     guard value is Array(items) else {
-      raise InvalidJson("expected an array for \{type_name}")
+      raise @types.InvalidJson("expected an array for \{type_name}")
     }
     let words = items.map(item => encode_value(types, element, item))
-    @crypto.keccak256(concat_words(words))
+    @crypto.keccak256(@codec.concat_words(words))
   } else if types.get(type_name) is Some(_) {
     @crypto.keccak256(encode_data(types, type_name, value))
   } else {
@@ -188,86 +218,54 @@ fn encode_value(
 /// big-endian (`address` as a 160-bit unsigned integer), `bytes1..32` are
 /// right-padded, and `string`/`bytes` are hashed rather than padded, since
 /// they are dynamic.
-fn encode_atomic(type_name : String, value : Json) -> Bytes raise CodecError {
+fn encode_atomic(
+  type_name : String,
+  value : Json,
+) -> Bytes raise @types.CodecError {
   match classify_elementary(type_name) {
     Some(String) =>
       match value {
         String(s) => @crypto.keccak256_string(s)
-        _ => raise InvalidJson("\{type_name} value must be a string")
+        _ => raise @types.InvalidJson("\{type_name} value must be a string")
       }
     Some(Bytes) =>
       match value {
-        String(s) => @crypto.keccak256(Hex::from_string(s).to_bytes())
-        _ => raise InvalidJson("\{type_name} value must be a hex string")
+        String(s) => @crypto.keccak256(@types.Hex::from_string(s).to_bytes())
+        _ => raise @types.InvalidJson("\{type_name} value must be a hex string")
       }
     Some(Bool) =>
       match value {
-        True => word_of_unsigned(BigInt::from_int(1))
-        False => word_of_unsigned(BigInt::from_int(0))
-        _ => raise InvalidJson("\{type_name} value must be a boolean")
+        True => @codec.word_of_unsigned(BigInt::from_int(1))
+        False => @codec.word_of_unsigned(BigInt::from_int(0))
+        _ => raise @types.InvalidJson("\{type_name} value must be a boolean")
       }
-    Some(Address) =>
+    Some(@types.Address) =>
       match value {
-        String(s) => word_left_pad(Hex::from_string(s).to_bytes())
-        _ => raise InvalidJson("\{type_name} value must be an address string")
+        String(s) => @codec.word_left_pad(@types.Hex::from_string(s).to_bytes())
+        _ =>
+          raise @types.InvalidJson(
+            "\{type_name} value must be an address string",
+          )
       }
     Some(FixedBytes(_)) =>
       match value {
-        String(s) => word_right_pad(Hex::from_string(s).to_bytes())
-        _ => raise InvalidJson("\{type_name} value must be a hex string")
+        String(s) =>
+          @codec.word_right_pad(@types.Hex::from_string(s).to_bytes())
+        _ => raise @types.InvalidJson("\{type_name} value must be a hex string")
       }
     Some(Uint(_)) =>
-      word_of_unsigned(integer_value(value, path=type_name, type_name~))
+      @codec.word_of_unsigned(integer_value(value, path=type_name, type_name~))
     Some(Int(_)) =>
-      word_of_unsigned(
-        to_unsigned256(integer_value(value, path=type_name, type_name~)),
+      @codec.word_of_unsigned(
+        @codec.word_to_unsigned(
+          integer_value(value, path=type_name, type_name~),
+        ),
       )
-    // `classify_elementary` never returns `AbiType`'s compound variants —
+    // `classify_elementary` never returns `@types.AbiType`'s compound variants —
     // `encode_value` already handles arrays and structs before falling
-    // through to this function — but the match still has to cover them.
-    Some(Array(_) | FixedArray(_, _) | Tuple(_)) =>
-      abort("unreachable: classify_elementary never returns a compound type")
-    None => raise InvalidJson("\{type_name} is not an elementary type")
+    // through to this function — but the match still has to cover them, and
+    // a compound type is no more encodable here than an unknown one.
+    Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
+      raise @types.InvalidJson("\{type_name} is not an elementary type")
   }
-}
-
-///|
-/// The two's complement of a signed value in 256 bits: unchanged if it is
-/// already non-negative, `n + 2^256` otherwise.
-fn to_unsigned256(n : BigInt) -> BigInt {
-  if n < BigInt::from_int(0) {
-    n + (BigInt::from_int(1) << 256)
-  } else {
-    n
-  }
-}
-
-///|
-/// `n` as a big-endian 32-byte word. `n` must already be non-negative and
-/// below `2^256`, which every caller here has arranged for.
-fn word_of_unsigned(n : BigInt) -> Bytes {
-  n.to_octets(length=32)
-}
-
-///|
-/// Right-align `bytes` within one 32-byte word — where `address` and `uint`
-/// go once converted to raw bytes.
-fn word_left_pad(bytes : Bytes) -> Bytes {
-  let pad = 32 - bytes.length()
-  Bytes::makei(32, i => if i < pad { b'\x00' } else { bytes[i - pad] })
-}
-
-///|
-/// Left-align `bytes` within one 32-byte word and zero-fill the rest — where
-/// `bytes1`..`bytes32` go.
-fn word_right_pad(bytes : Bytes) -> Bytes {
-  Bytes::makei(32, i => if i < bytes.length() { bytes[i] } else { b'\x00' })
-}
-
-///|
-/// Concatenate a run of 32-byte words. Every element `encode_data` and
-/// `encode_value` produce is exactly one word, which is what lets
-/// concatenation be this simple.
-fn concat_words(words : Array[Bytes]) -> Bytes {
-  Bytes::makei(words.length() * 32, i => words[i / 32][i % 32])
 }

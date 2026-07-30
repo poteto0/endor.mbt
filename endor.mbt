@@ -19,10 +19,14 @@ pub using @types {
   type Log,
   type ChainParams,
   type NativeCurrency,
-  type TypedData,
-  type TypedDataDomain,
-  type TypedDataField,
   type CodecError,
+  type AbiError,
   type AbiType,
   type AbiValue,
 }
+
+///|
+/// EIP-712 typed data lives in its own package — the document, its validation
+/// and the digest a wallet signs are one subject, and only `sign_typed_data`
+/// needs them — but a caller spells the types `@endor.TypedData` as before.
+pub using @eip712 {type TypedData, type TypedDataDomain, type TypedDataField}

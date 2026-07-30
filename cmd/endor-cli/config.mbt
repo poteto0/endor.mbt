@@ -4,7 +4,7 @@
 /// This is `endor.yaml`, and it is the whole of it:
 ///
 /// ```yaml
-/// version: v0.3.0
+/// version: v0.4.0
 /// abi:
 ///   in: ./abi
 ///   out: ./outputs

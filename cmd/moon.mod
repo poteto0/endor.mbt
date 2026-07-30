@@ -13,7 +13,7 @@
 
 name = "poteto0/endor-cli"
 
-version = "0.3.0"
+version = "0.4.0"
 
 license = "MIT"
 
@@ -22,6 +22,6 @@ preferred_target = "native"
 description = "Command-line tools for poteto0/endor; `endor-cli abi` generates MoonBit contract presets from ABI documents (experimental)"
 
 import {
-  "poteto0/endor@0.3.0",
+  "poteto0/endor@0.4.0",
   "moonbitlang/x@0.4.46",
 }

@@ -1,15 +1,15 @@
 ///|
 /// The `Mail` example EIP-712 itself is written around, trimmed to one `Person`
 /// so the nesting is still exercised without the document taking over the file.
-fn mail_types() -> Map[String, Array[@types.TypedDataField]] raise @types.CodecError {
+fn mail_types() -> Map[String, Array[@eip712.TypedDataField]] raise @types.CodecError {
   {
     "Person": [
-      @types.TypedDataField::new("name", "string"),
-      @types.TypedDataField::new("wallet", "address"),
+      @eip712.TypedDataField::new("name", "string"),
+      @eip712.TypedDataField::new("wallet", "address"),
     ],
     "Mail": [
-      @types.TypedDataField::new("from", "Person"),
-      @types.TypedDataField::new("contents", "string"),
+      @eip712.TypedDataField::new("from", "Person"),
+      @eip712.TypedDataField::new("contents", "string"),
     ],
   }
 }
@@ -26,8 +26,8 @@ fn mail_message() -> Json {
 }
 
 ///|
-fn mail_domain() -> @types.TypedDataDomain raise @types.CodecError {
-  @types.TypedDataDomain::new(
+fn mail_domain() -> @eip712.TypedDataDomain raise @types.CodecError {
+  @eip712.TypedDataDomain::new(
     name="Ether Mail",
     version="1",
     chain_id=@types.ChainId::mainnet(),
@@ -38,8 +38,8 @@ fn mail_domain() -> @types.TypedDataDomain raise @types.CodecError {
 }
 
 ///|
-fn mail() -> @types.TypedData raise @types.CodecError {
-  @types.TypedData::new(
+fn mail() -> @eip712.TypedData raise @types.CodecError {
+  @eip712.TypedData::new(
     mail_domain(),
     primary_type="Mail",
     types=mail_types(),
@@ -64,7 +64,7 @@ test "can build a typed data document" {
 /// Only the fields that are there take part, and they are listed in EIP-712's
 /// own order rather than the order they were passed in.
 test "domain declares exactly the fields it carries" {
-  let domain = @types.TypedDataDomain::new(
+  let domain = @eip712.TypedDataDomain::new(
     salt=@types.Hex::from_string("0x" + "11".repeat(32)),
     name="Endor",
   )
@@ -86,7 +86,7 @@ test "domain declares exactly the fields it carries" {
 /// A domain with nothing in it is legal — it binds the signature to nothing,
 /// which is a choice the caller is allowed to make.
 test "an empty domain declares no fields" {
-  let domain = @types.TypedDataDomain::new()
+  let domain = @eip712.TypedDataDomain::new()
   inspect(domain.fields().length(), content="0")
   inspect(domain.to_json().stringify(), content="{}")
 }
@@ -94,9 +94,9 @@ test "an empty domain declares no fields" {
 ///|
 test "error salt that is not 32 bytes" {
   try
-    @types.TypedDataDomain::new(salt=@types.Hex::from_string("0xabcd"))
+    @eip712.TypedDataDomain::new(salt=@types.Hex::from_string("0xabcd"))
   catch {
-    InvalidLength(_) => ()
+    @types.InvalidLength(_) => ()
     e => fail("expected invalid length, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
@@ -108,18 +108,18 @@ test "error salt that is not 32 bytes" {
 /// two answers for the same type — one signed, one shown.
 test "error declaring EIP712Domain" {
   try
-    @types.TypedData::new(
+    @eip712.TypedData::new(
       mail_domain(),
       primary_type="Mail",
       types={
-        "EIP712Domain": [@types.TypedDataField::new("name", "string")],
-        "Mail": [@types.TypedDataField::new("contents", "string")],
+        "EIP712Domain": [@eip712.TypedDataField::new("name", "string")],
+        "Mail": [@eip712.TypedDataField::new("contents", "string")],
       },
       message={ "contents": "Hello" },
     )
     |> ignore
   catch {
-    InvalidJson(m) =>
+    @types.InvalidJson(m) =>
       inspect(
         m,
         content="EIP712Domain is derived from the domain and must not be declared",
@@ -133,7 +133,7 @@ test "error declaring EIP712Domain" {
 ///|
 test "error primary type that is not defined" {
   try
-    @types.TypedData::new(
+    @eip712.TypedData::new(
       mail_domain(),
       primary_type="Letter",
       types=mail_types(),
@@ -141,7 +141,8 @@ test "error primary type that is not defined" {
     )
     |> ignore
   catch {
-    InvalidJson(m) => inspect(m, content="primaryType Letter is not defined")
+    @types.InvalidJson(m) =>
+      inspect(m, content="primaryType Letter is not defined")
     e => fail("expected invalid json, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
@@ -153,15 +154,15 @@ test "error primary type that is not defined" {
 /// is caught before the wallet ever sees it.
 test "error field type that is not defined" {
   try
-    @types.TypedData::new(
+    @eip712.TypedData::new(
       mail_domain(),
       primary_type="Mail",
-      types={ "Mail": [@types.TypedDataField::new("from", "Persona")] },
+      types={ "Mail": [@eip712.TypedDataField::new("from", "Persona")] },
       message={ "from": Json::empty_object() },
     )
     |> ignore
   catch {
-    InvalidJson(m) =>
+    @types.InvalidJson(m) =>
       inspect(m, content="Mail.from has type Persona, which is not defined")
     e => fail("expected invalid json, but not \{e}")
   } noraise {
@@ -174,7 +175,7 @@ test "error field type that is not defined" {
 /// field is wrong rather than that the document is.
 test "error message missing a declared field" {
   try
-    @types.TypedData::new(
+    @eip712.TypedData::new(
       mail_domain(),
       primary_type="Mail",
       types=mail_types(),
@@ -182,7 +183,7 @@ test "error message missing a declared field" {
     )
     |> ignore
   catch {
-    InvalidJson(m) =>
+    @types.InvalidJson(m) =>
       inspect(m, content="Mail.from has no wallet, which Person declares")
     e => fail("expected invalid json, but not \{e}")
   } noraise {
@@ -195,7 +196,7 @@ test "error message missing a declared field" {
 /// is signed is exactly the mistake worth refusing.
 test "error message carrying an undeclared field" {
   try
-    @types.TypedData::new(
+    @eip712.TypedData::new(
       mail_domain(),
       primary_type="Mail",
       types=mail_types(),
@@ -210,7 +211,7 @@ test "error message carrying an undeclared field" {
     )
     |> ignore
   catch {
-    InvalidJson(m) =>
+    @types.InvalidJson(m) =>
       inspect(m, content="Mail has urgent, which Mail does not declare")
     e => fail("expected invalid json, but not \{e}")
   } noraise {
@@ -224,11 +225,11 @@ test "error message carrying an undeclared field" {
 fn one_field(
   type_name : String,
   value : Json,
-) -> @types.TypedData raise @types.CodecError {
-  @types.TypedData::new(
-    @types.TypedDataDomain::new(name="Endor"),
+) -> @eip712.TypedData raise @types.CodecError {
+  @eip712.TypedData::new(
+    @eip712.TypedDataDomain::new(name="Endor"),
     primary_type="Only",
-    types={ "Only": [@types.TypedDataField::new("it", type_name)] },
+    types={ "Only": [@eip712.TypedDataField::new("it", type_name)] },
     message={ "it": value },
   )
 }
@@ -281,7 +282,8 @@ test "error values that do not match their type" {
   ]
   for c in cases {
     try one_field(c.0, c.1) |> ignore catch {
-      InvalidJson(_) | InvalidLength(_) | InvalidHex(_) => ()
+      @types.InvalidJson(_) | @types.InvalidLength(_) | @types.InvalidHex(_) =>
+        ()
       e => fail("expected a codec error for \{c.0}, but not \{e}")
     } noraise {
       _ => fail("expected \{c.0} to reject its value")
@@ -294,7 +296,7 @@ test "error values that do not match their type" {
 /// signing it would sign a value the caller did not write.
 test "error uint256 as a number that lost precision" {
   try one_field("uint256", Json::number(1.0e30)) |> ignore catch {
-    InvalidJson(m) => assert_true(m.contains("decimal string"))
+    @types.InvalidJson(m) => assert_true(m.contains("decimal string"))
     e => fail("expected invalid json, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")

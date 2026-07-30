@@ -74,7 +74,7 @@ test "help for something that is not a command fails" {
 /// binary does not have — so what is pinned here is that it is the version the
 /// module declares. `just release-check <tag>` holds the other end.
 test "the version is the one the module declares" {
-  assert_eq(VERSION, "0.3.0")
+  assert_eq(VERSION, "0.4.0")
   assert_eq(run_for_args(argv(["version"])), 0)
   assert_eq(run_for_args(argv(["--version"])), 0)
 }

@@ -50,7 +50,7 @@ fn print_abi_usage() -> Unit {
       #|the directory it is run from, so the generated files a repository holds
       #|are reproducible by anyone who clones it.
       #|
-      #|version: v0.3.0
+      #|version: v0.4.0
       #|abi:
       #|  in: ./abi      # the directory of ABI documents to read
       #|  out: ./outputs # where to write MoonBit, created if missing

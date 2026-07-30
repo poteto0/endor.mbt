@@ -2,14 +2,14 @@
 test "parse_config: the shape the issue documents" {
   let config = parse_config(
     (
-      #|version: v0.3.0
+      #|version: v0.4.0
       #|abi:
       #|  in: ./abi
       #|  out: ./outputs
       #|
     ),
   )
-  assert_eq(config.version, Some("v0.3.0"))
+  assert_eq(config.version, Some("v0.4.0"))
   assert_eq(config.abi_in, "./abi")
   assert_eq(config.abi_out, "./outputs")
 }
@@ -31,13 +31,13 @@ test "parse_config: comments, blank lines and CRLF are not content" {
 test "parse_config: the sample in the usage text is a config that works" {
   let config = parse_config(
     (
-      #|version: v0.3.0
+      #|version: v0.4.0
       #|abi:
       #|  in: ./abi      # the directory of ABI documents to read
       #|  out: ./outputs # where to write MoonBit, created if missing
     ),
   )
-  assert_eq(config.version, Some("v0.3.0"))
+  assert_eq(config.version, Some("v0.4.0"))
   assert_eq(config.abi_in, "./abi")
   assert_eq(config.abi_out, "./outputs")
 }

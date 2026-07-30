@@ -31,7 +31,7 @@ pub fn uint_answer(
   what~ : String,
 ) -> BigInt raise ContractError {
   guard values is [Uint(n)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a number"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a number"))
   }
   n
 }
@@ -50,7 +50,7 @@ pub fn int_answer(
   what~ : String,
 ) -> BigInt raise ContractError {
   guard values is [Int(n)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a signed number"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a signed number"))
   }
   n
 }
@@ -67,7 +67,7 @@ pub fn string_answer(
   what~ : String,
 ) -> String raise ContractError {
   guard values is [String(s)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a string"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a string"))
   }
   s
 }
@@ -84,7 +84,7 @@ pub fn bool_answer(
   what~ : String,
 ) -> Bool raise ContractError {
   guard values is [Bool(b)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer a boolean"))
+    raise Abi(@types.InvalidData("\{what}() did not answer a boolean"))
   }
   b
 }
@@ -101,7 +101,7 @@ pub fn address_answer(
   what~ : String,
 ) -> @types.Address raise ContractError {
   guard values is [Address(a)] else {
-    raise Abi(@abi.InvalidData("\{what}() did not answer an address"))
+    raise Abi(@types.InvalidData("\{what}() did not answer an address"))
   }
   a
 }

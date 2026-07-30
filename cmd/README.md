@@ -35,7 +35,7 @@ flags whoever ran it last happened to type.
 
 ```sh
 $ cat endor.yaml
-version: v0.3.0
+version: v0.4.0
 abi:
   in: ./abi
   out: ./outputs

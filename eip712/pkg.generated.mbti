@@ -1,0 +1,42 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/eip712"
+
+import {
+  "moonbitlang/core/debug",
+  "poteto0/endor/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct TypedData {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedData::digest(Self) -> @types.Hex raise @types.CodecError
+pub fn TypedData::domain_separator(Self) -> @types.Hex raise @types.CodecError
+pub fn TypedData::encode_type(Self, String) -> String raise @types.CodecError
+pub fn TypedData::hash_struct(Self) -> @types.Hex raise @types.CodecError
+pub fn TypedData::new(TypedDataDomain, primary_type~ : String, types~ : Map[String, Array[TypedDataField]], message~ : Json) -> Self raise @types.CodecError
+pub fn TypedData::primary_type(Self) -> String
+pub fn TypedData::to_json(Self) -> Json
+pub fn TypedData::type_hash(Self, String) -> @types.Hex raise @types.CodecError
+
+pub struct TypedDataDomain {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedDataDomain::fields(Self) -> Array[TypedDataField]
+pub fn TypedDataDomain::new(name? : String, version? : String, chain_id? : @types.ChainId, verifying_contract? : @types.Address, salt? : @types.Hex) -> Self raise @types.CodecError
+pub fn TypedDataDomain::to_json(Self) -> Json
+
+pub struct TypedDataField {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn TypedDataField::new(String, String) -> Self raise @types.CodecError
+pub fn TypedDataField::to_json(Self) -> Json
+
+// Type aliases
+
+// Traits
+

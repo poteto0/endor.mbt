@@ -1,0 +1,60 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/codec"
+
+import {
+  "moonbitlang/core/bigint",
+}
+
+// Values
+pub const WORD_BITS : Int = 256
+
+pub const WORD_BYTES : Int = 32
+
+pub const WORD_DIGITS : Int = 64
+
+pub fn bytes_of_digits(StringView) -> Bytes
+
+pub fn concat_words(Array[Bytes]) -> Bytes
+
+pub fn digits_left_pad(String) -> String
+
+pub fn digits_of_bytes(Bytes) -> String
+
+pub fn digits_right_pad(String) -> String
+
+pub fn fits_int(@bigint.BigInt, bits~ : Int) -> Bool
+
+pub fn fits_uint(@bigint.BigInt, bits~ : Int) -> Bool
+
+pub fn hex_body(String) -> String?
+
+pub fn is_hex_digits(StringView) -> Bool
+
+pub fn is_lower_hex_digits(StringView) -> Bool
+
+pub fn is_valid_array_size(Int) -> Bool
+
+pub fn is_valid_bits(Int) -> Bool
+
+pub fn is_valid_bytes_size(Int) -> Bool
+
+pub fn nibble(Char) -> Int
+
+pub fn word_left_pad(Bytes) -> Bytes
+
+pub fn word_of_unsigned(@bigint.BigInt) -> Bytes
+
+pub fn word_right_pad(Bytes) -> Bytes
+
+pub fn word_to_signed(@bigint.BigInt) -> @bigint.BigInt
+
+pub fn word_to_unsigned(@bigint.BigInt) -> @bigint.BigInt
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

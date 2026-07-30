@@ -1,5 +1,8 @@
 import {
   "poteto0/endor/types",
+  // `sign_typed_data` takes an EIP-712 document, which validated itself when it
+  // was built; this package neither hashes nor inspects one.
+  "poteto0/endor/eip712",
   "moonbitlang/core/debug",
   // `wait_for_receipt` polls, and polling needs a clock and a sleep. The
   // library is backend-agnostic (it has a JS event loop of its own), so this

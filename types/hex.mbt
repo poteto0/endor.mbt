@@ -2,11 +2,7 @@
 /// Strip the `0x` prefix and return the (possibly empty) body, validating that
 /// every character is a hex digit. Raises `InvalidHex` otherwise.
 fn strip_0x(s : String) -> String raise CodecError {
-  guard s.has_prefix("0x") else { raise InvalidHex(s) }
-  let body = s[2:].to_owned()
-  for c in body {
-    guard c.is_ascii_hexdigit() else { raise InvalidHex(s) }
-  }
+  guard @codec.hex_body(s) is Some(body) else { raise InvalidHex(s) }
   body
 }
 
@@ -41,18 +37,40 @@ pub struct Hex {
 ///|
 /// Parse and validate a `0x`-prefixed hex byte string (even length).
 pub fn Hex::from_string(s : String) -> Hex raise CodecError {
-  let n = normalize_hex(s)
-  guard (n.length() - 2) % 2 == 0 else {
-    raise InvalidLength("hex byte string must have even length: \{s}")
-  }
-  Hex::{ inner: n }
+  guard s.has_prefix("0x") else { raise InvalidHex(s) }
+  Hex::from_digits(s[2:])
 }
 
 ///|
-/// The hex alphabet, as a `FixedArray` so a nibble can index it.
-let hex_digit : FixedArray[Char] = [
-  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-]
+/// Build a hex byte string from the digits alone, with no `0x` and no bytes in
+/// between — what a caller that already computed the digits wants, since
+/// spelling them as `Bytes` only to have them spelled back costs two passes and
+/// two copies over the whole value. ABI calldata is built this way.
+///
+/// This is where both of `Hex`'s rules are stated: `from_string` is this with
+/// the prefix taken off first. A shortcut past the representation is not a
+/// shortcut past the rule.
+///
+/// ```mbt check
+/// test "doc: hex from digits" {
+///   let h = @types.Hex::from_digits("DEAD")
+///   inspect(h, content="0xdead")
+/// }
+/// ```
+pub fn Hex::from_digits(digits : StringView) -> Hex raise CodecError {
+  // the common case — an encoder's own output, or a node's answer — is already
+  // in normal form, and asking that first spares it a second walk to lowercase
+  let normal = if @codec.is_lower_hex_digits(digits) {
+    digits
+  } else {
+    guard @codec.is_hex_digits(digits) else { raise InvalidHex("0x\{digits}") }
+    digits.to_lower()
+  }
+  guard normal.length() % 2 == 0 else {
+    raise InvalidLength("hex byte string must have even length: 0x\{digits}")
+  }
+  Hex::{ inner: "0x" + normal.to_owned() }
+}
 
 ///|
 /// Encode raw bytes as a `0x`-prefixed hex byte string. This is the direction
@@ -60,14 +78,7 @@ let hex_digit : FixedArray[Char] = [
 /// to hand a wallet something that was computed rather than read back: ABI
 /// calldata, or a `keccak256` digest.
 pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
-  let buf = StringBuilder::new()
-  buf.write_string("0x")
-  for b in bytes {
-    let n = b.to_int()
-    buf.write_char(hex_digit[n >> 4])
-    buf.write_char(hex_digit[n & 0x0f])
-  }
-  Hex::{ inner: buf.to_string() }
+  Hex::{ inner: "0x" + @codec.digits_of_bytes(bytes) }
 }
 
 ///|
@@ -84,15 +95,18 @@ pub fn Hex::to_string(self : Hex) -> String {
 }
 
 ///|
-/// The value of one hex digit. Total on purpose: every character reached here
-/// came from a validated `Hex`, so a non-hex character cannot occur.
-fn hex_nibble(c : Char) -> Int {
-  match c {
-    '0'..='9' => c.to_int() - '0'.to_int()
-    'a'..='f' => c.to_int() - 'a'.to_int() + 10
-    'A'..='F' => c.to_int() - 'A'.to_int() + 10
-    _ => 0
-  }
+/// The digits this value spells, without the `0x` — what a caller that works in
+/// hex digits rather than in bytes wants, and what saves it from knowing how
+/// long the prefix is.
+pub fn Hex::digits(self : Hex) -> String {
+  self.digits_view().to_owned()
+}
+
+///|
+/// The digits without copying them out, for the callers inside this package
+/// that only read them. The one place that knows how long the prefix is.
+fn Hex::digits_view(self : Hex) -> StringView {
+  self.inner[2:]
 }
 
 ///|
@@ -107,23 +121,13 @@ fn hex_nibble(c : Char) -> Int {
 /// }
 /// ```
 pub fn Hex::to_bytes(self : Hex) -> Bytes {
-  let digits = self.inner[2:].to_owned()
-  let out = Array::new(capacity=digits.length() / 2)
-  let mut high = 0
-  for i, c in digits.iter2() {
-    if i % 2 == 0 {
-      high = hex_nibble(c)
-    } else {
-      out.push(((high << 4) | hex_nibble(c)).to_byte())
-    }
-  }
-  Bytes::makei(out.length(), i => out[i])
+  @codec.bytes_of_digits(self.digits_view())
 }
 
 ///|
 /// How many bytes the value holds.
 pub fn Hex::byte_length(self : Hex) -> Int {
-  (self.inner.length() - 2) / 2
+  self.digits_view().length() / 2
 }
 
 ///|

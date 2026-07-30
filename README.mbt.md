@@ -1,5 +1,9 @@
 # endor.mbt
 
+[![mooncakes.io](https://img.shields.io/badge/mooncakes.io-poteto0%2Fendor-blue)](https://mooncakes.io/docs/poteto0/endor)
+[![CI](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml/badge.svg)](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml)
+[![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/poteto0/endor.mbt/blob/main/LICENSE)
+
 An Ethereum SDK for MoonBit. Currently focused on browser wallets via the
 [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider standard: it wraps
 the provider that extensions such as MetaMask inject as `globalThis.ethereum`,
@@ -354,9 +358,8 @@ chains, `transaction_receipt` / `wait_for_receipt` and `block_by_number` /
 `sign_message` / `sign_typed_data` ask the wallet for a signature over a message
 or a validated `TypedData` document. Above all
 of that, `endor/abi` encodes and decodes ABI values and `endor/contract` turns
-them into typed contract calls, with an `Erc20` preset. Signing messages is
-planned but not implemented; until it lands, `Provider::request` reaches any
-method with raw `Json`.
+them into typed contract calls, with an `Erc20` preset. `Provider::request`
+reaches any method the SDK does not wrap, with raw `Json`.
 
 **→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
 for the full list, what each helper returns, and how to use the escape hatch.
@@ -369,6 +372,8 @@ for where the unimplemented parts sit in the plan.
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                                        |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs   |
+| `endor/codec`            | the wire's arithmetic: hex digits, the 32-byte word, two's complement, the ABI's width rules                 |
+| `endor/eip712`           | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                             |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
 | `endor/abi`              | ABI encode / decode, function selectors and event topics — `AbiType`, `AbiValue`, `AbiError`                |
 | `endor/contract`         | `Contract` — typed calls over the ABI layer — and the `Erc20` preset                                        |
@@ -376,8 +381,8 @@ for where the unimplemented parts sit in the plan.
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                                             |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `on` / `removeListener`, `spawn`      |
 
-`endor`, `endor/crypto`, `endor/types`, `endor/abi`, `endor/contract` and
-`endor/provider` are backend-agnostic;
+`endor`, `endor/crypto`, `endor/codec`, `endor/types`, `endor/eip712`,
+`endor/abi`, `endor/contract` and `endor/provider` are backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
 whole point there is a browser-injected object.
 

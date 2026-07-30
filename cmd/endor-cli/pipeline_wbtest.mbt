@@ -91,7 +91,7 @@ test "a rerun rewrites the generated files and leaves moon.pkg alone" {
   let abi = fixture_abi()
   let out = fresh("rerun-out")
   let config = {
-    version: Some("v0.3.0"),
+    version: Some("v0.4.0"),
     abi_in: given("rerun-in", [("erc20.abi", abi)]),
     abi_out: out,
   }
@@ -192,10 +192,10 @@ test "the output directory is created when it is missing" {
 ///|
 test "the config is read off disk" {
   let dir = given("config-in", [
-    ("endor.yaml", "version: v0.3.0\nabi:\n  in: ./abi\n  out: ./outputs\n"),
+    ("endor.yaml", "version: v0.4.0\nabi:\n  in: ./abi\n  out: ./outputs\n"),
   ])
   let config = read_config(path=join(dir, "endor.yaml"))
-  assert_eq(config.version, Some("v0.3.0"))
+  assert_eq(config.version, Some("v0.4.0"))
   assert_eq(config.abi_in, "./abi")
   assert_eq(config.abi_out, "./outputs")
 }

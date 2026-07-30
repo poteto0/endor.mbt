@@ -18,19 +18,7 @@ pub fn signature(
   inputs~ : Array[AbiType],
 ) -> String raise AbiError {
   // a parameter list is spelled exactly like a tuple
-  name + _name(AbiType::Tuple(inputs))
-}
-
-///|
-/// `AbiType::name`, rewrapped as `AbiError`: it raises `types`'s own
-/// `CodecError` — `abi` depends on `types`, not the other way round — so
-/// every call site in this package that needs the canonical name still only
-/// has to catch the one error type its own callers expect.
-fn _name(t : AbiType) -> String raise AbiError {
-  t.name() catch {
-    InvalidHex(m) | InvalidLength(m) | InvalidJson(m) | InvalidChecksum(m) =>
-      raise InvalidAbiType(m)
-  }
+  name + AbiType::Tuple(inputs).name()
 }
 
 ///|
@@ -103,8 +91,8 @@ pub fn encode_call(
   inputs~ : Array[AbiType],
   args~ : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  let selector = _digits_of_bytes(selector_bytes(signature(name~, inputs~)))
-  @types.Hex::from_bytes(
-    _bytes_of_digits(selector + _encode_block(inputs, args)),
+  let selector = @codec.digits_of_bytes(
+    selector_bytes(signature(name~, inputs~)),
   )
+  _hex_of_digits(selector + _encode_block(inputs, args))
 }
