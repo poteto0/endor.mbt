@@ -81,6 +81,16 @@ pub fn reject_account() -> @types.Address {
 const ANSWER_CONTRACT_CODE : String = "0x600a600c600039600a6000f3602a60005260206000f3"
 
 ///|
+/// `ANSWER_CONTRACT_CODE` as a `Hex`, for a test that wants to deploy it
+/// itself — `@contract.deploy` above all, whose whole subject is turning
+/// creation code into an address.
+pub fn answer_contract_code() -> @types.Hex {
+  @types.Hex::from_string(ANSWER_CONTRACT_CODE) catch {
+    e => abort("bad creation code: \{e}")
+  }
+}
+
+///|
 /// The runtime `ANSWER_CONTRACT_CODE` leaves on chain.
 pub fn answer_contract_runtime() -> @types.Hex {
   @types.Hex::from_string("0x602a60005260206000f3") catch {
@@ -130,10 +140,7 @@ async fn[P : @provider.Provider] deploy_creation_code(
 pub async fn[P : @provider.Provider] deploy_answer_contract(
   provider : P,
 ) -> @types.Address raise @provider.ProviderError {
-  let data = @types.Hex::from_string(ANSWER_CONTRACT_CODE) catch {
-    e => abort("bad creation code: \{e}")
-  }
-  deploy_creation_code(provider, data)
+  deploy_creation_code(provider, answer_contract_code())
 }
 
 ///|

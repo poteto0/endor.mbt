@@ -22,6 +22,9 @@ pub(all) suberror ContractError {
   /// The arguments could not be encoded, or the answer could not be read back
   /// as the types the caller expected.
   Abi(@types.AbiError)
+  /// A deployment was mined but left no contract behind: it reverted, or its
+  /// receipt carries no `contractAddress`.
+  Deployment(String)
 } derive(Eq)
 
 ///|
@@ -29,5 +32,6 @@ pub impl Show for ContractError with fn output(self, logger) {
   match self {
     Rpc(e) => logger.write_string("Rpc(\{e})")
     Abi(e) => logger.write_string("Abi(\{e})")
+    Deployment(what) => logger.write_string("Deployment(\{what})")
   }
 }

@@ -103,6 +103,26 @@ pub fn Hex::digits(self : Hex) -> String {
 }
 
 ///|
+/// The two values' bytes, one after the other — a contract's creation code and
+/// its constructor's arguments, above all.
+///
+/// Concatenation cannot fail, and this is the only way to join two `Hex` that
+/// says so: taking both apart with `digits()` and putting the result back
+/// through `from_digits` re-checks digits that were checked when each half was
+/// built, and hands the caller an error it has no way to cause. Both rules —
+/// hex digits, even length — hold of the halves, so they hold of the whole.
+///
+/// ```mbt check
+/// test "doc: hex concat" {
+///   let code = @types.Hex::from_string("0x6080")
+///   inspect(code.concat(@types.Hex::from_string("0xdead")), content="0x6080dead")
+/// }
+/// ```
+pub fn Hex::concat(self : Hex, other : Hex) -> Hex {
+  Hex::{ inner: self.inner + other.digits_view().to_owned() }
+}
+
+///|
 /// The digits without copying them out, for the callers inside this package
 /// that only read them. The one place that knows how long the prefix is.
 fn Hex::digits_view(self : Hex) -> StringView {

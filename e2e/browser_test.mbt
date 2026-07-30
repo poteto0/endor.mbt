@@ -369,6 +369,30 @@ async test "a deployment receipt names the contract it created" {
 }
 
 ///|
+/// The same deployment through the SDK's own `@contract.deploy`, which is the
+/// one above with the receipt's `contractAddress` already turned into the
+/// `Contract` the caller goes on to use. A mock can prove the request it
+/// builds; only a node can prove the code it sent runs and answers where the
+/// receipt said it would — which the call is what proves, so nothing here
+/// re-reads the code the deployment left behind.
+async test "deploying through the contract layer lands a callable contract" {
+  @anvil.on(provider => {
+    let deployed = @contract.deploy(
+      provider,
+      from=@anvil.dev_account(),
+      bytecode=@anvil.answer_contract_code(),
+      timeout=5_000,
+      poll_interval=100,
+    )
+    let answer = @contract.uint_answer(
+      deployed.call(provider, name="answer", outputs=[Uint(256)]),
+      what="answer",
+    )
+    inspect(answer, content="42")
+  })
+}
+
+///|
 async test "a transaction the node never saw has no receipt" {
   @anvil.on(provider => {
     assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)

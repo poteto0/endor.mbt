@@ -150,6 +150,7 @@ pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Hex::byte_length(Self) -> Int
+pub fn Hex::concat(Self, Self) -> Self
 pub fn Hex::digits(Self) -> String
 pub fn Hex::from_bytes(Bytes) -> Self
 pub fn Hex::from_digits(StringView) -> Self raise CodecError
