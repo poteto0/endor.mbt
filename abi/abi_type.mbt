@@ -1,12 +1,11 @@
 ///|
-/// How many hex digits one ABI word takes. Everything the ABI encodes is laid
-/// out in 32-byte words, and this package works in hex digits throughout —
-/// `Hex` is a hex string, so staying in that alphabet keeps encoding and
-/// decoding to slicing rather than byte arithmetic.
-const WORD_DIGITS = 64
+/// `types`' word width, aliased because this package counts in these digits at
+/// eight call sites.
+const WORD_DIGITS : Int = @types.WORD_DIGITS
 
 ///|
-/// `AbiType` — and the `name` / `is_dynamic` / `head_digits` methods on it —
-/// is defined in `types` (see `types/abi.mbt` for why) and re-exported here so
-/// existing callers keep spelling it `@abi.AbiType`.
+/// `AbiType` — and the `name` / `is_dynamic` / `head_digits` methods on it, and
+/// the `checked_bits` / `checked_bytes_size` / `checked_array_size` rules the
+/// encoder validates with — is defined in `types` (see `types/abi.mbt` for why)
+/// and re-exported here so existing callers keep spelling it `@abi.AbiType`.
 pub using @types {type AbiType}

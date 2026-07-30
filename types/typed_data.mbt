@@ -337,19 +337,19 @@ fn classify_elementary(type_name : String) -> AbiType? {
     "address" => Some(Address)
     _ =>
       if elementary_size(type_name, prefix="bytes") is Some(n) {
-        if n >= 1 && n <= 32 {
+        if is_valid_bytes_size(n) {
           Some(FixedBytes(n))
         } else {
           None
         }
       } else if elementary_size(type_name, prefix="uint") is Some(bits) {
-        if valid_bits(bits) {
+        if is_valid_bits(bits) {
           Some(Uint(bits))
         } else {
           None
         }
       } else if elementary_size(type_name, prefix="int") is Some(bits) {
-        if valid_bits(bits) {
+        if is_valid_bits(bits) {
           Some(Int(bits))
         } else {
           None
@@ -373,12 +373,6 @@ fn is_elementary(type_name : String) -> Bool {
 fn elementary_size(type_name : String, prefix~ : String) -> Int? {
   guard type_name.has_prefix(prefix) else { return None }
   parse_size(type_name[prefix.length():].to_owned())
-}
-
-///|
-/// A width `uint`/`int` may be spelled with: a multiple of 8, up to 256.
-fn valid_bits(bits : Int) -> Bool {
-  bits >= 8 && bits <= 256 && bits % 8 == 0
 }
 
 ///|
@@ -536,13 +530,8 @@ fn validate_integer(
   type_name~ : String,
 ) -> Unit raise CodecError {
   let n = integer_value(value, path~, type_name~)
-  let (low, high) = if signed {
-    let half = BigInt::from_int(1) << (bits - 1)
-    (-half, half - BigInt::from_int(1))
-  } else {
-    (BigInt::from_int(0), (BigInt::from_int(1) << bits) - BigInt::from_int(1))
-  }
-  guard n >= low && n <= high else {
+  let fits = if signed { fits_int(n, bits~) } else { fits_uint(n, bits~) }
+  guard fits else {
     raise InvalidLength("\{path} does not fit \{type_name}: \{n}")
   }
 }

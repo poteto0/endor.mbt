@@ -4,8 +4,8 @@ What `poteto0/endor` covers. It reads accounts, balances and the current chain,
 evaluates calls without broadcasting them, sends transactions, switches the
 wallet between chains through the `wallet_*` methods below, waits for what it
 sent to be mined, reads blocks and receipts, calls contracts through their ABI,
-and subscribes to the provider events that say those answers went stale. It does
-not sign messages.
+and subscribes to the provider events that say those answers went stale, and it
+signs messages and EIP-712 typed data.
 
 The SDK is **stateless**: it caches no current account and no current chain.
 Every value comes from the wallet at the moment it is asked for, and events are
@@ -379,10 +379,13 @@ fits), and only the type tells a fixed-length array from a dynamic one.
 
 `@abi.AbiError` is `InvalidAbiType` (a type no contract can declare, `uint7`),
 `InvalidValue` (a value that does not fit its type) or `InvalidData` (encoded
-bytes that will not read back as the expected types).
+bytes that will not read back as the expected types). It is defined in `types`
+alongside `AbiType`, because `AbiType::name` checks the same width and size
+rules `@abi.encode` does, so both raise it; `abi` re-exports the type, and the
+three constructors are spelled `@types.InvalidData(…)`.
 
-Not covered: parsing a JSON ABI file, `bytesN` beyond 32, decoding a log's
-indexed arguments, and EIP-712 typed-data hashing.
+Not covered: parsing a JSON ABI file, `bytesN` beyond 32, and decoding a log's
+indexed arguments.
 
 ### Provider events
 
@@ -448,14 +451,7 @@ Alongside those:
 
 ## Planned, not implemented yet
 
-<<<<<<< HEAD
-
-- message signing (`personal_sign`, `eth_signTypedData_v4`)
-- # decoding a log into an event's arguments, indexed topics included
-- computing the EIP-712 digest locally
-  ([#45](https://github.com/poteto0/endor.mbt/issues/45)) — needed by EIP-1271,
-  not by signing
-  > > > > > > > main
+- decoding a log into an event's arguments, indexed topics included
 - EIP-6963 — enumerating several injected providers instead of taking
   `globalThis.ethereum`
 

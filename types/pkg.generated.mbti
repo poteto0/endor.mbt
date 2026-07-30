@@ -7,8 +7,22 @@ import {
 }
 
 // Values
+pub const WORD_DIGITS : Int = 64
+
+pub fn hex_nibble(Char) -> Int
+
+pub fn word_to_signed(@bigint.BigInt) -> @bigint.BigInt
+
+pub fn word_to_unsigned(@bigint.BigInt) -> @bigint.BigInt
 
 // Errors
+pub(all) suberror AbiError {
+  InvalidAbiType(String)
+  InvalidValue(String)
+  InvalidData(String)
+} derive(Eq)
+pub impl Show for AbiError
+
 pub suberror CodecError {
   InvalidHex(String)
   InvalidLength(String)
@@ -30,9 +44,12 @@ pub(all) enum AbiType {
   FixedArray(AbiType, Int)
   Tuple(Array[AbiType])
 } derive(Eq, @debug.Debug)
+pub fn AbiType::checked_array_size(Int) -> Int raise AbiError
+pub fn AbiType::checked_bits(Int, what~ : String) -> Int raise AbiError
+pub fn AbiType::checked_bytes_size(Int) -> Int raise AbiError
 pub fn AbiType::head_digits(Self) -> Int
 pub fn AbiType::is_dynamic(Self) -> Bool
-pub fn AbiType::name(Self) -> String raise CodecError
+pub fn AbiType::name(Self) -> String raise AbiError
 pub impl Show for AbiType
 
 pub(all) enum AbiValue {
@@ -45,12 +62,15 @@ pub(all) enum AbiValue {
   Array(Array[AbiValue])
   Tuple(Array[AbiValue])
 } derive(Eq, @debug.Debug)
+pub fn AbiValue::checked_int(@bigint.BigInt, bits~ : Int) -> @bigint.BigInt raise AbiError
+pub fn AbiValue::checked_uint(@bigint.BigInt, bits~ : Int) -> @bigint.BigInt raise AbiError
 pub impl Show for AbiValue
 
 pub struct Address {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Address::array_from_json(Json) -> Array[Self] raise CodecError
+pub fn Address::digits(Self) -> String
 pub fn Address::from_json(Json) -> Self raise CodecError
 pub fn Address::from_string(String) -> Self raise CodecError
 pub fn Address::to_checksum_string(Self) -> String
@@ -137,6 +157,9 @@ pub struct Hex {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Hex::byte_length(Self) -> Int
+pub fn Hex::bytes_of_digits(String) -> Bytes
+pub fn Hex::digits(Self) -> String
+pub fn Hex::digits_of_bytes(Bytes) -> String
 pub fn Hex::from_bytes(Bytes) -> Self
 pub fn Hex::from_json(Json) -> Self raise CodecError
 pub fn Hex::from_string(String) -> Self raise CodecError

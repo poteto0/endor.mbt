@@ -65,15 +65,20 @@ Layout:
   `types/` backend-agnostic
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `TypedData`, `Block`, `TransactionReceipt`, `Log`, codecs
+  `ChainParams`, `TypedData`, `Block`, `TransactionReceipt`, `Log`, codecs.
+  Also `AbiType` / `AbiValue` / `AbiError` and the ABI's word rules (valid
+  widths and sizes, two's complement, one word's worth of hex digits): the ABI
+  encoder and EIP-712 check the same rules, and `abi` depends on `types`, so a
+  rule both layers need lives at this level
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
   it without a cycle
-- `abi/` — the contract ABI: `AbiType` / `AbiValue`, `encode` / `decode`,
-  `signature` / `selector` / `event_topic` / `encode_call`. Depends on `types`
-  and `crypto` and on no transport, so calldata can be built with no provider
-  in hand
+- `abi/` — the contract ABI: `encode` / `decode`, `signature` / `selector` /
+  `event_topic` / `encode_call`, over the `AbiType` / `AbiValue` / `AbiError` it
+  re-exports from `types` (spelled `@abi.AbiType`, as before). Depends on
+  `types` and `crypto` and on no transport, so calldata can be built with no
+  provider in hand
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
   and the answer decoded, plus the `Erc20` preset. `ContractError` keeps the
   wallet's failures (`Rpc`) apart from the ABI's (`Abi`)

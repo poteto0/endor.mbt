@@ -16,6 +16,12 @@ applies.
 
 ### Changed
 
+- **Breaking:** `AbiError` now lives in `types` and is re-exported by `abi`, so
+  `@abi.AbiError` and `@endor.AbiError` both name it and `raise`/`catch` keep
+  working. Only its _constructors_ moved: a caller that raises one itself writes
+  `@types.InvalidData(…)` rather than `@abi.InvalidData(…)`. `AbiType::name`
+  raises it too, in place of `CodecError` — the width and size rules `abi` and
+  EIP-712 both check now have one statement each, in `types`. (#55)
 - **Breaking:** `TypedData::encode_type` / `TypedData::type_hash` now
   `raise CodecError`. A type name the document does not define used to panic
   through an `unwrap`; it now raises `InvalidJson("<name> is not defined")`, the

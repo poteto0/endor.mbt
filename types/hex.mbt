@@ -60,14 +60,7 @@ let hex_digit : FixedArray[Char] = [
 /// to hand a wallet something that was computed rather than read back: ABI
 /// calldata, or a `keccak256` digest.
 pub fn Hex::from_bytes(bytes : Bytes) -> Hex {
-  let buf = StringBuilder::new()
-  buf.write_string("0x")
-  for b in bytes {
-    let n = b.to_int()
-    buf.write_char(hex_digit[n >> 4])
-    buf.write_char(hex_digit[n & 0x0f])
-  }
-  Hex::{ inner: buf.to_string() }
+  Hex::{ inner: "0x" + Hex::digits_of_bytes(bytes) }
 }
 
 ///|
@@ -84,9 +77,19 @@ pub fn Hex::to_string(self : Hex) -> String {
 }
 
 ///|
+/// The digits this value spells, without the `0x` — what a caller that works in
+/// hex digits rather than in bytes wants, and what saves it from knowing how
+/// long the prefix is.
+pub fn Hex::digits(self : Hex) -> String {
+  self.inner[2:].to_owned()
+}
+
+///|
 /// The value of one hex digit. Total on purpose: every character reached here
-/// came from a validated `Hex`, so a non-hex character cannot occur.
-fn hex_nibble(c : Char) -> Int {
+/// came from a validated `Hex` or from an encoder that only writes digits, so a
+/// non-hex character cannot occur, and raising for it would put an impossible
+/// error case in every caller's signature.
+pub fn hex_nibble(c : Char) -> Int {
   match c {
     '0'..='9' => c.to_int() - '0'.to_int()
     'a'..='f' => c.to_int() - 'a'.to_int() + 10
@@ -107,7 +110,15 @@ fn hex_nibble(c : Char) -> Int {
 /// }
 /// ```
 pub fn Hex::to_bytes(self : Hex) -> Bytes {
-  let digits = self.inner[2:].to_owned()
+  Hex::bytes_of_digits(self.digits())
+}
+
+///|
+/// The bytes an even-length run of hex digits spells — `Hex::to_bytes` without
+/// the prefix and without a `Hex` to hold it, which is what a caller working in
+/// digits (`abi`, reading one word out of a block) has in hand. Total for the
+/// same reason `hex_nibble` is.
+pub fn Hex::bytes_of_digits(digits : String) -> Bytes {
   let out = Array::new(capacity=digits.length() / 2)
   let mut high = 0
   for i, c in digits.iter2() {
@@ -118,6 +129,21 @@ pub fn Hex::to_bytes(self : Hex) -> Bytes {
     }
   }
   Bytes::makei(out.length(), i => out[i])
+}
+
+///|
+/// Bytes as the hex digits that spell them, with no prefix — the primitive
+/// `Hex::from_bytes` puts the `0x` on, so the direction that needs the digits
+/// alone (`abi`, packing bytes into a word) does not build a `Hex` to strip one
+/// off again.
+pub fn Hex::digits_of_bytes(bytes : Bytes) -> String {
+  let buf = StringBuilder::new()
+  for b in bytes {
+    let n = b.to_int()
+    buf.write_char(hex_digit[n >> 4])
+    buf.write_char(hex_digit[n & 0x0f])
+  }
+  buf.to_string()
 }
 
 ///|

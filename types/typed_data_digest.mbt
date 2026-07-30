@@ -241,7 +241,7 @@ fn encode_atomic(type_name : String, value : Json) -> Bytes raise CodecError {
       word_of_unsigned(integer_value(value, path=type_name, type_name~))
     Some(Int(_)) =>
       word_of_unsigned(
-        to_unsigned256(integer_value(value, path=type_name, type_name~)),
+        word_to_unsigned(integer_value(value, path=type_name, type_name~)),
       )
     // `classify_elementary` never returns `AbiType`'s compound variants —
     // `encode_value` already handles arrays and structs before falling
@@ -253,42 +253,39 @@ fn encode_atomic(type_name : String, value : Json) -> Bytes raise CodecError {
 }
 
 ///|
-/// The two's complement of a signed value in 256 bits: unchanged if it is
-/// already non-negative, `n + 2^256` otherwise.
-fn to_unsigned256(n : BigInt) -> BigInt {
-  if n < BigInt::from_int(0) {
-    n + (BigInt::from_int(1) << 256)
-  } else {
-    n
-  }
-}
-
-///|
-/// `n` as a big-endian 32-byte word. `n` must already be non-negative and
-/// below `2^256`, which every caller here has arranged for.
+/// `n` as a big-endian word. `n` must already be non-negative and below
+/// `2^256`, which every caller here has arranged for.
 fn word_of_unsigned(n : BigInt) -> Bytes {
-  n.to_octets(length=32)
+  n.to_octets(length=WORD_BYTES)
 }
 
 ///|
-/// Right-align `bytes` within one 32-byte word — where `address` and `uint`
-/// go once converted to raw bytes.
+/// Right-align `bytes` within one word — where `address` and `uint` go once
+/// converted to raw bytes.
 fn word_left_pad(bytes : Bytes) -> Bytes {
-  let pad = 32 - bytes.length()
-  Bytes::makei(32, i => if i < pad { b'\x00' } else { bytes[i - pad] })
+  let pad = WORD_BYTES - bytes.length()
+  Bytes::makei(WORD_BYTES, i => if i < pad { b'\x00' } else { bytes[i - pad] })
 }
 
 ///|
-/// Left-align `bytes` within one 32-byte word and zero-fill the rest — where
+/// Left-align `bytes` within one word and zero-fill the rest — where
 /// `bytes1`..`bytes32` go.
 fn word_right_pad(bytes : Bytes) -> Bytes {
-  Bytes::makei(32, i => if i < bytes.length() { bytes[i] } else { b'\x00' })
+  Bytes::makei(WORD_BYTES, i => {
+    if i < bytes.length() {
+      bytes[i]
+    } else {
+      b'\x00'
+    }
+  })
 }
 
 ///|
-/// Concatenate a run of 32-byte words. Every element `encode_data` and
-/// `encode_value` produce is exactly one word, which is what lets
-/// concatenation be this simple.
+/// Concatenate a run of words. Every element `encode_data` and `encode_value`
+/// produce is exactly one word, which is what lets concatenation be this
+/// simple.
 fn concat_words(words : Array[Bytes]) -> Bytes {
-  Bytes::makei(words.length() * 32, i => words[i / 32][i % 32])
+  Bytes::makei(words.length() * WORD_BYTES, i => {
+    words[i / WORD_BYTES][i % WORD_BYTES]
+  })
 }
