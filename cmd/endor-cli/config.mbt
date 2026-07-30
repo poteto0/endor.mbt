@@ -21,6 +21,33 @@ pub(all) struct Config {
 }
 
 ///|
+/// The `endor.yaml` `endor-cli init` writes.
+///
+/// It lives beside the reader rather than in `init.mbt` because a default
+/// config the reader would reject is the one bug neither file can catch on its
+/// own — and this project has already shipped one, in the sample the `abi`
+/// usage text printed. `config_wbtest.mbt` parses this constant and checks it
+/// comes back as the values it names.
+///
+/// The comments are the point of writing a file at all rather than telling
+/// someone the four lines: what `in` and `out` mean is what a caller opening
+/// this for the first time needs, and it is two words each.
+///
+/// The version is the CLI's own, so the file a binary writes says which binary
+/// wrote it. Nothing acts on it — the generator emits source against whatever
+/// `poteto0/endor` the consuming module resolves — but it is what makes a
+/// checked-in `endor.yaml` say when it was last regenerated from.
+fn default_config() -> String {
+  (
+    $|version: v\{VERSION}
+    $|abi:
+    $|  in: ./abi      # the directory of ABI documents to read
+    $|  out: ./outputs # where to write MoonBit, created if missing
+    $|
+  )
+}
+
+///|
 /// What can go wrong before any code is generated.
 pub(all) suberror ConfigError {
   /// A line that is not `key: value`, or an indent this reader does not

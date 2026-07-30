@@ -25,6 +25,20 @@ test "parse_config: comments, blank lines and CRLF are not content" {
 }
 
 ///|
+/// What `endor-cli init` writes, read by what `endor-cli abi` reads with.
+///
+/// The two halves of the same file live in different functions, and a default
+/// config the reader rejects is a `init` that is worse than no `init` at all —
+/// it puts a broken file where the caller will not think to look. So the
+/// constant is parsed here rather than compared to a string.
+test "the config `init` writes is a config `abi` can read" {
+  let config = parse_config(default_config())
+  assert_eq(config.version, Some("v\{VERSION}"))
+  assert_eq(config.abi_in, "./abi")
+  assert_eq(config.abi_out, "./outputs")
+}
+
+///|
 /// The sample `endor-cli abi --help` prints, parsed as printed. A CLI whose own
 /// documented config its own reader refuses is the failure this pins: the
 /// comments are the reason the sample is worth reading, so they have to work.

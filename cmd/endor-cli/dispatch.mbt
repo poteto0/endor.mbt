@@ -31,6 +31,13 @@ struct Command {
 fn commands() -> Array[Command] {
   [
     {
+      name: "init",
+      section: "generate code",
+      blurb: "Write the `endor.yaml` that `abi` reads",
+      run: handle_init,
+      usage: print_init_usage,
+    },
+    {
       name: "abi",
       section: "generate code",
       blurb: "Write a MoonBit contract preset per ABI document (EXPERIMENTAL)",

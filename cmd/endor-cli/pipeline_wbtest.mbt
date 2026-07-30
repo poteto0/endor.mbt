@@ -276,3 +276,42 @@ test "a skipped member is counted and reported" {
   assert_true(code.contains("// Not generated from this ABI:"))
   assert_false(code.contains("Vault::holders("))
 }
+
+///|
+/// `init` writes a config, creates the input directory it names, and leaves a
+/// project `abi` can be run in — which is the whole claim, so it is checked by
+/// running `abi` in it rather than by reading the file back.
+test "init leaves a directory that abi can run in" {
+  let dir = fresh("init-fresh")
+  assert_eq(init_in(dir), 0)
+  let config = read_config(path=join(dir, "endor.yaml"))
+  assert_eq(config.abi_in, "./abi")
+  assert_eq(config.abi_out, "./outputs")
+  // the input directory is there, so `abi` reports "nothing to do" rather than
+  // failing on a directory that is not there
+  assert_eq(generate_all({ ..config, abi_in: join(dir, config.abi_in) }), 0)
+}
+
+///|
+/// A config already in place is the caller's. `init` run again — or run in a
+/// directory somebody had already set up by hand — must not replace it.
+test "init never overwrites a config that is already there" {
+  let dir = fresh("init-existing")
+  let path = join(dir, "endor.yaml")
+  let mine = "abi:\n  in: ./contracts\n  out: ./gen\n"
+  @fs.write_string_to_file(path, mine)
+  assert_eq(init_in(dir), 0)
+  assert_eq(@fs.read_file_to_string(path), mine)
+  // and it created *that* file's input directory, not the default's
+  assert_true(@fs.path_exists(join(dir, "contracts")))
+  assert_false(@fs.path_exists(join(dir, "abi")))
+}
+
+///|
+/// An `endor.yaml` that is already there and does not parse is reported now,
+/// not on the next `abi` run.
+test "init reports a config that is already there and is broken" {
+  let dir = fresh("init-broken")
+  @fs.write_string_to_file(join(dir, "endor.yaml"), "abi:\n  out: gen\n")
+  assert_eq(init_in(dir), 1)
+}

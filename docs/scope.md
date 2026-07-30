@@ -395,7 +395,9 @@ and renders the source of a preset shaped like `@contract.Erc20` — a struct
 wrapping a `Contract`, a method per function, a topic getter per event.
 `endor-cli abi`, its command-line front end, lives in `cmd/`, which is a
 **separate module** (`poteto0/endor-cli`) and is not part of what this one
-publishes.
+publishes — it is installed as a binary (`moon install
+poteto0/endor-cli/endor-cli`), not depended on. `endor-cli init` writes the
+`endor.yaml` that `abi` reads.
 
 **This is experimental and is not part of the stable surface.** It generates
 only what it can type without guessing — parameters and single return values of

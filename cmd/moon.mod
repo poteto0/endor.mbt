@@ -4,8 +4,9 @@
 // means a `native` build — while `poteto0/endor` itself declares
 // `preferred_target = "js"` and depends on nothing but `moonbitlang/async`.
 // Keeping the CLI here means a consumer resolving the SDK never resolves any
-// of that, and someone who wants the CLI can `moon add poteto0/endor-cli`
-// without it.
+// of that, and someone who wants the CLI installs it as a binary — `moon
+// install poteto0/endor-cli/endor-cli` — rather than depending on it, so it
+// stays out of their module's resolution entirely.
 //
 // `moon.work` at the repository root wires `poteto0/endor` here to the local
 // checkout instead of the registry, so the CLI always generates against the

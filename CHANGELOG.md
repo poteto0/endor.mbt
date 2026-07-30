@@ -45,7 +45,9 @@ applies.
 - **Experimental:** `abi/codegen` renders the source of a `@contract.Contract`
   preset — a struct, a method per ABI function, a topic getter per event — from
   a JSON ABI document, and `endor-cli abi` writes one file per document from a
-  checked-in `endor.yaml`. It generates only what it can type without guessing
+  checked-in `endor.yaml` — which `endor-cli init` writes, along with the input
+  directory it names, so a fresh project reaches a working generator in one
+  command. It generates only what it can type without guessing
   (`address`, `bool`, `string`, `uintN`, `intN`, single return values) and
   *skips* every other member by name rather than approximating it. The CLI is a
   separate module (`poteto0/endor-cli`, in `cmd/`), so `moonbitlang/x` and a

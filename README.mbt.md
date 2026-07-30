@@ -35,6 +35,19 @@ The domain types are re-exported from the root package, so
 `"poteto0/endor"` gives you `@endor.Address`, `@endor.ChainId`, and friends when
 you need to spell a type out.
 
+### The command-line tools
+
+`endor-cli` is a separate module and a separate install — a binary rather than a
+dependency, so nothing it needs ends up in your module's resolution:
+
+```sh
+moon install poteto0/endor-cli/endor-cli
+```
+
+It generates MoonBit contract presets from JSON ABI documents
+(`endor-cli init`, then `endor-cli abi`). **Experimental**, and not required to
+use the SDK — [`cmd/README.md`](cmd/README.md) has the details.
+
 ## Getting a wallet address
 
 ```

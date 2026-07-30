@@ -8,6 +8,7 @@ $ endor-cli
 usage: endor-cli [-h | --help] [-v | --version] <command> [<args>]
 ...
 generate code
+   init       Write the `endor.yaml` that `abi` reads
    abi        Write a MoonBit contract preset per ABI document (EXPERIMENTAL)
 
 about
@@ -21,6 +22,80 @@ an unknown option, an argument a subcommand does not take — is refused and exi
 non-zero rather than being stepped over, because a flag that is silently ignored
 is a build script that has been asking for something for a month and never got
 it.
+
+## Install
+
+`endor-cli` is a binary, not a library: it is installed with `moon install`,
+which builds it and puts it in `~/.moon/bin` — already on `PATH` for anyone with
+a MoonBit toolchain. It is **not** `moon add`; nothing in your module imports it.
+
+```sh
+moon install poteto0/endor-cli/endor-cli
+endor-cli --version
+```
+
+To install a version other than the newest, pin it: `moon install
+poteto0/endor-cli/endor-cli@0.4.0`. The CLI's version tracks the SDK's, and the
+`poteto0/endor` it generates against is pinned to the same number — so an
+`endor-cli` and the `poteto0/endor` in your `moon.mod` should agree.
+
+<details>
+<summary>From git, or from a checkout</summary>
+
+Straight from the repository, without cloning it yourself:
+
+```sh
+moon install https://github.com/poteto0/endor.mbt cmd/endor-cli
+```
+
+From a clone — which is what to use when working on the CLI itself, since it
+builds what is in the working tree:
+
+```sh
+git clone https://github.com/poteto0/endor.mbt
+cd endor.mbt
+moon install ./cmd/endor-cli
+```
+
+`--bin <DIR>` puts the binary somewhere other than `~/.moon/bin`.
+
+</details>
+
+It needs no wallet, no node and no network: it reads JSON files and writes
+MoonBit files. The `native` build is because it touches the filesystem, which
+the SDK itself never does.
+
+## `endor-cli init`
+
+Writes the `endor.yaml` that `endor-cli abi` reads, and creates the input
+directory it names — so a fresh project goes from nothing to a working
+generator in one command.
+
+```sh
+$ endor-cli init
+wrote ./endor.yaml
+
+version: v0.4.0
+abi:
+  in: ./abi      # the directory of ABI documents to read
+  out: ./outputs # where to write MoonBit, created if missing
+
+put ABI documents in ./abi, then run `endor-cli abi`
+```
+
+An `endor.yaml` that is already there is **never overwritten** — it may point
+somewhere `init` would not have guessed, and losing it to a command run in the
+wrong directory would be worse than a message. It is read instead, which is also
+how a config already in place gets checked for being one `abi` will accept:
+
+```sh
+$ endor-cli init
+./endor.yaml is already here; left alone
+put ABI documents in ./contracts, then run `endor-cli abi`
+```
+
+The output directory is left to `abi`, which creates it when it has something to
+put in it.
 
 ## `endor-cli abi`
 
