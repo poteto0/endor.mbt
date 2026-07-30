@@ -214,3 +214,31 @@ fn encode_ignoring(
 ) -> Unit raise @abi.AbiError {
   @abi.encode(types, values) |> ignore
 }
+
+///|
+/// A payload far wider than the small cases above: several thousand words, and
+/// a byte string of a few hundred KB. Both go down the path that no longer
+/// detours through `Bytes`, so both are pinned to the length and the digits the
+/// layout calls for.
+test "a large value encodes to what its layout says" {
+  let n = 4_000
+  let xs : Array[@abi.AbiValue] = []
+  for i in 0..<n {
+    xs.push(Uint(BigInt::from_int(i)))
+  }
+  let data = @abi.encode([Array(Uint(256))], [Array(xs)]).to_string()
+  // an offset word, a length word, then one word per element
+  assert_eq(data.length(), 2 + (2 + n) * 64)
+  assert_eq(data[2:130].to_owned(), word("20") + word("fa0"))
+  // the last element is 3999 == 0xf9f
+  assert_eq(data[data.length() - 64:].to_owned(), word("f9f"))
+}
+
+///|
+/// The same size, through `bytes` rather than an array: what comes back out has
+/// to be what went in, byte for byte.
+test "a large byte string survives encode and decode" {
+  let blob = Bytes::makei(128_007, i => (i % 251).to_byte())
+  let packed = @abi.encode([Bytes], [Bytes(blob)])
+  assert_eq(@abi.decode([Bytes], packed), [Bytes(blob)])
+}

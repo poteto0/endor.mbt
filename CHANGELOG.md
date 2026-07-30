@@ -40,11 +40,31 @@ applies.
   same way `encodeData` already reported it. Callers add `try` / `raise` at the
   call site. (#56)
 
+### Added
+
+- `Hex::from_digits`, which builds a hex byte string from the digits alone —
+  no `0x`, no `Bytes` in between. It is where both of `Hex`'s rules are now
+  stated: `from_string` is this with the prefix taken off first, so a shortcut
+  past the representation is not a shortcut past the rule. `@abi.encode` is the
+  caller it exists for. (#54)
+
 ### Fixed
 
 - `types/` no longer `abort`s anywhere: the two exhaustiveness-only branches in
   EIP-712 validation and encoding raise `InvalidJson` like every other
   unusable type name. (#56)
+
+### Performance
+
+- `@abi.encode` / `@abi.encode_call` no longer spell their result as `Bytes`
+  only to spell it straight back as the same hex digits. Encoding 50,000
+  `uint256` (1.6 MB of calldata) went from 1.28 s to 0.08 s — **15× faster**.
+  (#54)
+- `Hex::from_bytes` writes a whole byte's two digits from a 256-entry table
+  rather than a character at a time, and `Hex::to_bytes` reads the digits in
+  one pass with no intermediate `Array[Byte]`; both are about **2× faster**.
+  They are on the path of every digest, every signature and every
+  `eth_getCode` answer, not just the ABI's. (#54)
 
 ## [0.4.0] - 2026-07-28
 

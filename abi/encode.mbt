@@ -28,7 +28,21 @@ pub fn encode(
   types : Array[AbiType],
   values : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  @types.Hex::from_bytes(@codec.bytes_of_digits(_encode_block(types, values)))
+  _hex_of_digits(_encode_block(types, values))
+}
+
+///|
+/// The encoded digits as the `Hex` they spell — the whole write side ends here,
+/// with no detour through `Bytes` and back.
+///
+/// `_encode_block` writes nothing but whole words of lowercase digits, so the
+/// check `from_digits` makes cannot fail from either caller; making it anyway
+/// is what keeps the shortcut past the representation from also being a
+/// shortcut past the rule.
+fn _hex_of_digits(digits : String) -> @types.Hex raise AbiError {
+  @types.Hex::from_digits(digits) catch {
+    e => raise InvalidValue("encoded calldata: \{e}")
+  }
 }
 
 ///|

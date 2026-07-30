@@ -108,11 +108,20 @@ pub fn digits_right_pad(digits : String) -> String {
 }
 
 ///|
-/// `n` zero digits, the padding every word is built from.
+/// One word's worth of zero digits. Padding is most of what an encoded word is,
+/// and both functions above ask for at most a word of it, so the run is written
+/// once here and sliced. Core's `pad_start` would read better, but it fills a
+/// character at a time and the `js` backend turns that into one string concat
+/// per digit — around 20× the cost, on the hottest loop the encoder has.
+let word_zeros : String = "0".repeat(WORD_DIGITS)
+
+///|
+/// `n` zero digits, for `n` in `0..=WORD_DIGITS`. Negative asks for none: a
+/// value that already fills its word needs no padding.
 fn zeros(n : Int) -> String {
-  let out = StringBuilder::new()
-  for _ in 0..<n {
-    out.write_char('0')
+  if n <= 0 {
+    ""
+  } else {
+    word_zeros[:n].to_owned()
   }
-  out.to_string()
 }

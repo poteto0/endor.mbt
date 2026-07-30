@@ -94,7 +94,5 @@ pub fn encode_call(
   let selector = @codec.digits_of_bytes(
     selector_bytes(signature(name~, inputs~)),
   )
-  @types.Hex::from_bytes(
-    @codec.bytes_of_digits(selector + _encode_block(inputs, args)),
-  )
+  _hex_of_digits(selector + _encode_block(inputs, args))
 }
