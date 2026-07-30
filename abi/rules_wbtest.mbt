@@ -19,7 +19,8 @@ test "can judge valid int value from abi word bigint" {
   inspect(
     _is_valid_int_bits_word(
       BigInt::from_string(
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff80",
+        radix=16,
       ),
       8,
     ),
@@ -36,7 +37,8 @@ test "can judge valid int value from abi word bigint" {
   inspect(
     _is_valid_int_bits_word(
       BigInt::from_string(
-        "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        radix=16,
       ),
       256,
     ),
