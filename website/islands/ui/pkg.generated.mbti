@@ -1,0 +1,40 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor-website-islands/ui"
+
+import {
+  "mizchi/luna/dom",
+  "mizchi/signals",
+  "moonbitlang/core/bigint",
+}
+
+// Values
+pub const PLACEHOLDER : String = "—"
+
+pub fn action(String, () -> Unit) -> @dom.DomNode
+
+pub fn card(@signals.Signal[String], Array[@dom.DomNode]) -> @dom.DomNode
+
+pub fn decimal_of_units(@bigint.BigInt, Int) -> String
+
+pub fn empty_field() -> @signals.Signal[String]
+
+pub fn field(String, @signals.Signal[String]) -> @dom.DomNode
+
+pub fn input_of(String) -> @signals.Signal[String]
+
+pub fn row(Array[@dom.DomNode]) -> @dom.DomNode
+
+pub fn status_of(String) -> @signals.Signal[String]
+
+pub fn text_input(placeholder~ : String, @signals.Signal[String]) -> @dom.DomNode
+
+pub fn units_of_decimal(String, Int) -> @bigint.BigInt?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

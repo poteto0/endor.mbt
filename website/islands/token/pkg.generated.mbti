@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor-website-islands/token"
+
+import {
+  "mizchi/js/core",
+  "mizchi/js_browser/dom",
+}
+
+// Values
+pub fn hydrate(@dom.Element, @core.Any) -> Unit
+
+// Errors
+
+// Types and methods
+type View
+
+// Type aliases
+
+// Traits
+
