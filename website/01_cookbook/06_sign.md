@@ -1,12 +1,19 @@
 ---
 title: Sign a message
 description: personal_sign for text, eth_signTypedData_v4 for a validated EIP-712 document.
+islands:
+  - sign
 ---
 
 # Sign a message
 
 Signing proves an account agreed to something without spending anything. The key
 never leaves the wallet, so both calls below are prompts.
+
+Costs nothing, broadcasts nothing, touches no chain — the only prompt on this
+site that cannot spend anything:
+
+<Island name="sign" trigger="load" />
 
 ## A plain message
 

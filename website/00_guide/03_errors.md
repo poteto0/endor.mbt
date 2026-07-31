@@ -1,6 +1,8 @@
 ---
 title: Errors
 description: Four suberrors, and which of them a dapp actually has to branch on.
+islands:
+  - address_tool
 ---
 
 # Errors
@@ -103,7 +105,10 @@ async fn token_errors(
 (bytes that will not read back as the expected types).
 
 `CodecError` is what a domain type's constructor raises, and it is where user
-input gets rejected:
+input gets rejected. Type into this and watch which variant comes back:
+
+<Island name="address_tool" trigger="visible" />
+
 
 ```moonbit
 fn parse_user_input(typed : String) -> Unit {

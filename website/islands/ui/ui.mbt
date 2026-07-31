@@ -55,6 +55,64 @@ pub fn field(label : String, value : @signals.Signal[String]) -> DomNode {
 }
 
 ///|
+/// One labelled value computed from whatever the inputs currently hold, rather
+/// than from something a button went and fetched.
+///
+/// This is what a demo without a wallet in it is made of: `value()` is called
+/// again on every keystroke, so the reader sees the function's actual answer —
+/// including the error it raises — as they type the argument.
+pub fn computed(label : String, value : () -> String) -> DomNode {
+  div(class="endor-demo-field") <| [
+    span(class="endor-demo-label") <| [
+      text(label),
+    ],
+    span(class="endor-demo-value") <| [
+      text_dyn(value),
+    ],
+  ]
+}
+
+///|
+/// The same, marked as the value the SDK is refusing. `bad()` decides, so a
+/// field can be red for one input and plain for the next.
+pub fn computed_checked(
+  label : String,
+  value : () -> String,
+  bad : () -> Bool,
+) -> DomNode {
+  div(class="endor-demo-field") <| [
+    span(class="endor-demo-label") <| [
+      text(label),
+    ],
+    span(
+      dyn_class=() => {
+        if bad() {
+          "endor-demo-value is-bad"
+        } else {
+          "endor-demo-value"
+        }
+      },
+    ) <| [
+      text_dyn(value),
+    ],
+  ]
+}
+
+///|
+/// A demo with no status line: nothing here talks to a wallet, so there is
+/// nothing to narrate. What it does is visible in the fields.
+pub fn panel(children : Array[DomNode]) -> DomNode {
+  div(class="endor-demo") <| children
+}
+
+///|
+/// The line under a demo naming the call it makes, so the widget and the code
+/// beside it are visibly the same thing.
+pub fn note(children : Array[DomNode]) -> DomNode {
+  p(class="endor-demo-note") <| children
+}
+
+///|
 /// A row of controls — inputs and the button that submits them.
 pub fn row(children : Array[DomNode]) -> DomNode {
   div(class="endor-demo-row") <| children
@@ -72,6 +130,9 @@ pub fn text_input(
     class="endor-demo-input",
     type_="text",
     placeholder~,
+    // the signal's starting value, written once. Not `dyn_value`: that would
+    // rewrite the box on every keystroke and fight whoever is typing in it.
+    value=into.get(),
     on=events().input(e => {
       into.set(@dom.HTMLInputElement::cast_from_element(e.target()).value)
     }),

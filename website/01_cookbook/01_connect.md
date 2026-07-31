@@ -2,6 +2,7 @@
 title: Connect a wallet
 description: Find the injected provider, ask for an account, read the chain.
 islands:
+  - address_tool
   - connect
 ---
 
@@ -76,7 +77,12 @@ fn address_forms(addr : @endor.Address) -> Unit {
 }
 ```
 
-Building one from user input is where a typo is caught:
+Building one from user input is where a typo is caught. The widget below is
+`Address::from_string` itself, run on every keystroke — change one character of
+the checksummed form and watch which error it raises:
+
+<Island name="address_tool" trigger="visible" />
+
 
 ```moonbit
 fn parse_address(typed : String) -> Unit {

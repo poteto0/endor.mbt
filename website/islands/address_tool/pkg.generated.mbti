@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor-website-islands/address_tool"
+
+import {
+  "mizchi/js/core",
+  "mizchi/js_browser/dom",
+}
+
+// Values
+pub fn hydrate(@dom.Element, @core.Any) -> Unit
+
+// Errors
+
+// Types and methods
+type Verdict
+
+type View
+
+// Type aliases
+
+// Traits
+

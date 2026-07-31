@@ -1,6 +1,8 @@
 ---
 title: Wait for a receipt
 description: A hash says broadcast. A receipt says what happened — including that it reverted.
+islands:
+  - receipt
 ---
 
 # Wait for a receipt
@@ -9,9 +11,14 @@ description: A hash says broadcast. A receipt says what happened — including t
 handed to the network. It can still be dropped, replaced, or mined and reverted.
 The receipt is where the outcome is.
 
-The [Send ETH](./send-eth/) demo does this end to end: after it broadcasts, the
-`Receipt` field fills in with the block and the gas, or with the fact that it
-reverted.
+Paste any transaction hash from the chain your wallet is on. Reading a receipt
+prompts nobody and costs nothing:
+
+<Island name="receipt" trigger="load" />
+
+The [Send ETH](./send-eth/) demo does the other half end to end: after it
+broadcasts, it waits, and the `Receipt` field fills in with the block and the
+gas — or with the fact that it reverted.
 
 ## Waiting
 

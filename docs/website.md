@@ -59,6 +59,22 @@ now, not as the registry last published it.
 `islands/ui` is shared UI and links no entry point, so it is not copied into
 `public/islands/`.
 
+### Two kinds of demo
+
+The ones with a button drive the reader's wallet: `connect`, `send_eth`,
+`token`, `switch_chain`, `sign`, `receipt`. They are placed at the top of the
+page they belong to.
+
+The ones that answer **as you type** — `address_tool`, `units`, `abi_tool` —
+call functions that need no provider at all, so they need no wallet, no network
+and no connection. They are built from `@ui.panel` and `@ui.computed`, which
+recompute on every keystroke, and they are placed beside the paragraph they
+illustrate rather than at the top: the point is that the description and the
+behaviour are the same thing.
+
+Prefer the second kind where the API allows it. It works for a reader who has no
+wallet installed, which is most of them.
+
 ## Recipes
 
 All of them live in the repository's `justfile` and run from its root:
@@ -67,7 +83,7 @@ All of them live in the repository's `justfile` and run from its root:
 just docs-dev      # build the demos, serve the site on localhost:7777
 just docs-build    # build the demos, render the site into website/dist-docs
 just docs-check    # compile every ```moonbit block on the site and in the README
-just docs-smoke    # build, then check in a headless browser that the demos hydrate
+just docs-smoke    # build, then check in a browser that the demos hydrate and answer
 ```
 
 `docs-check` runs as part of `just ci` and `just ci-check`, which is also the
@@ -89,7 +105,10 @@ The sidebar is `"sidebar": "auto"`, so nothing has to be registered.
 1. `website/islands/<name>/` with a `moon.pkg` copied from an existing one and a
    `main.mbt` exporting `pub fn hydrate(el, _state)`.
 2. Reference it from a page as above, using `<name>`.
-3. Add the page to `CASES` in `smoke.mjs`.
+3. Add the page to `CASES` in `smoke.mjs`. If the demo answers as you type, add
+   an input and the answer it must give to `INTERACTIONS` as well — `CASES`
+   only proves the widget rendered, and one wired to a signal nothing
+   recomputes renders perfectly.
 4. `just docs-smoke`.
 
 Keep the SDK code in a demo shaped the way the page describes it — the demo is

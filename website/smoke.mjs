@@ -27,10 +27,40 @@ const PORT = 8099
 const CASES = [
   ['/', 'connect', 'Connect wallet'],
   ['/cookbook/connect/', 'connect', 'Connect wallet'],
+  ['/cookbook/connect/', 'address_tool', 'to_checksum_string'],
   ['/cookbook/events/', 'connect', 'Connect wallet'],
   ['/cookbook/send-eth/', 'send_eth', 'Send'],
+  ['/cookbook/send-eth/', 'units', 'smallest units'],
   ['/cookbook/erc20/', 'token', 'Read the token'],
   ['/cookbook/switch-chain/', 'switch_chain', 'Sepolia'],
+  ['/cookbook/receipts/', 'receipt', 'Read the receipt'],
+  ['/cookbook/sign/', 'sign', 'Sign it'],
+  ['/cookbook/contract/', 'abi_tool', '@abi.selector'],
+  ['/guide/errors/', 'address_tool', 'to_checksum_string'],
+]
+
+// The widgets that answer as you type. Each case is an input to put in the
+// first box and the substring the first computed field must then contain — so
+// this checks the demo is *reacting*, not merely present. A widget wired to a
+// signal that nothing recomputes still renders perfectly.
+const INTERACTIONS = [
+  // one character of the checksum changed: EIP-55 catches it
+  [
+    '/cookbook/connect/',
+    'address_tool',
+    '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96046',
+    'InvalidChecksum',
+  ],
+  // the all-lowercase form carries no checksum to fail
+  [
+    '/cookbook/connect/',
+    'address_tool',
+    '0xd8da6bf26964af9d7eed9e03e53415d37aa96045',
+    'accepted',
+  ],
+  ['/cookbook/send-eth/', 'units', '1', '1000000000000000000'],
+  // finer than a wei: refused rather than rounded
+  ['/cookbook/send-eth/', 'units', '0.0000000000000000001', 'refused'],
 ]
 
 const TYPES = {
@@ -68,6 +98,9 @@ let failed = 0
 for (const [url, island, marker] of CASES) {
   problems.length = 0
   await page.goto(`http://localhost:${PORT}${url}`, { waitUntil: 'networkidle' })
+  // half the demos hydrate on `visible`, and a headless viewport shows only the
+  // top of the page — scroll the island into view before waiting for it
+  await page.locator(island).first().scrollIntoViewIfNeeded().catch(() => {})
 
   const reasons = []
   try {
@@ -84,7 +117,7 @@ for (const [url, island, marker] of CASES) {
       (sel) => getComputedStyle(document.querySelector(sel)).borderTopWidth,
       `${island} .endor-demo`,
     )
-    if (border === '0px') reasons.push('rendered unstyled (endor-demo.css missing?)')
+    if (border === '0px') reasons.push('rendered unstyled (endor.css missing?)')
   }
   reasons.push(...problems)
 
@@ -97,10 +130,36 @@ for (const [url, island, marker] of CASES) {
   }
 }
 
+for (const [url, island, typed, expected] of INTERACTIONS) {
+  await page.goto(`http://localhost:${PORT}${url}`, { waitUntil: 'networkidle' })
+  const root = page.locator(island).first()
+  await root.scrollIntoViewIfNeeded()
+  await page.waitForSelector(`${island} .endor-demo`, { timeout: 15_000 })
+  await root.locator('input').first().fill(typed)
+  const field = root.locator('.endor-demo-value').first()
+  let answer = ''
+  try {
+    await field.filter({ hasText: expected }).waitFor({ timeout: 5_000 })
+  } catch {
+    // fall through and report whatever it does say
+  }
+  answer = await field.textContent().catch(() => '(no field)')
+  if (answer.includes(expected)) {
+    console.log(`ok    ${island} "${typed.slice(0, 24)}" -> ${expected}`)
+  } else {
+    console.log(`FAIL  ${island} "${typed.slice(0, 24)}"`)
+    console.log(`        expected "${expected}", answered "${answer.trim()}"`)
+    failed++
+  }
+}
+
 await browser.close()
 server.close()
+const total = CASES.length + INTERACTIONS.length
 if (failed > 0) {
-  console.log(`\n${failed} of ${CASES.length} demo page(s) failed`)
+  console.log(`\n${failed} of ${total} check(s) failed`)
   process.exit(1)
 }
-console.log(`\nok: ${CASES.length} demo pages hydrate`)
+console.log(
+  `\nok: ${CASES.length} demo pages hydrate, ${INTERACTIONS.length} widgets answer`,
+)

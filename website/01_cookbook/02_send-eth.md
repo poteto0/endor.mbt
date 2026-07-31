@@ -2,6 +2,7 @@
 title: Send ETH
 description: Broadcast a transaction, then wait for the receipt that says what it did.
 islands:
+  - units
   - send_eth
 ---
 
@@ -59,7 +60,13 @@ fn one_ether() -> @endor.Wei {
 ```
 
 The SDK never scales an amount for you. Turning `"0.001"` into wei is a
-presentation concern, and it belongs in the layer that has a text input in it:
+presentation concern, and it belongs in the layer that has a text input in it —
+which is exactly what this is. Ask for more decimals than the currency carries
+and it refuses rather than rounds:
+
+<Island name="units" trigger="visible" />
+
+The same function, written out:
 
 ```moonbit
 /// Parse a human amount into whole wei, or `None` when it is not a decimal

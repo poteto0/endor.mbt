@@ -1,6 +1,8 @@
 ---
 title: Call any contract
 description: Contract::call and send, with the types spelled out — and deploy, for one that is not on chain yet.
+islands:
+  - abi_tool
 ---
 
 # Call any contract
@@ -91,8 +93,16 @@ come back as `Deployment(what)` rather than as an absence to notice.
 
 ## The encoding on its own
 
-`endor/abi` is usable with no provider in hand, for when the call goes out some
-other way:
+`endor/abi` is usable with no provider in hand — no network, no wallet, not even
+a `js` target. Here it is hashing a signature as you type it:
+
+<Island name="abi_tool" trigger="visible" />
+
+Edit one character and every digit changes, which is why
+`transfer(address,uint256)` and `transfer(address,uint)` are different functions
+as far as the chain is concerned.
+
+The rest of the package:
 
 ```moonbit
 fn calldata(to : @endor.Address) -> Unit raise {

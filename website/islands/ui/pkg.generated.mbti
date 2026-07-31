@@ -14,6 +14,10 @@ pub fn action(String, () -> Unit) -> @dom.DomNode
 
 pub fn card(@signals.Signal[String], Array[@dom.DomNode]) -> @dom.DomNode
 
+pub fn computed(String, () -> String) -> @dom.DomNode
+
+pub fn computed_checked(String, () -> String, () -> Bool) -> @dom.DomNode
+
 pub fn decimal_of_units(@bigint.BigInt, Int) -> String
 
 pub fn empty_field() -> @signals.Signal[String]
@@ -21,6 +25,10 @@ pub fn empty_field() -> @signals.Signal[String]
 pub fn field(String, @signals.Signal[String]) -> @dom.DomNode
 
 pub fn input_of(String) -> @signals.Signal[String]
+
+pub fn note(Array[@dom.DomNode]) -> @dom.DomNode
+
+pub fn panel(Array[@dom.DomNode]) -> @dom.DomNode
 
 pub fn row(Array[@dom.DomNode]) -> @dom.DomNode
 
