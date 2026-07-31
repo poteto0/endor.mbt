@@ -84,14 +84,19 @@ pub fn generate(
   match doc.creation_code {
     Absent => ()
     Unusable(reason) => skipped.push("`deploy`: \{reason}")
-    Code(code) =>
-      match deploy_block(name, doc.ctor, code) {
+    Code(code) => {
+      // the code goes in whether or not a `deploy` does: a constructor this
+      // generator cannot type is exactly the caller who needs to reach
+      // `@contract.deploy` themselves, and the bytes are what they need for it
+      blocks.push(creation_code_block(name, code))
+      match deploy_block(name, doc.ctor) {
         Ok(block) => {
           blocks.push(block)
           deploys = true
         }
         Err(reason) => skipped.push(reason)
       }
+    }
   }
   for f in doc.functions {
     match function_block(name, f, taken) {

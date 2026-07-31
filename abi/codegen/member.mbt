@@ -183,7 +183,7 @@ fn write_head(
   doc~ : String,
   from~ : Bool,
   params~ : Array[(String, Scalar)],
-  receiver? : Bool = true,
+  receiver~ : Bool,
 ) -> StringBuilder {
   let head = StringBuilder::new()
   head.write_string("///|\n")
@@ -225,6 +225,7 @@ fn reading_block(
       "/// and prompts no one.\n",
     from=false,
     params~,
+    receiver=true,
   )
   let call = ["provider", "name=\"\{f.name}\""]
   call.append(abi_args(params))
@@ -259,6 +260,7 @@ fn sending_block(
       "/// it did is in its receipt.\n",
     from=true,
     params~,
+    receiver=true,
   )
   // `value?` closes the parameter list rather than joining `from~` ahead of it:
   // it is optional, and an optional parameter reads as an afterthought because
@@ -280,17 +282,16 @@ fn sending_block(
 }
 
 ///|
-/// The creation code and the `deploy` that sends it, or the reason there is
-/// neither.
+/// The `deploy` that sends the creation code, or the reason there is none.
 ///
 /// This is the one generated function that is not a call to a contract: it
-/// *makes* one. `code` has already been validated as hex by `read_creation_code`
-/// — which is what lets the emitted `Hex::from_string` treat its own literal as
-/// something that cannot fail.
+/// *makes* one. It is emitted separately from `creation_code_block`, and only
+/// that one is unconditional: a constructor this generator cannot type costs
+/// the `deploy` and must not also cost the literal, since handing those bytes
+/// to `@contract.deploy` by hand is exactly what the caller is left with.
 fn deploy_block(
   struct_name : String,
   ctor : AbiConstructor,
-  code : String,
 ) -> Result[String, String] {
   // a constructor has no name; `constructor(uint256)` is how one is written,
   // and unlike a function's signature nothing hashes it — the arguments go
@@ -304,7 +305,10 @@ fn deploy_block(
   let scope = Set::Set(["provider", "from", "value", "deployed"][:])
   let params = match scalar_params(ctor.inputs, scope, signature~) {
     Ok(params) => params
-    Err(reason) => return Err("\{reason} — so no `deploy` was either")
+    Err(reason) =>
+      return Err(
+        "\{reason} — so no `deploy` was either; `creation_code()` still is, for `@contract.deploy`",
+      )
   }
   let head = write_head(
     struct_name,
@@ -332,7 +336,7 @@ fn deploy_block(
     "  \{struct_name}::{ contract: deployed }\n" +
     "}\n",
   )
-  Ok(creation_code_block(struct_name, code) + "\n" + head.to_string())
+  Ok(head.to_string())
 }
 
 ///|

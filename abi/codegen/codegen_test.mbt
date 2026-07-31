@@ -1262,12 +1262,6 @@ test "read: bytecode that cannot be deployed is skipped with a reason" {
       ),
       "is not hex",
     ),
-    (
-      (
-        #|{ "abi": [], "bytecode": 6001 }
-      ),
-      "is not a string",
-    ),
   ]
   for case in cases {
     let out = @codegen.generate("Foo", case.0)
@@ -1321,10 +1315,58 @@ test "read: a constructor this generator cannot type skips only deploy" {
   assert_false(out.deploys)
   assert_eq(out.members, ["paused()"])
   assert_eq(out.skipped, [
-    "`constructor(bytes32)`: parameter 0 is `bytes32`, which is not generated — so no `deploy` was either",
+    "`constructor(bytes32)`: parameter 0 is `bytes32`, which is not generated — so no `deploy` was either; `creation_code()` still is, for `@contract.deploy`",
   ])
-  // the escape hatch the file does not lose: the code is still reachable
-  assert_false(out.code.contains("creation_code"))
+  // the escape hatch the file must not lose: this is precisely the caller who
+  // has to deploy by hand, so the bytes stay
+  assert_true(out.code.contains("pub fn Blob::creation_code() -> @types.Hex {"))
+  assert_false(out.code.contains("Blob::deploy("))
+}
+
+///|
+/// A `bytecode` that is not a string is a document no compiler wrote, so it
+/// stops the file rather than costing it a `deploy` — the same line every other
+/// wrong-typed field in an ABI is held to.
+test "read: a bytecode that is not a string raises" {
+  try
+    @codegen.generate(
+      "Foo",
+      (
+        #|{ "abi": [], "bytecode": 6001 }
+      ),
+    )
+  catch {
+    e =>
+      inspect(e, content="InvalidAbi(this artifact's bytecode is not a string)")
+  } noraise {
+    _ => fail("expected a numeric bytecode to raise")
+  }
+}
+
+///|
+/// A contract has one constructor. Two is not something a compiler emits, and
+/// letting the last one win would encode the wrong arguments into a deployment
+/// that cannot be re-run — so it is refused rather than resolved.
+test "read: two constructors raise" {
+  try
+    @codegen.generate(
+      "Twice",
+      (
+        #|{ "abi": [
+        #|  { "type": "constructor", "inputs": [{ "name": "a", "type": "uint256" }] },
+        #|  { "type": "constructor", "inputs": [{ "name": "b", "type": "address" }] }
+        #|], "bytecode": "0x6001" }
+      ),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidAbi(this ABI declares more than one constructor)",
+      )
+  } noraise {
+    _ => fail("expected two constructors to raise")
+  }
 }
 
 ///|

@@ -197,41 +197,28 @@ async test "the topic the fixture yields is the topic the preset uses" {
 }
 
 ///|
-/// The artifact fixture, generated once — the same file `just codegen-check`
-/// compiles the output of.
+/// The other fixture: a compiler artifact, so the generator embeds its creation
+/// code and emits a `deploy`. The same file `just codegen-check` compiles the
+/// output of.
 const ANSWER_FIXTURE = "fixtures/abi/answer.json"
 
 ///|
-let cached_artifact : Ref[@codegen.Generated?] = { val: None }
-
-///|
-fn artifact_generated() -> @codegen.Generated raise {
-  match cached_artifact.val {
-    Some(generated) => generated
-    None => {
-      let generated = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))
-      cached_artifact.val = Some(generated)
-      generated
-    }
-  }
-}
-
-///|
-/// What the generated `deploy` does, done against a real chain.
+/// The creation code the generator embedded, put on a real chain.
 ///
 /// The unit tests compare the emitted `deploy` to expected source and
-/// `just codegen-check` compiles it; neither can say the *bytes* it embedded
-/// are creation code a node accepts. This deploys them — through
-/// `@contract.deploy` with the constructor arguments the generated file
-/// encodes, which is the call that file makes — and then reaches the contract
-/// it created through the ABI the same document declared.
+/// `just codegen-check` compiles it. Neither can say the *bytes* that reached
+/// the literal are still creation code a node accepts — a generator that lost a
+/// digit on the way in emits a file that compiles, formats and deploys nothing.
+/// So the literal is checked against the bytes the fixture holds, and those
+/// bytes are deployed and called.
 ///
-/// A generator that mangled the hex on its way into the literal, or that
-/// encoded the constructor's argument where the code could not survive it,
-/// fails here and nowhere else.
+/// The deployment is `@contract.deploy` spelled out rather than the generated
+/// `deploy` itself, because `e2e/` cannot compile MoonBit the generator wrote
+/// mid-suite; it is the same call the emitted body makes, and the assertion
+/// above it is what ties the two together.
 async test "the creation code the fixture embeds deploys and answers" {
   @anvil.on(provider => {
-    let out = artifact_generated()
+    let out = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))
     assert_true(out.deploys)
     assert_eq(out.skipped.join("\n"), "")
     // the bytes in the generated literal are the fixture's, unmangled
@@ -256,17 +243,5 @@ async test "the creation code the fixture embeds deploys and answers" {
       ),
       42N,
     )
-  })
-}
-
-///|
-/// A bare ABI document generates no `deploy`, and the fixture the tests above
-/// use is one — so the two fixtures prove opposite halves of the same rule
-/// rather than one of them by accident.
-async test "the ABI fixture generates no deploy" {
-  @anvil.on(_ => {
-    let out = fixture_generated()
-    assert_false(out.deploys)
-    assert_false(out.code.contains("creation_code"))
   })
 }

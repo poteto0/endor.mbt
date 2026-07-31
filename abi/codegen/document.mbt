@@ -107,7 +107,8 @@ fn Document::parse(source : String) -> Document raise CodegenError {
   let functions = []
   let events = []
   // a contract that declares no constructor deploys with no arguments
-  let mut ctor = { inputs: [], payable: false }
+  let mut ctor : AbiConstructor = { inputs: [], payable: false }
+  let mut declared_ctor = false
   for i, entry in members {
     guard entry is Object(fields) else {
       raise InvalidAbi("member \{i} is not an object")
@@ -121,7 +122,16 @@ fn Document::parse(source : String) -> Document raise CodegenError {
     match kind {
       "function" => functions.push(read_function(fields, at=i))
       "event" => events.push(read_event(fields, at=i))
-      "constructor" => ctor = read_constructor(fields, at=i)
+      "constructor" => {
+        // a contract has one constructor, so a document with two is not a
+        // document a compiler wrote — and letting the last one win would
+        // encode the wrong arguments into a deployment nobody can re-run
+        guard !declared_ctor else {
+          raise InvalidAbi("this ABI declares more than one constructor")
+        }
+        ctor = read_constructor(fields, at=i)
+        declared_ctor = true
+      }
       _ => ()
     }
   }
@@ -141,15 +151,19 @@ fn Document::parse(source : String) -> Document raise CodegenError {
 fn read_artifact(
   fields : Map[String, Json],
 ) -> (Array[Json], CreationCode) raise CodegenError {
-  let contract = single_contract(fields)
-  guard contract.get("abi") is Some(abi) else {
-    raise InvalidJson("this JSON object is not an artifact: it holds no `abi`")
-  }
+  let (abi, contract) = single_contract(fields)
   (read_members(abi), read_creation_code(contract))
 }
 
 ///|
-/// The one contract an artifact describes.
+/// The one contract an artifact describes: its `abi`, and the object that key
+/// was found in, which is also where the creation code is.
+///
+/// The two come back together because finding one *is* finding the other —
+/// `abi` is what identifies a contract among the shapes below, so answering
+/// with the map alone would leave the caller re-asking for a key this has
+/// already proved is there, and writing an error for the case that cannot
+/// happen.
 ///
 /// A per-contract artifact *is* that object; `--combined-json` and standard
 /// JSON instead wrap one or more of them in `contracts`, keyed by
@@ -159,9 +173,9 @@ fn read_artifact(
 /// guessing at the one thing it was told.
 fn single_contract(
   fields : Map[String, Json],
-) -> Map[String, Json] raise CodegenError {
-  if fields.contains("abi") {
-    return fields
+) -> (Json, Map[String, Json]) raise CodegenError {
+  if fields.get("abi") is Some(abi) {
+    return (abi, fields)
   }
   guard fields.get("contracts") is Some(Object(contracts)) else {
     raise InvalidJson(
@@ -171,25 +185,28 @@ fn single_contract(
   let found = []
   for key, value in contracts {
     guard value is Object(contract) else { continue }
-    if contract.contains("abi") {
-      found.push((key, contract))
+    if contract.get("abi") is Some(abi) {
+      found.push((key, abi, contract))
     } else {
       // standard JSON nests one level deeper: file, then contract name
       for name, nested in contract {
-        if nested is Object(inner) && inner.contains("abi") {
-          found.push(("\{key}:\{name}", inner))
+        if nested is Object(inner) && inner.get("abi") is Some(abi) {
+          found.push(("\{key}:\{name}", abi, inner))
         }
       }
     }
   }
-  found.sort_by_key(pair => pair.0)
   match found {
-    [(_, contract)] => contract
+    [(_, abi, contract)] => (abi, contract)
     [] => raise InvalidJson("this artifact's `contracts` holds no ABI")
-    _ =>
+    _ => {
+      // sorted here rather than where they were collected: the order exists so
+      // that this message reads the same twice, and nothing else consults it
+      found.sort_by_key(entry => entry.0)
       raise InvalidJson(
-        "this artifact holds \{found.length()} contracts (\{found.map(pair => pair.0).join(", ")}); generating one struct from it would mean choosing one — compile them apart, or pass one contract's artifact",
+        "this artifact holds \{found.length()} contracts (\{found.map(entry => entry.0).join(", ")}); generating one struct from it would mean choosing one — compile them apart, or pass one contract's artifact",
       )
+    }
   }
 }
 
@@ -226,57 +243,80 @@ fn read_members(abi : Json) -> Array[Json] raise CodegenError {
 /// afterwards or — worse — for the node: what is emitted is a
 /// `Hex::from_string` over a literal, and a literal that is not hex would turn
 /// a bad artifact into generated code that aborts at run time.
-fn read_creation_code(contract : Map[String, Json]) -> CreationCode {
+///
+/// It is checked *by `Hex::from_string` itself*, which is what makes that
+/// `abort` unreachable by construction rather than by two statements of the
+/// same grammar agreeing. `Hex` is where the prefix, the alphabet and the even
+/// length are stated, and the generated file calls exactly this function on
+/// exactly this string — so what is embedded is the `Hex` that came back,
+/// normal form and all, rather than the digits that went in.
+fn read_creation_code(
+  contract : Map[String, Json],
+) -> CreationCode raise CodegenError {
   guard bytecode_field(contract) is Some(value) else { return Absent }
+  // no compiler writes a `bytecode` that is not a string, so this is a
+  // corrupt document rather than one this generator declines to translate
   guard value is String(raw) else {
-    return Unusable("its bytecode is not a string")
+    raise InvalidAbi("this artifact's bytecode is not a string")
   }
   let hex = if raw.has_prefix("0x") { raw } else { "0x" + raw }
-  // a library the compiler could not resolve is left as `__$<hash>$__` in the
-  // middle of the code — deployable-looking and not deployable
-  if hex.contains("__") {
-    return Unusable(
-      "its bytecode has unlinked library references (`__$…$__`) — link the libraries and regenerate",
-    )
-  }
-  guard @codec.hex_body(hex) is Some(body) else {
-    return Unusable("its bytecode is not hex")
-  }
-  // an interface and an abstract contract both compile to an ABI and to `""`
-  guard body != "" else {
+  // an interface and an abstract contract both compile to an ABI and to `""`,
+  // which `Hex` would accept as the empty byte string
+  guard hex != "0x" else {
     return Unusable(
       "its bytecode is empty — an interface or an abstract contract compiles to no creation code",
     )
   }
-  guard body.length() % 2 == 0 else {
-    return Unusable("its bytecode has an odd number of hex digits")
+  let code = @types.Hex::from_string(hex) catch {
+    InvalidLength(_) =>
+      return Unusable("its bytecode has an odd number of hex digits")
+    _ =>
+      // a library the compiler could not resolve is left as `__$<hash>$__` in
+      // the middle of the code — deployable-looking and not deployable. `_` is
+      // not a hex digit, so it arrives here, and looking for it only once the
+      // string is known bad keeps the scan off every valid artifact's path
+      return Unusable(
+        if hex.contains("__") {
+          "its bytecode has unlinked library references (`__$…$__`) — link the libraries and regenerate"
+        } else {
+          "its bytecode is not hex"
+        },
+      )
   }
-  Code(hex)
+  Code(code.to_string())
 }
 
 ///|
 /// Wherever the compiler put the creation code.
 ///
 /// Answered as `Json` rather than as a string so that a key that is present
-/// and holds something else is reported as unusable instead of read as absent:
-/// an artifact that says `bytecode` and means it deserves a reason, not
-/// silence.
+/// and holds something else is reported instead of read as absent: an artifact
+/// that says `bytecode` and means it deserves an error, not silence.
+///
+/// The three places are tried in order and the first that holds anything wins,
+/// written flat rather than nested so that the fourth compiler to want a key
+/// here is one line rather than another level of `match`.
 fn bytecode_field(contract : Map[String, Json]) -> Json? {
-  match contract.get("bytecode") {
-    // Foundry wraps it in an object, Hardhat writes the string
-    Some(Object(bytecode)) => bytecode.get("object")
-    Some(value) => Some(value)
-    None =>
-      match contract.get("evm") {
-        // solc's standard JSON
-        Some(Object(evm)) =>
-          match evm.get("bytecode") {
-            Some(Object(bytecode)) => bytecode.get("object")
-            other => other
-          }
-        // `--combined-json bin`
-        _ => contract.get("bin")
-      }
+  // Hardhat writes the string, Foundry wraps it in an object
+  if unwrap_object(contract.get("bytecode")) is Some(value) {
+    return Some(value)
+  }
+  // solc's standard JSON
+  if contract.get("evm") is Some(Object(evm)) &&
+    unwrap_object(evm.get("bytecode")) is Some(value) {
+    return Some(value)
+  }
+  // `solc --combined-json bin`
+  contract.get("bin")
+}
+
+///|
+/// The `object` inside a bytecode field, for the compilers that wrap it, and
+/// the field itself for the ones that do not.
+fn unwrap_object(field : Json?) -> Json? {
+  match field {
+    Some(Object(wrapper)) => wrapper.get("object")
+    other => other
   }
 }
 
@@ -291,16 +331,33 @@ fn read_constructor(
   fields : Map[String, Json],
   at~ : Int,
 ) -> AbiConstructor raise CodegenError {
-  let payable = match fields.get("stateMutability") {
-    Some(String(s)) => s == "payable"
+  let payable = match
+    read_mutability(fields, of="the constructor at index \{at}") {
+    Some(mutability) => mutability == "payable"
     // pre-0.6 ABIs say `payable: true` instead
     None => fields.get("payable") is Some(True)
-    Some(_) =>
-      raise InvalidAbi(
-        "the constructor at index \{at} has a non-string `stateMutability`",
-      )
   }
   { inputs: read_params(fields, "inputs", of="the constructor"), payable }
+}
+
+///|
+/// A member's declared `stateMutability`, or `None` for one that declares none.
+///
+/// Absent is answered rather than defaulted because the two callers default it
+/// differently: a function with no `stateMutability` falls back to the pre-0.6
+/// `constant` flag and a constructor to `payable`, and those are the *only*
+/// things they do differently with it. Present-but-not-a-string is the same
+/// mistake for both — a document no compiler wrote — so it is refused once,
+/// here.
+fn read_mutability(
+  fields : Map[String, Json],
+  of~ : String,
+) -> String? raise CodegenError {
+  match fields.get("stateMutability") {
+    Some(String(s)) => Some(s)
+    None => None
+    Some(_) => raise InvalidAbi("\{of} has a non-string `stateMutability`")
+  }
 }
 
 ///|
@@ -317,8 +374,8 @@ fn read_function(
   at~ : Int,
 ) -> AbiFunction raise CodegenError {
   let name = read_name(fields, at~, kind="function")
-  let mutability = match fields.get("stateMutability") {
-    Some(String(s)) => s
+  let mutability = match read_mutability(fields, of="function `\{name}`") {
+    Some(mutability) => mutability
     // pre-0.6 ABIs say `constant: true` instead
     None =>
       if fields.get("constant") is Some(True) {
@@ -326,8 +383,6 @@ fn read_function(
       } else {
         "nonpayable"
       }
-    Some(_) =>
-      raise InvalidAbi("function `\{name}` has a non-string `stateMutability`")
   }
   let of = "function `\{name}`"
   {
