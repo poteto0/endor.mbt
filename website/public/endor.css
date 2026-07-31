@@ -1,0 +1,476 @@
+/*
+ * endor.mbt — the site's own look, and the live demos on it.
+ *
+ * The page structure and the class names below come from astra's default theme
+ * (https://mooncakes.io/docs/mizchi/astra), which this site is built with. What
+ * this file does is give it an identity of its own: a green palette, a serif
+ * voice for headings, and rules instead of cards.
+ *
+ * The palette is set here rather than in `astra.config.json` because astra's
+ * theme block only reaches a few of the variables its stylesheet actually reads
+ * — setting some there and the rest here would leave two half-palettes to keep
+ * in step. This file loads after astra's, so one place wins.
+ *
+ * `endor-demo-*` is ours outright — it is what `website/islands/ui` renders, so
+ * that package and this file move together.
+ */
+
+/* ===========================================================================
+ * Palette
+ *
+ * One green, used for every accent on the site and for nothing else: links, the
+ * mark by the title, the bar beside the current sidebar entry, the rule under a
+ * page title, the demos' left edge. Paper is faintly green rather than white,
+ * ink faintly green rather than black.
+ *
+ * `.dark` on <html> is what astra's theme toggle sets.
+ * ======================================================================== */
+
+:root {
+  --primary-color: #1a6b4a;
+  --secondary-color: #5b6660;
+  --accent-color: #2f9068;
+  --text-color: #1c211e;
+  --text-muted: #5b6660;
+  --bg-color: #fbfcfa;
+  --sidebar-bg: #fbfcfa;
+  --border-color: #dde3dd;
+  --code-bg: #f2f5f1;
+  --input-bg: #ffffff;
+  --nav-link-color: #5b6660;
+  --sidebar-link-color: #3d453f;
+  --error: #a3342b;
+  /* astra's default theme leans on a gradient and a frosted bar; this design
+   * has neither, so they are turned off rather than recoloured */
+  --hero-gradient-start: #1a6b4a;
+  --hero-gradient-end: #2f9068;
+  --glass-bg: transparent;
+  --glass-border: transparent;
+  --glass-blur: 0px;
+}
+
+/* Dark, spelled twice for the two ways it is reached — exactly as astra spells
+ * it. `html.dark` is the theme toggle; `:root:not(.light)` inside the media
+ * query is the system preference before anyone has toggled anything. A bare
+ * `.dark` here would lose to both on specificity and the site would stay
+ * indigo-on-black. */
+html.dark {
+  --primary-color: #5fc99a;
+  --secondary-color: #93a09a;
+  --accent-color: #7fdcb0;
+  --text-color: #dfe4e0;
+  --text-muted: #93a09a;
+  --bg-color: #0e1210;
+  --sidebar-bg: #0e1210;
+  --border-color: #232b26;
+  --code-bg: #151b18;
+  --input-bg: #101614;
+  --nav-link-color: #93a09a;
+  --sidebar-link-color: #b8c2bc;
+  --error: #f2938a;
+  --glass-bg: transparent;
+  --glass-border: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --primary-color: #5fc99a;
+    --secondary-color: #93a09a;
+    --accent-color: #7fdcb0;
+    --text-color: #dfe4e0;
+    --text-muted: #93a09a;
+    --bg-color: #0e1210;
+    --sidebar-bg: #0e1210;
+    --border-color: #232b26;
+    --code-bg: #151b18;
+    --input-bg: #101614;
+    --nav-link-color: #93a09a;
+    --sidebar-link-color: #b8c2bc;
+    --error: #f2938a;
+    --glass-bg: transparent;
+    --glass-border: transparent;
+  }
+}
+
+/* ===========================================================================
+ * Type
+ *
+ * astra's default is sans throughout. Headings here are a serif stack, and the
+ * body is set at a comfortable reading measure: this is a documentation site
+ * whose pages are mostly prose about why an API is shaped the way it is, and
+ * they should read like it.
+ * ======================================================================== */
+
+:root {
+  --endor-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Charter,
+    'Bitstream Charter', Georgia, serif;
+  --endor-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --endor-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+  --endor-rule: 1px solid var(--border-color);
+}
+
+body {
+  font-family: var(--endor-sans);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.doc-content h1,
+.doc-content h2,
+.doc-content h3,
+.doc-content h4,
+.home-content h1,
+.home-content h2,
+.home-content h3,
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.nav-title {
+  font-family: var(--endor-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.doc-content {
+  max-width: 46rem;
+}
+
+.doc-content h1,
+.markdown-body h1,
+.home-content h1 {
+  font-size: 2.1rem;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* astra underlines every link in the body in sky blue, which is the one colour
+ * this design does not have */
+.markdown-body a {
+  text-decoration-color: color-mix(in srgb, var(--primary-color) 35%, transparent);
+}
+
+.markdown-body a:hover,
+.doc-content a:hover {
+  color: var(--link-hover, var(--accent-color));
+}
+
+/* every h2 opens a section, and the rule above it is what says so — cheaper
+ * than a box, and it survives dark mode without a second colour. astra's own
+ * h2 is a left bar over a sky-blue gradient, so all of that is unset rather
+ * than layered under this. */
+.doc-content h2,
+.markdown-body h2,
+.home-content h2 {
+  font-size: 1.45rem;
+  margin: 2.75rem 0 1rem;
+  padding: 1.25rem 0 0;
+  border: 0;
+  border-top: var(--endor-rule);
+  background: none;
+}
+
+.doc-content h3,
+.home-content h3 {
+  font-size: 1.15rem;
+  margin-top: 2rem;
+}
+
+.doc-content p,
+.doc-content li,
+.home-content p,
+.home-content li {
+  font-size: 1rem;
+}
+
+/* ===========================================================================
+ * Chrome: bar, sidebar, table of contents
+ *
+ * All three lose their cards. A documentation site is one continuous document
+ * with navigation beside it, and hairlines say that better than surfaces do.
+ * ======================================================================== */
+
+.nav-bar {
+  background: var(--bg-color);
+  border-bottom: var(--endor-rule);
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+.nav-title {
+  font-size: 1.05rem;
+  letter-spacing: 0;
+}
+
+/* the mark before the title: a filled square in the accent, which is the only
+ * ornament on the page */
+.nav-home::before {
+  content: '';
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.55rem;
+  background: var(--primary-color);
+  vertical-align: baseline;
+}
+
+.nav-link {
+  font-size: 0.92rem;
+}
+
+.sidebar,
+.sidebar-content {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sidebar-desktop {
+  border-right: var(--endor-rule);
+}
+
+.sidebar-group-summary {
+  font-family: var(--endor-serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.sidebar-link {
+  border-radius: 0;
+  border-left: 2px solid transparent;
+  padding-left: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.sidebar-link:hover {
+  background: transparent;
+  color: var(--link-color);
+  border-left-color: var(--border-color);
+}
+
+/* the current page is marked by a bar rather than a filled pill: it stays
+ * legible when the sidebar is long, which this one is */
+.sidebar-link.active {
+  background: transparent;
+  border-left-color: var(--primary-color);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+.toc {
+  border-left: var(--endor-rule);
+}
+
+.toc-title {
+  font-family: var(--endor-serif);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toc-list a {
+  font-size: 0.85rem;
+}
+
+/* ===========================================================================
+ * Content blocks
+ * ======================================================================== */
+
+.doc-content pre,
+.home-content pre,
+pre.shiki {
+  border: var(--endor-rule);
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.doc-content :not(pre) > code,
+.markdown-body :not(pre) > code,
+.home-content :not(pre) > code {
+  font-family: var(--endor-mono);
+  font-size: 0.87em;
+  background: var(--code-bg);
+  border: var(--endor-rule);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+  /* astra hardcodes indigo-300 for inline code in dark (`html.dark code`), the
+   * one place its palette is not a variable */
+  color: var(--text-color);
+}
+
+html.dark code,
+html.dark .markdown-body :not(pre) > code {
+  color: var(--text-color);
+  border-color: var(--border-color);
+}
+
+.markdown-body a code,
+.doc-content a code {
+  color: inherit;
+}
+
+.doc-content table,
+.home-content table {
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+.doc-content th,
+.home-content th {
+  font-family: var(--endor-sans);
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 2px solid var(--border-color);
+  background: transparent;
+}
+
+.doc-content td,
+.doc-content th,
+.home-content th {
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  border-bottom: var(--endor-rule);
+  padding: 0.5rem 0.9rem 0.5rem 0;
+}
+
+.doc-content tr:nth-child(2n) {
+  background: transparent;
+}
+
+.doc-content blockquote,
+.home-content blockquote {
+  border-left: 3px solid var(--primary-color);
+  background: transparent;
+  padding-left: 1rem;
+  margin-left: 0;
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+/* ===========================================================================
+ * The live demos
+ *
+ * Rendered by `website/islands/ui`. They are the one thing on a page that is
+ * not prose, so they are the one thing that gets a surface.
+ * ======================================================================== */
+
+.endor-demo {
+  border: var(--endor-rule);
+  border-left: 3px solid var(--primary-color);
+  border-radius: 4px;
+  background: var(--code-bg);
+  padding: 1rem 1.25rem;
+  margin: 1.75rem 0;
+}
+
+/* the line that narrates what the wallet is doing. It is the first thing that
+ * changes on every click, so it sits above everything else. */
+.endor-demo-status {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: var(--endor-rule);
+  font-size: 0.88rem;
+  color: var(--text-color);
+}
+
+.endor-demo-field {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  padding: 0.28rem 0;
+  font-size: 0.88rem;
+}
+
+.endor-demo-label {
+  flex: 0 0 8.5rem;
+  color: var(--text-muted);
+}
+
+/* an address or a hash: long, and worth being able to select in one go */
+.endor-demo-value {
+  flex: 1 1 12rem;
+  font-family: var(--endor-mono);
+  font-size: 0.83rem;
+  word-break: break-all;
+  color: var(--text-color);
+}
+
+/* a value the demo is calling wrong — a rejected address, an amount that is not
+ * a decimal. The demos say why in the status line; this is what points at it. */
+.endor-demo-value.is-bad {
+  color: var(--error, #b3261e);
+}
+
+.endor-demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.endor-demo-input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.4rem 0.6rem;
+  border: var(--endor-rule);
+  border-radius: 3px;
+  background: var(--input-bg, var(--bg-color));
+  color: var(--text-color);
+  font-family: var(--endor-mono);
+  font-size: 0.83rem;
+}
+
+.endor-demo-input:focus {
+  outline: 2px solid var(--primary-color);
+  outline-offset: -1px;
+}
+
+.endor-demo-button {
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--primary-color);
+  border-radius: 3px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-family: var(--endor-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.endor-demo-button:hover {
+  opacity: 0.85;
+}
+
+/* a caption under a demo, saying which call it is making */
+.endor-demo-note {
+  margin: 0.75rem 0 0;
+  padding-top: 0.6rem;
+  border-top: var(--endor-rule);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.endor-demo-note code {
+  font-family: var(--endor-mono);
+}
+
+/* before hydration an island is an empty custom element. Reserving its height
+ * keeps the page from jumping when the demo appears. */
+connect:empty,
+send_eth:empty,
+token:empty,
+switch_chain:empty,
+sign:empty,
+receipt:empty,
+address_tool:empty,
+units:empty,
+abi_tool:empty {
+  display: block;
+  min-height: 8rem;
+}
