@@ -138,9 +138,15 @@ docs-islands:
   done
   ls "$out" | sed 's/^/  /'
 
+# `npm ci` rather than `npm install`, so the site is built from the versions the
+# lockfile names. Not `--silent`: npm silences its *errors* too, and a lockfile
+# npm refuses then fails this recipe in under a second with nothing on screen.
+# `package-lock.json` is generated with npm 10, the version Node 22 ships and CI
+# therefore runs — npm 11 prunes optional transitive packages that npm 10 still
+# expects, and a lockfile written by the newer one is one the older one rejects.
 [group("docs")]
 docs-build: docs-islands
-  @cd website && npm ci --silent && npx astra build
+  @cd website && npm ci --no-audit --no-fund && npx astra build
 
 # the check neither `docs-check` nor `docs-islands` can make: that the built
 # demos are ones a browser hydrates. A wrong `link` format, an island renamed
