@@ -48,6 +48,7 @@ options(
   exclude: [
     "examples",
     "cmd",
+    "website",
     "e2e",
     "backend",
     "moon.work",

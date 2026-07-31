@@ -1,0 +1,21 @@
+import {
+  "poteto0/endor",
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/browser",
+  "poteto0/endor/ffi/js",
+  "poteto0/endor-website-islands/ui",
+  "mizchi/luna/dom" @element,
+  "mizchi/signals",
+  "mizchi/js_browser/dom",
+  "mizchi/js/core" @jsc,
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")
+
+options(
+  // astra hydrates an island by importing the module and calling `hydrate`, so
+  // the package links as an ES module exporting exactly that name
+  link: { "js": { "exports": [ "hydrate" ], "format": "esm" } },
+)

@@ -1,0 +1,18 @@
+{
+  "name": "@poteto0/endor-website",
+  "private": true,
+  "version": "0.4.0",
+  "type": "module",
+  "license": "MIT",
+  "description": "endor.mbt documentation site. Rendered by astra, a static site generator written in MoonBit; deployed to Cloudflare Workers as the `endor-docs` worker.",
+  "scripts": {
+    "build": "astra build",
+    "dev": "astra dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@luna_ui/astra": "0.23.0",
+    "rolldown": "^1.2.1",
+    "wrangler": "^4.42.0"
+  }
+}

@@ -113,6 +113,82 @@ cli-test-coverage:
   @cd cmd && moon coverage clean && moon test --enable-coverage --target native -p poteto0/endor-cli/endor-cli
   @cd cmd && moon coverage report -f summary
 
+# The documentation site: https://endor.poteto-mahiro.com
+#
+# `website/` is markdown rendered by `astra`, a static site generator written in
+# MoonBit, and the live demo on each cookbook page is a package of
+# `website/islands/` compiled to an ES module the page hydrates. So the recipes
+# below are two builds — the MoonBit one, then the site around it.
+
+# the compiled demos. `moon.work` lists `website/islands` as a member, so this
+# resolves `poteto0/endor` from the working tree: what the reader clicks is the
+# SDK as it is now, not as the registry last published it.
+[group("docs")]
+docs-islands:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website/islands"
+  moon build --target {{target}} --release
+  out="{{justfile_directory()}}/website/public/islands"
+  rm -rf "$out" && mkdir -p "$out"
+  built="{{justfile_directory()}}/_build/{{target}}/release/build/poteto0/endor-website-islands"
+  # every package except the shared `ui`, which is a library and links no entry
+  for js in "$built"/*/*.js; do
+    grep -q 'as hydrate' "$js" && cp "$js" "$out/"
+  done
+  ls "$out" | sed 's/^/  /'
+
+[group("docs")]
+docs-build: docs-islands
+  @cd website && npm ci --silent && npx astra build
+
+# serve the site on http://localhost:7777 with the demos wired up
+[group("docs")]
+docs-dev: docs-islands
+  @cd website && npx astra dev
+
+# the documentation site's MoonBit blocks, compiled. `moon test` never reaches
+# markdown in this module (#8), so every example in `website/` would otherwise
+# be prose that nothing proves — and prose about an API rots silently. Each
+# page becomes one package of *this* module, so a snippet resolves the working
+# tree rather than whatever the registry last published, and so two pages may
+# name the same function without colliding.
+#
+# A block that cannot compile on its own — a `fn main`, a fragment, a shell
+# transcript — is tagged ```moonbit no-check and skipped: the info string is
+# matched exactly, so tagging is deliberate rather than accidental.
+[group("ci")]
+docs-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  root="{{justfile_directory()}}"
+  out="$root/_docs_check"
+  trap 'rm -rf "$out"' EXIT
+  rm -rf "$out"
+  pkgs=()
+  while IFS= read -r md; do
+    body=$(awk '
+      /^```moonbit$/   { on = 1; next }
+      /^```/           { on = 0; next }
+      on               { print }
+    ' "$md")
+    [ -n "$body" ] || continue
+    slug=$(printf '%s' "${md#website/}" | sed 's/\.md$//; s#[/_]#-#g')
+    mkdir -p "$out/$slug"
+    printf '%s\n' "$body" > "$out/$slug/main.mbt"
+    cp "$root/website/.docs-check.moon.pkg" "$out/$slug/moon.pkg"
+    pkgs+=("_docs_check/$slug")
+  # only the pages. `islands/` is MoonBit source with its own `.mooncakes`
+  # checkout under it, and every build directory carries a README nobody here
+  # wrote — feeding either to the compiler would check somebody else's docs.
+  done < <(cd "$root" && find website \
+    \( -name node_modules -o -name islands -o -name dist-docs -o -name public \
+       -o -name .mooncakes -o -name _build -o -name target \) -prune \
+    -o -name '*.md' -print | sort)
+  [ ${#pkgs[@]} -gt 0 ] || { echo "error: no \`\`\`moonbit blocks found under website/"; exit 1; }
+  moon check --target {{target}} --deny-warn "${pkgs[@]}"
+  echo "ok: ${#pkgs[@]} documentation pages compile"
+
 # the check the ABI generator itself cannot make: that what it wrote compiles.
 # `moon test` never compiles generated source — it only compares it to a string
 # — which is the same blind spot doc examples have in this repository, and the
@@ -148,11 +224,11 @@ codegen-check:
 
 # what the pre-commit hook runs: formats and regenerates in place
 [group("ci")]
-ci: unit-test fmt check info archive-check cli-check cli-test codegen-check
+ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check
+ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release

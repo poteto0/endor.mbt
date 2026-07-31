@@ -12,6 +12,18 @@ examples/get-address/main.js
 # removes it, but a run that is killed outright leaves behind a package of this
 # module that the next `moon check` and `moon fmt` would pick up
 _codegen_check/
+# the documentation site. `astra` is a MoonBit static-site generator installed
+# from npm, so the site has a `node_modules/`; everything else here is output.
+node_modules/
+website/dist-docs/
+website/.wrangler/
+# where `just docs-build` puts the compiled islands — the live demos on the
+# cookbook pages, built from `website/islands/` by the MoonBit compiler
+website/public/islands/
+# where `just docs-check` puts the code blocks it extracts from the pages. Its
+# `trap` removes it, but a run that is killed outright leaves behind packages of
+# this module that the next `moon check` and `moon fmt` would pick up
+_docs_check/
 # transient files written by the Claude Code permission prompt
 .claude/settings.local.json
 .claude/settings.local.json.tmp.*

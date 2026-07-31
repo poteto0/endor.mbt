@@ -1,0 +1,37 @@
+// The `moon.pkg` `just docs-check` gives every page it extracts. Not a package
+// of its own: it is copied next to each page's generated `main.mbt` under
+// `_docs_check/`, which is scratch and gitignored.
+//
+// Every SDK package is imported whether or not the page spells it, so that
+// adding a snippet never means editing this file.
+
+import {
+  "poteto0/endor",
+  "poteto0/endor/codec",
+  "poteto0/endor/crypto",
+  "poteto0/endor/eip712",
+  "poteto0/endor/abi",
+  "poteto0/endor/contract",
+  "poteto0/endor/contract/erc20",
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/browser",
+  "poteto0/endor/ffi/js",
+}
+
+// The SDK's root is backend-agnostic, `provider/browser` is not, and a package
+// importing the second has to say which targets it supports. Every page here
+// is dapp code, so `js` is the honest answer.
+supported_targets = "js"
+
+// Two warnings are artifacts of *how* a page is compiled rather than anything
+// about the page, and both would otherwise be fatal under `--deny-warn`:
+//
+//   1  unused_value   — a snippet defines a function to show its shape; there
+//                       is no caller, and inventing one would be prose the
+//                       reader did not ask for
+//  29  unused_package — this file imports the whole SDK, so most pages leave
+//                       most of it untouched
+//
+// Everything else stays fatal: an unused binding or an unreachable branch in
+// an example is a defect in the example.
+warnings = "-1-29"

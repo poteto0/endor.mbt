@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "endor-docs",
+  "compatibility_date": "2026-07-01",
+  // A Workers Static Assets deployment: there is no worker script, only the
+  // tree `astra build` wrote. `404-page` is what makes a URL the site does not
+  // have render the site's own 404 rather than a bare Cloudflare one.
+  "assets": {
+    "directory": "./dist-docs",
+    "not_found_handling": "404-page"
+  },
+  // The custom domain. Cloudflare provisions the certificate and the DNS record
+  // for it on the first deploy, so `poteto-mahiro.com` has to already be a zone
+  // on the same account — see `website/README.md`.
+  "routes": [
+    {
+      "pattern": "endor.poteto-mahiro.com",
+      "custom_domain": true
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}

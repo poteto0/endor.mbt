@@ -1,0 +1,21 @@
+import {
+  "poteto0/endor",
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/browser",
+  "poteto0/endor/contract",
+  "poteto0/endor/contract/erc20",
+  "poteto0/endor/ffi/js",
+  "poteto0/endor-website-islands/ui",
+  "mizchi/luna/dom" @element,
+  "mizchi/signals",
+  "mizchi/js_browser/dom",
+  "mizchi/js/core" @jsc,
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")
+
+options(
+  link: { "js": { "exports": [ "hydrate" ], "format": "esm" } },
+)
