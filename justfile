@@ -157,12 +157,16 @@ docs-smoke: docs-build
 docs-dev: docs-islands
   @cd website && npx astra dev
 
-# the documentation site's MoonBit blocks, compiled. `moon test` never reaches
-# markdown in this module (#8), so every example in `website/` would otherwise
-# be prose that nothing proves — and prose about an API rots silently. Each
-# page becomes one package of *this* module, so a snippet resolves the working
-# tree rather than whatever the registry last published, and so two pages may
-# name the same function without colliding.
+# every documented MoonBit example, compiled: the site's pages and the README
+# the registry shows. `moon test` never reaches markdown in this module (#8), so
+# each one would otherwise be prose that nothing proves — and prose about an API
+# rots silently. When this check was written, `README.mbt.md` had two examples
+# that no longer compiled: a package that had moved, and a `catch` that had gone
+# non-exhaustive under a variant added since.
+#
+# Each file becomes one package of *this* module, so a snippet resolves the
+# working tree rather than whatever the registry last published, and so two
+# pages may name the same function without colliding.
 #
 # A block that cannot compile on its own — a `fn main`, a fragment, a shell
 # transcript — is tagged ```moonbit no-check and skipped: the info string is
@@ -177,25 +181,31 @@ docs-check:
   rm -rf "$out"
   pkgs=()
   while IFS= read -r md; do
+    # ```moonbit on the site, where astra highlights it; ```mbt-example in the
+    # README, where `moon fmt` claims every ```moonbit block as a doctest and
+    # rewrites it — inserting `///|` before each definition and retagging it
+    # `nocheck`, which would both uglify the README and turn this check off.
     body=$(awk '
-      /^```moonbit$/   { on = 1; next }
-      /^```/           { on = 0; next }
-      on               { print }
+      /^```(moonbit|mbt-example)$/ { on = 1; next }
+      /^```/                       { on = 0; next }
+      on                           { print }
     ' "$md")
     [ -n "$body" ] || continue
-    slug=$(printf '%s' "${md#website/}" | sed 's/\.md$//; s#[/_]#-#g')
+    slug=$(printf '%s' "${md#website/}" | sed 's/\.mbt\.md$//; s/\.md$//; s#[/_.]#-#g')
     mkdir -p "$out/$slug"
     printf '%s\n' "$body" > "$out/$slug/main.mbt"
     cp "$root/website/.docs-check.moon.pkg" "$out/$slug/moon.pkg"
     pkgs+=("_docs_check/$slug")
-  # only the pages. `islands/` is MoonBit source with its own `.mooncakes`
-  # checkout under it, and every build directory carries a README nobody here
-  # wrote — feeding either to the compiler would check somebody else's docs.
-  done < <(cd "$root" && find website \
+  # the site's pages, plus the published README. `README.md` is a symlink to
+  # `README.mbt.md`, so checking one checks both. `islands/` is MoonBit source
+  # with its own `.mooncakes` checkout under it, and every build directory
+  # carries a README nobody here wrote — feeding either to the compiler would
+  # check somebody else's docs.
+  done < <(cd "$root" && { echo README.mbt.md; find website \
     \( -name node_modules -o -name islands -o -name dist-docs -o -name public \
        -o -name .mooncakes -o -name _build -o -name target \) -prune \
-    -o -name '*.md' -print | sort)
-  [ ${#pkgs[@]} -gt 0 ] || { echo "error: no \`\`\`moonbit blocks found under website/"; exit 1; }
+    -o -name '*.md' -print | sort; })
+  [ ${#pkgs[@]} -gt 0 ] || { echo "error: no \`\`\`moonbit blocks found"; exit 1; }
   moon check --target {{target}} --deny-warn "${pkgs[@]}"
   echo "ok: ${#pkgs[@]} documentation pages compile"
 

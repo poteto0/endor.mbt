@@ -5,7 +5,14 @@
   "title": "endor.mbt",
   "base": "/",
   "trailingSlash": true,
-  "exclude": ["node_modules", "dist-docs", "islands", "target", "_build"],
+  "exclude": [
+    "node_modules",
+    "dist-docs",
+    "islands",
+    "target",
+    "_build",
+    "README.md"
+  ],
   "islands": {
     "dir": "public/islands",
     "basePath": "/islands/"

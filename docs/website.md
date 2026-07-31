@@ -1,0 +1,127 @@
+# The documentation site
+
+<https://endor.poteto-mahiro.com>, whose source is [`website/`](../website/).
+
+Kept here rather than as `website/README.md` because astra renders every markdown
+file it finds under the site root into a page, and its `exclude` list matches
+directories only — a README in there would be published as `/README/`.
+
+Rendered by [astra](https://mooncakes.io/docs/mizchi/astra), a static site
+generator written in MoonBit, and deployed to Cloudflare Workers static assets as
+the `endor-docs` worker.
+
+## Layout
+
+```
+website/
+  astra.config.json   nav, theme, footer, the islands directory
+  page.json           the home page's front matter
+  index.md            the home page
+  00_guide/           install, design, errors
+  01_cookbook/        one page per task, each with a live demo
+  02_reference/       what is wrapped, and what is not
+  islands/            the demos — a MoonBit module (poteto0/endor-website-islands)
+  public/             assets copied verbatim; islands/ under it is generated
+  smoke.mjs           the check that the built demos hydrate
+
+```
+
+Numeric directory prefixes order the sidebar and are stripped from the URL:
+`01_cookbook/02_send-eth.md` is served at `/cookbook/send-eth/`.
+
+## The demos are MoonBit
+
+`islands/` is a separate MoonBit module, for the same reason `examples/` is one:
+the SDK's own `moon.mod` stays free of UI dependencies. Each package links as an
+ES module exporting `hydrate`, which astra calls when the island comes on screen:
+
+```
+website/islands/connect/moon.pkg
+  pkgtype(kind: "executable")
+  options(link: { "js": { "exports": ["hydrate"], "format": "esm" } })
+```
+
+A page embeds one by naming it in its front matter and placing it in the body:
+
+```markdown
+---
+islands:
+  - connect
+---
+
+<Island name="connect" trigger="load" />
+```
+
+`moon.work` at the repository root lists this module, so the demos resolve
+`poteto0/endor` from the working tree — what a reader clicks is the SDK as it is
+now, not as the registry last published it.
+
+`islands/ui` is shared UI and links no entry point, so it is not copied into
+`public/islands/`.
+
+## Recipes
+
+All of them live in the repository's `justfile` and run from its root:
+
+```sh
+just docs-dev      # build the demos, serve the site on localhost:7777
+just docs-build    # build the demos, render the site into website/dist-docs
+just docs-check    # compile every ```moonbit block on the site and in the README
+just docs-smoke    # build, then check in a headless browser that the demos hydrate
+```
+
+`docs-check` runs as part of `just ci` and `just ci-check`, which is also the
+pre-commit hook — it needs only the MoonBit toolchain. `docs-smoke` needs Node and
+a browser, so it runs in its own CI job.
+
+## Adding a page
+
+1. Write the markdown under the right numbered directory.
+2. Tag MoonBit examples ` ```moonbit `. They will be compiled — a block that
+   cannot compile on its own (a `fn main`, a fragment) is tagged
+   ` ```moonbit no-check ` instead.
+3. `just docs-check`.
+
+The sidebar is `"sidebar": "auto"`, so nothing has to be registered.
+
+## Adding a demo
+
+1. `website/islands/<name>/` with a `moon.pkg` copied from an existing one and a
+   `main.mbt` exporting `pub fn hydrate(el, _state)`.
+2. Reference it from a page as above, using `<name>`.
+3. Add the page to `CASES` in `smoke.mjs`.
+4. `just docs-smoke`.
+
+Keep the SDK code in a demo shaped the way the page describes it — the demo is
+the claim that the recipe works.
+
+## Deploying
+
+Pushes to `main` that touch `website/` (or the SDK packages the site is built
+from) deploy through
+[`.github/workflows/deploy-docs.yml`](../.github/workflows/deploy-docs.yml). It
+needs two repository secrets:
+
+| Secret                  | What                                                                   |
+| ----------------------- | ---------------------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | the "Edit Cloudflare Workers" template, scoped to the zone below        |
+| `CLOUDFLARE_ACCOUNT_ID` | the account the worker lives in                                         |
+
+By hand, from `website/`:
+
+```sh
+npx wrangler deploy --dry-run   # validate without publishing
+npx wrangler deploy
+```
+
+### The custom domain
+
+`wrangler.jsonc` declares `endor.poteto-mahiro.com` as a **custom domain** route.
+Cloudflare provisions the DNS record and the certificate on the first deploy,
+which means `poteto-mahiro.com` has to already be a zone on the same Cloudflare
+account. Nothing has to be created in the dashboard first, and no CNAME has to be
+added by hand — but a domain sitting at another registrar's nameservers will not
+work.
+
+The first deploy is therefore the one to watch: after it, `wrangler deployments
+list` and a plain `curl -I https://endor.poteto-mahiro.com` are enough.

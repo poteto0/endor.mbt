@@ -132,6 +132,18 @@ Layout:
 
 - `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
+- `website/` — the documentation site, <https://endor.poteto-mahiro.com>,
+  rendered by `astra` (a static site generator written in MoonBit) and deployed
+  to Cloudflare Workers static assets. `website/islands/` is a separate MoonBit
+  module (`poteto0/endor-website-islands`, listed in `moon.work`) whose packages
+  link as ES modules exporting `hydrate`: the live demo each cookbook page
+  carries is that page's recipe, compiled, driving a real wallet. Like
+  `examples/` it is excluded from the published archive. **Every ` ```moonbit `
+  block on the site and in `README.mbt.md` is compiled by `just docs-check`,
+  which `ci` and `ci-check` run** — `moon test` never reaches markdown here
+  (#8), so that recipe is the only thing keeping a documented call honest. A
+  block that cannot compile on its own is tagged ` ```moonbit no-check `.
+  How to work on it: `docs/website.md`
 - `cmd/` — **experimental, in progress (#48)**: `endor-cli`, the command-line
   tools; `cmd/endor-cli/` is the binary and `abi`, the front end to
   `abi/codegen`, is so far its only real subcommand. How to add one is
