@@ -424,7 +424,7 @@ Not covered: `bytesN` beyond 32, and decoding a log's indexed arguments.
 
 #### Generating a preset from an ABI — experimental
 
-`@codegen.generate(name, abi_json)` (`abi/codegen`) reads a JSON ABI document
+`@codegen.generate(name, document)` (`abi/codegen`) reads a JSON ABI document
 and renders the source of a preset shaped like `@contract.Erc20` — a struct
 wrapping a `Contract`, a method per function, a topic getter per event.
 `endor-cli abi`, its command-line front end, lives in `cmd/`, which is a
@@ -438,9 +438,35 @@ only what it can type without guessing — parameters and single return values o
 `address`, `bool`, `string`, `uintN`, `intN` — and *skips* every other member
 rather than approximating it, naming each one in `Generated::skipped` and in a
 comment in the generated file. Events are exempt, since a topic needs only the
-signature. `constructor`, `fallback`, `receive` and `error` entries are dropped:
-a preset wraps a contract that is already deployed. Read what it produces before
-shipping it.
+signature; `fallback`, `receive` and `error` entries are dropped, since nothing
+generated dispatches to them. Read what it produces before shipping it.
+
+The document may be the JSON array of ABI members or a **compiler artifact**
+holding one — `solc --combined-json abi,bin`, solc's standard JSON, a Foundry
+(`bytecode.object`) or a Hardhat (`bytecode`) artifact. An artifact also carries
+the creation code, and then the generated struct can put a contract on chain
+rather than only call one already there:
+
+| Generated                    | From                | Underneath                    |
+| ---------------------------- | ------------------- | ----------------------------- |
+| `T::new(address)`            | any document        | `Contract::new`               |
+| `T::creation_code()`         | an artifact         | the embedded literal          |
+| `T::deploy(p, from~, …)`     | an artifact         | `@contract.deploy`            |
+
+`deploy` takes the constructor's arguments — `value?` as well, if it is
+`payable` — and answers with the `T` now on chain. It passes none of
+`@contract.deploy`'s waiting knobs: a caller who needs the wait described their
+own way hands `creation_code()` to `@contract.deploy` directly, which is why
+that one is public.
+
+The creation code is validated as hex when the file is generated, so the
+`Hex::from_string` in it cannot fail. Bytecode that *cannot* be deployed is
+skipped with its reason rather than embedded — unlinked library references
+(`__$…$__`), the empty bytecode an interface or an abstract contract compiles
+to, or a constructor taking a type the generator does not translate. An artifact
+holding several contracts is refused by name: one document generates one struct,
+and choosing which contract wears the caller's name is not the generator's
+choice to make.
 
 ### Provider events
 

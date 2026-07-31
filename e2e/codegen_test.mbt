@@ -195,3 +195,78 @@ async test "the topic the fixture yields is the topic the preset uses" {
     )
   })
 }
+
+///|
+/// The artifact fixture, generated once — the same file `just codegen-check`
+/// compiles the output of.
+const ANSWER_FIXTURE = "fixtures/abi/answer.json"
+
+///|
+let cached_artifact : Ref[@codegen.Generated?] = { val: None }
+
+///|
+fn artifact_generated() -> @codegen.Generated raise {
+  match cached_artifact.val {
+    Some(generated) => generated
+    None => {
+      let generated = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))
+      cached_artifact.val = Some(generated)
+      generated
+    }
+  }
+}
+
+///|
+/// What the generated `deploy` does, done against a real chain.
+///
+/// The unit tests compare the emitted `deploy` to expected source and
+/// `just codegen-check` compiles it; neither can say the *bytes* it embedded
+/// are creation code a node accepts. This deploys them — through
+/// `@contract.deploy` with the constructor arguments the generated file
+/// encodes, which is the call that file makes — and then reaches the contract
+/// it created through the ABI the same document declared.
+///
+/// A generator that mangled the hex on its way into the literal, or that
+/// encoded the constructor's argument where the code could not survive it,
+/// fails here and nowhere else.
+async test "the creation code the fixture embeds deploys and answers" {
+  @anvil.on(provider => {
+    let out = artifact_generated()
+    assert_true(out.deploys)
+    assert_eq(out.skipped.join("\n"), "")
+    // the bytes in the generated literal are the fixture's, unmangled
+    assert_true(out.code.contains("\"\{@anvil.answer_contract_code()}\""))
+    let deployed = @contract.deploy(
+      provider,
+      from=@anvil.dev_account(),
+      bytecode=@anvil.answer_contract_code(),
+      inputs=[Uint(256)],
+      args=[Uint(42N)],
+      timeout=5_000,
+      poll_interval=100,
+    )
+    // there is code at the address the receipt named
+    assert_true(@provider.is_contract(provider, deployed.address()))
+    // and `answer()`, the one member the fixture declares, reaches it
+    assert_true(out.members.contains("answer()"))
+    assert_eq(
+      @contract.uint_answer(
+        deployed.call(provider, name="answer", outputs=[Uint(256)]),
+        what="answer",
+      ),
+      42N,
+    )
+  })
+}
+
+///|
+/// A bare ABI document generates no `deploy`, and the fixture the tests above
+/// use is one — so the two fixtures prove opposite halves of the same rule
+/// rather than one of them by accident.
+async test "the ABI fixture generates no deploy" {
+  @anvil.on(_ => {
+    let out = fixture_generated()
+    assert_false(out.deploys)
+    assert_false(out.code.contains("creation_code"))
+  })
+}

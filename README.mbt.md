@@ -45,8 +45,10 @@ moon install poteto0/endor-cli/endor-cli
 ```
 
 It generates MoonBit contract presets from JSON ABI documents
-(`endor-cli init`, then `endor-cli abi`). **Experimental**, and not required to
-use the SDK — [`cmd/README.md`](cmd/README.md) has the details.
+(`endor-cli init`, then `endor-cli abi`). Point it at a compiler *artifact* —
+`solc --combined-json abi,bin`, a Foundry or Hardhat one — and the preset gets a
+`deploy` too, with the creation code embedded. **Experimental**, and not
+required to use the SDK — [`cmd/README.md`](cmd/README.md) has the details.
 
 ## Getting a wallet address
 

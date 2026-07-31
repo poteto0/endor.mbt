@@ -30,19 +30,61 @@ priv struct AbiEvent {
 }
 
 ///|
-/// Everything in an ABI document this generator has anything to say about.
+/// The `constructor` entry: what a deployment has to encode behind the creation
+/// code, and whether it may be handed ether.
 ///
-/// `constructor`, `receive`, `fallback` and `error` entries are dropped while
-/// reading rather than reported as skipped: a preset wraps a contract that is
-/// *already deployed*, so there is nothing for it to generate from them, and
+/// A contract that declares no constructor has one all the same — it takes
+/// nothing and is not payable — so this is not an option. The absence of the
+/// entry and `constructor()` are the same fact about deploying, and folding
+/// them together here is what keeps that out of the emitter.
+priv struct AbiConstructor {
+  inputs : Array[Param]
+  /// `payable` — the constructor accepts ether as the contract is created.
+  payable : Bool
+}
+
+///|
+/// The creation code a document carried, or why there is no `deploy` to
+/// generate from it.
+///
+/// Three cases rather than an option, because "there was never any code here"
+/// and "there was code and it cannot be deployed" are different things to tell
+/// the caller: the first is a bare ABI document and costs no comment, the
+/// second is an artifact whose bytecode this generator will not put on the
+/// wire and belongs in `skipped` with its reason.
+priv enum CreationCode {
+  /// A bare ABI array, or an artifact with no bytecode in it: the document
+  /// never claimed to carry code.
+  Absent
+  /// `0x`-prefixed hex, validated here so that the `Hex::from_string` in the
+  /// generated file cannot fail.
+  Code(String)
+  /// There was bytecode, and this is why nothing is generated from it.
+  Unusable(String)
+}
+
+///|
+/// Everything in a document this generator has anything to say about.
+///
+/// `receive`, `fallback` and `error` entries are dropped while reading rather
+/// than reported as skipped: there is nothing to generate from them, and
 /// listing them as casualties would be noise.
 priv struct Document {
   functions : Array[AbiFunction]
   events : Array[AbiEvent]
+  ctor : AbiConstructor
+  creation_code : CreationCode
 }
 
 ///|
-/// Read an ABI document: the JSON array a compiler emits.
+/// Read a document: either the JSON array of ABI members a compiler emits, or
+/// a compiler *artifact* — the object that carries that array together with the
+/// creation code compiled from the same source.
+///
+/// Both are accepted because they are the same document at different widths,
+/// and which one a caller has says what can be generated rather than whether
+/// anything can: an ABI array describes a contract that is already deployed, an
+/// artifact also says how to deploy one.
 ///
 /// A malformed member stops the whole document rather than being stepped over.
 /// The distinction this package draws throughout is between *what the ABI spec
@@ -50,15 +92,22 @@ priv struct Document {
 /// means the file is not an ABI and nothing read out of it can be trusted, the
 /// second is a judgement call about one member and belongs in `skipped`. Only
 /// the first raises.
-fn Document::parse(abi_json : String) -> Document raise CodegenError {
-  let json = @json.parse(abi_json) catch {
+fn Document::parse(source : String) -> Document raise CodegenError {
+  let json = @json.parse(source) catch {
     e => raise InvalidJson("not JSON: \{e}")
   }
-  guard json is Array(members) else {
-    raise InvalidJson("an ABI is a JSON array of members")
+  let (members, creation_code) = match json {
+    Array(members) => (members, Absent)
+    Object(fields) => read_artifact(fields)
+    _ =>
+      raise InvalidJson(
+        "a document is a JSON array of ABI members or a compiler artifact holding one",
+      )
   }
   let functions = []
   let events = []
+  // a contract that declares no constructor deploys with no arguments
+  let mut ctor = { inputs: [], payable: false }
   for i, entry in members {
     guard entry is Object(fields) else {
       raise InvalidAbi("member \{i} is not an object")
@@ -72,10 +121,186 @@ fn Document::parse(abi_json : String) -> Document raise CodegenError {
     match kind {
       "function" => functions.push(read_function(fields, at=i))
       "event" => events.push(read_event(fields, at=i))
+      "constructor" => ctor = read_constructor(fields, at=i)
       _ => ()
     }
   }
-  { functions, events }
+  { functions, events, ctor, creation_code }
+}
+
+///|
+/// A compiler artifact: the ABI array and the creation code, out of whichever
+/// shape the compiler wrote them in.
+///
+/// The shapes are the same document as spelled by four tools —
+/// `solc --combined-json abi,bin` (`abi` / `bin`, wrapped in `contracts`),
+/// solc's standard JSON (`abi` / `evm.bytecode.object`, wrapped twice), a
+/// Foundry artifact (`abi` / `bytecode.object`) and a Hardhat one
+/// (`abi` / `bytecode`) — so they are read in one place and everything above
+/// this sees one document.
+fn read_artifact(
+  fields : Map[String, Json],
+) -> (Array[Json], CreationCode) raise CodegenError {
+  let contract = single_contract(fields)
+  guard contract.get("abi") is Some(abi) else {
+    raise InvalidJson("this JSON object is not an artifact: it holds no `abi`")
+  }
+  (read_members(abi), read_creation_code(contract))
+}
+
+///|
+/// The one contract an artifact describes.
+///
+/// A per-contract artifact *is* that object; `--combined-json` and standard
+/// JSON instead wrap one or more of them in `contracts`, keyed by
+/// `File.sol:Name` or by file and then name. Several contracts raise rather
+/// than picking one: the caller names the struct that is generated, so
+/// choosing which contract to give that name to would be this generator
+/// guessing at the one thing it was told.
+fn single_contract(
+  fields : Map[String, Json],
+) -> Map[String, Json] raise CodegenError {
+  if fields.contains("abi") {
+    return fields
+  }
+  guard fields.get("contracts") is Some(Object(contracts)) else {
+    raise InvalidJson(
+      "this JSON object is not an artifact: it holds neither `abi` nor `contracts`",
+    )
+  }
+  let found = []
+  for key, value in contracts {
+    guard value is Object(contract) else { continue }
+    if contract.contains("abi") {
+      found.push((key, contract))
+    } else {
+      // standard JSON nests one level deeper: file, then contract name
+      for name, nested in contract {
+        if nested is Object(inner) && inner.contains("abi") {
+          found.push(("\{key}:\{name}", inner))
+        }
+      }
+    }
+  }
+  found.sort_by_key(pair => pair.0)
+  match found {
+    [(_, contract)] => contract
+    [] => raise InvalidJson("this artifact's `contracts` holds no ABI")
+    _ =>
+      raise InvalidJson(
+        "this artifact holds \{found.length()} contracts (\{found.map(pair => pair.0).join(", ")}); generating one struct from it would mean choosing one — compile them apart, or pass one contract's artifact",
+      )
+  }
+}
+
+///|
+/// An artifact's `abi`.
+///
+/// A JSON string holding the array is what `solc --combined-json` wrote before
+/// 0.8.10, and it is still the shape in every artifact produced by one — so it
+/// is parsed rather than refused. Anything else is a document this cannot read.
+fn read_members(abi : Json) -> Array[Json] raise CodegenError {
+  match abi {
+    Array(members) => members
+    String(nested) => {
+      let json = @json.parse(nested) catch {
+        e =>
+          raise InvalidJson(
+            "this artifact's `abi` is a string, and not JSON: \{e}",
+          )
+      }
+      guard json is Array(members) else {
+        raise InvalidJson("this artifact's `abi` is a string holding no array")
+      }
+      members
+    }
+    _ => raise InvalidJson("this artifact's `abi` is not an array of members")
+  }
+}
+
+///|
+/// The creation code out of an artifact, validated as something a generated
+/// file can put on the wire.
+///
+/// It is checked here, once, rather than left for the compiler the caller runs
+/// afterwards or — worse — for the node: what is emitted is a
+/// `Hex::from_string` over a literal, and a literal that is not hex would turn
+/// a bad artifact into generated code that aborts at run time.
+fn read_creation_code(contract : Map[String, Json]) -> CreationCode {
+  guard bytecode_field(contract) is Some(value) else { return Absent }
+  guard value is String(raw) else {
+    return Unusable("its bytecode is not a string")
+  }
+  let hex = if raw.has_prefix("0x") { raw } else { "0x" + raw }
+  // a library the compiler could not resolve is left as `__$<hash>$__` in the
+  // middle of the code — deployable-looking and not deployable
+  if hex.contains("__") {
+    return Unusable(
+      "its bytecode has unlinked library references (`__$…$__`) — link the libraries and regenerate",
+    )
+  }
+  guard @codec.hex_body(hex) is Some(body) else {
+    return Unusable("its bytecode is not hex")
+  }
+  // an interface and an abstract contract both compile to an ABI and to `""`
+  guard body != "" else {
+    return Unusable(
+      "its bytecode is empty — an interface or an abstract contract compiles to no creation code",
+    )
+  }
+  guard body.length() % 2 == 0 else {
+    return Unusable("its bytecode has an odd number of hex digits")
+  }
+  Code(hex)
+}
+
+///|
+/// Wherever the compiler put the creation code.
+///
+/// Answered as `Json` rather than as a string so that a key that is present
+/// and holds something else is reported as unusable instead of read as absent:
+/// an artifact that says `bytecode` and means it deserves a reason, not
+/// silence.
+fn bytecode_field(contract : Map[String, Json]) -> Json? {
+  match contract.get("bytecode") {
+    // Foundry wraps it in an object, Hardhat writes the string
+    Some(Object(bytecode)) => bytecode.get("object")
+    Some(value) => Some(value)
+    None =>
+      match contract.get("evm") {
+        // solc's standard JSON
+        Some(Object(evm)) =>
+          match evm.get("bytecode") {
+            Some(Object(bytecode)) => bytecode.get("object")
+            other => other
+          }
+        // `--combined-json bin`
+        _ => contract.get("bin")
+      }
+  }
+}
+
+///|
+/// The `constructor` entry.
+///
+/// Its `name` is not read because it has none, and its `outputs` are not read
+/// because a constructor returns the contract rather than a value. What is left
+/// is what a deployment needs: the arguments to encode, and whether ether may
+/// ride along.
+fn read_constructor(
+  fields : Map[String, Json],
+  at~ : Int,
+) -> AbiConstructor raise CodegenError {
+  let payable = match fields.get("stateMutability") {
+    Some(String(s)) => s == "payable"
+    // pre-0.6 ABIs say `payable: true` instead
+    None => fields.get("payable") is Some(True)
+    Some(_) =>
+      raise InvalidAbi(
+        "the constructor at index \{at} has a non-string `stateMutability`",
+      )
+  }
+  { inputs: read_params(fields, "inputs", of="the constructor"), payable }
 }
 
 ///|

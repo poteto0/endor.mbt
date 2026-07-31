@@ -119,12 +119,48 @@ $ endor-cli abi
 endor-cli abi — EXPERIMENTAL
   ...
 erc20.abi -> ./outputs/erc20.mbt  (Erc20, 11 members)
+answer.json -> ./outputs/answer.mbt  (Answer, 1 members, deployable)
 wrote ./outputs/moon.pkg
 ```
 
 One input file becomes one output file, named after it: `erc20.abi` generates
 `erc20.mbt` holding `pub struct Erc20`. A `moon.pkg` is written alongside if
 there is not one already; an existing one is never touched, only reported on.
+
+### Deployable presets
+
+An input may be the JSON array of ABI members, or a **compiler artifact**
+holding one:
+
+```sh
+solc --combined-json abi,bin Token.sol > abi/token.json   # solc
+cp out/Token.sol/Token.json abi/token.json                # Foundry
+cp artifacts/…/Token.json abi/token.json                  # Hardhat
+```
+
+An artifact carries the creation code as well as the ABI, and that is what
+`deployable` in the output above means: the generated struct gets a
+`creation_code()` and a `deploy`, so the file can put the contract on chain
+rather than only call one already there.
+
+```moonbit
+let token = Token::deploy(wallet, from=me, initial_supply=1_000N)
+println("deployed at \{token.address()}")
+```
+
+`deploy` takes the constructor's arguments — and `value?`, if the constructor is
+`payable` — and waits for the receipt, because the address does not exist until
+the transaction is mined. It passes none of `@contract.deploy`'s waiting knobs:
+if you need the wait described your own way, hand `Token::creation_code()` to
+`@contract.deploy` yourself.
+
+Bytecode that cannot be deployed is **skipped** with its reason rather than
+embedded: unlinked library references (`__$…$__` — link the libraries and
+regenerate), the empty bytecode an interface or an abstract contract compiles
+to, or a constructor taking a type the generator does not translate. The ABI's
+other members are still generated. An artifact holding several contracts is
+refused by name — one document generates one struct, and which contract gets the
+name is not the generator's call.
 
 ### What it generates, and what it will not
 
@@ -137,9 +173,9 @@ approximated: a signature that looks right and hashes to a selector no contract
 answers is worse than no signature at all. Reach those members through
 `@contract.Contract::call` / `send`, which take the `AbiType`s directly.
 
-Events are exempt, because a topic needs only the signature. `constructor`,
-`fallback`, `receive` and `error` entries are dropped — a preset wraps a
-contract that is already deployed.
+Events are exempt, because a topic needs only the signature. The `constructor`
+is read only for `deploy`, above; `fallback`, `receive` and `error` entries are
+dropped, since nothing generated dispatches to them.
 
 **Read what it produces before you ship it.** The generator can tell that a
 document is not an ABI; it cannot tell that the ABI is not the contract at the

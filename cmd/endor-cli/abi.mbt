@@ -60,6 +60,12 @@ fn print_abi_usage() -> Unit {
       #|there is not one already. An existing `moon.pkg` is never touched, only
       #|reported on.
       #|
+      #|An input may be the JSON array of ABI members, or a compiler artifact
+      #|holding one — `solc --combined-json abi,bin`, solc's standard JSON, a
+      #|Foundry or a Hardhat artifact. An artifact also carries the creation
+      #|code, and then the generated struct gets a `deploy` as well: the file
+      #|can put the contract on chain, not only call one already there.
+      #|
       #|Exits non-zero if any document could not be generated; the ones that
       #|could are still written.
     ),
@@ -171,8 +177,12 @@ fn generate_one(input : String, config : Config) -> Result[Int, String] {
   @fs.write_string_to_file(out, generated.code) catch {
     e => return Err("cannot write \{out}: \{@debug.to_string(e)}")
   }
+  // whether the document carried creation code is the one thing about the
+  // output a caller cannot tell from the input's name: the same contract's ABI
+  // and its artifact are both JSON and both generate a file
+  let deploys = if generated.deploys { ", deployable" } else { "" }
   println(
-    "\{input} -> \{out}  (\{name}, \{generated.members.length()} members)",
+    "\{input} -> \{out}  (\{name}, \{generated.members.length()} members\{deploys})",
   )
   for line in generated.skipped {
     println("  skipped \{line}")

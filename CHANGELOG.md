@@ -42,6 +42,19 @@ applies.
 
 ### Added
 
+- **Experimental:** `abi/codegen` reads a compiler **artifact** as well as a
+  bare ABI array — `solc --combined-json abi,bin`, solc's standard JSON, a
+  Foundry or a Hardhat artifact — and an artifact carries the creation code, so
+  the generated struct gets a `creation_code()` and a `deploy` over
+  `@contract.deploy` that takes the constructor's arguments and answers with the
+  contract it created. `Generated::deploys` says whether it did, and
+  `endor-cli abi` reports it per file. The code is validated as hex while
+  generating, so the generated `Hex::from_string` cannot fail; bytecode that
+  cannot be deployed — unlinked libraries, the empty bytecode of an interface, a
+  constructor this generator cannot type — is *skipped* with its reason, like
+  any other member. An artifact holding several contracts is refused by name
+  rather than resolved. `generate`'s second parameter is now `document` rather
+  than `abi_json`. (#67)
 - Contract deployment: `@contract.deploy` sends the creation code with its
   constructor arguments encoded behind it, waits for the receipt and answers
   with the `Contract` now at the address it names; `send_deployment` is the same

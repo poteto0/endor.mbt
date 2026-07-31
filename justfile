@@ -125,7 +125,10 @@ codegen-check:
   scratch=$(mktemp -d)
   trap 'rm -rf "$scratch" "{{justfile_directory()}}/_codegen_check"' EXIT
   mkdir -p "$scratch/abi"
-  cp fixtures/abi/*.abi "$scratch/abi/"
+  # both shapes an input comes in: the ABI array, and a compiler artifact
+  # carrying the creation code as well — the second is the only one that
+  # generates a `deploy`, so it is the only one that compiles one
+  cp fixtures/abi/*.abi fixtures/abi/*.json "$scratch/abi/"
   printf 'version: v%s\nabi:\n  in: ./abi\n  out: ./outputs\n' \
     "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)" > "$scratch/endor.yaml"
   cd cmd && moon build --target native && cd ..

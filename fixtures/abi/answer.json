@@ -1,0 +1,33 @@
+{
+  "_comment": [
+    "A compiler artifact — an ABI and the creation code compiled from the same",
+    "source — in the shape Foundry writes one. It is what proves `endor-cli abi`",
+    "generates a `deploy`, in `just codegen-check` and against a real EVM in",
+    "`e2e/codegen_test.mbt`.",
+    "",
+    "The bytecode is `backend/anvil`'s answer contract, whose runtime returns the",
+    "word 42 for any calldata: `600a600c600039600a6000f3` copies the 10 runtime",
+    "bytes at offset 12 and returns them. It has no constructor of its own, which",
+    "is exactly why the declared one is safe — a constructor's arguments are",
+    "appended behind the creation code, and this code stops before it reads them.",
+    "So a deployment that encodes `_initial` wrongly still deploys, and it is",
+    "`answer()` coming back as 42 that says the SDK reached a contract at all."
+  ],
+  "abi": [
+    {
+      "type": "constructor",
+      "stateMutability": "nonpayable",
+      "inputs": [{ "internalType": "uint256", "name": "_initial", "type": "uint256" }]
+    },
+    {
+      "type": "function",
+      "name": "answer",
+      "stateMutability": "view",
+      "inputs": [],
+      "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }]
+    }
+  ],
+  "bytecode": {
+    "object": "0x600a600c600039600a6000f3602a60005260206000f3"
+  }
+}
