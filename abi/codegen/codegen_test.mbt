@@ -370,11 +370,21 @@ test "generate: a payable function takes the value it is sent" {
 }
 
 ///|
-test "generate: a document that is not an ABI raises" {
+test "generate: a document that is neither an ABI nor an artifact raises" {
   try @codegen.generate("Erc20", "{ }") catch {
-    e => inspect(e, content="InvalidJson(an ABI is a JSON array of members)")
+    e =>
+      inspect(
+        e,
+        content="InvalidJson(this JSON object is not an artifact: it holds neither `abi` nor `contracts`)",
+      )
   } noraise {
-    _ => fail("expected a JSON array to be required")
+    _ => fail("expected an object to have to be an artifact")
+  }
+  // a JSON value that is neither shape at all
+  try @codegen.generate("Erc20", "42") catch {
+    e => assert_true(e is InvalidJson(_))
+  } noraise {
+    _ => fail("expected a bare number to raise")
   }
   try @codegen.generate("Erc20", "nope") catch {
     e => assert_true(e is InvalidJson(_))
@@ -974,4 +984,422 @@ test "generate: the type a call declares is the type the ABI said" {
     .join(", ")
   assert_eq(declared, "Address, Bool, String, Uint(8), Int(128)")
   assert_true(out.code.contains("inputs=[\{declared}]"))
+}
+
+///|
+/// A compiler artifact — the ABI *and* the creation code compiled from the same
+/// source — as Foundry writes one.
+///
+/// The bytecode is real, and small enough to read: it is the creation code
+/// `backend/anvil` deploys as its answer contract. `e2e/codegen_test.mbt`
+/// deploys these same bytes to a real EVM, which is the half no comparison of
+/// source text can make.
+let counter_artifact : String =
+  #|{
+  #|  "abi": [
+  #|    {
+  #|      "type": "constructor",
+  #|      "stateMutability": "nonpayable",
+  #|      "inputs": [{ "name": "_start", "type": "uint256" }]
+  #|    },
+  #|    {
+  #|      "type": "function",
+  #|      "name": "count",
+  #|      "stateMutability": "view",
+  #|      "inputs": [],
+  #|      "outputs": [{ "name": "", "type": "uint256" }]
+  #|    }
+  #|  ],
+  #|  "bytecode": {
+  #|    "object": "0x600a600c600039600a6000f3602a60005260206000f3"
+  #|  }
+  #|}
+
+///|
+/// The creation code an artifact carries is embedded as a literal, and it is
+/// embedded as hex the generated `Hex::from_string` cannot fail on.
+test "generate: an artifact's creation code is embedded" {
+  let out = @codegen.generate("Counter", counter_artifact)
+  assert_true(out.deploys)
+  assert_true(
+    out.code.contains(
+      (
+        #|pub fn Counter::creation_code() -> @types.Hex {
+        #|  // validated as hex when this file was generated
+        #|  @types.Hex::from_string("0x600a600c600039600a6000f3602a60005260206000f3") catch {
+        #|    _ => abort("generated creation code is not hex")
+        #|  }
+        #|}
+      ),
+    ),
+  )
+  // the ABI's own members are generated exactly as they are without it
+  assert_eq(out.members, ["count()"])
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// The constructor's arguments are what `deploy` takes, encoded behind the
+/// creation code with no selector in front of them.
+test "generate: an artifact deploys through @contract.deploy" {
+  let out = @codegen.generate("Counter", counter_artifact)
+  assert_true(
+    out.code.contains(
+      (
+        #|pub async fn[P : @provider.Provider] Counter::deploy(
+        #|  provider : P,
+        #|  from~ : @types.Address,
+        #|  start~ : BigInt,
+        #|) -> Counter raise @contract.ContractError {
+        #|  let deployed = @contract.deploy(
+        #|    provider,
+        #|    from~,
+        #|    bytecode=Counter::creation_code(),
+        #|    inputs=[Uint(256)],
+        #|    args=[Uint(start)],
+        #|  )
+        #|  Counter::{ contract: deployed }
+        #|}
+      ),
+    ),
+  )
+  // `deploy` makes the contract, so there is no `self` to make it on
+  assert_false(out.code.contains("Counter::deploy(\n  self"))
+}
+
+///|
+/// A bare ABI array carries no code, so nothing is deployed from it — and
+/// nothing is reported as missing either, since the document never claimed to
+/// hold any.
+test "generate: an ABI document deploys nothing and says nothing" {
+  let out = @codegen.generate("Erc20", erc20_abi)
+  assert_false(out.deploys)
+  assert_false(out.code.contains("creation_code"))
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// `deploy` and `creation_code` are the template's, whether or not this document
+/// filled them in: the same ABI passed again as an artifact must generate the
+/// same members, so a contract with a `deploy()` of its own is skipped either
+/// way.
+test "generate: a function cannot take the name deploy, code or no code" {
+  let abi =
+    #|[
+    #|  { "type": "function", "name": "deploy", "stateMutability": "nonpayable",
+    #|    "inputs": [], "outputs": [] },
+    #|  { "type": "function", "name": "creationCode", "stateMutability": "view",
+    #|    "inputs": [], "outputs": [{ "name": "", "type": "uint256" }] }
+    #|]
+  let out = @codegen.generate("Odd", abi)
+  assert_false(out.deploys)
+  assert_eq(out.members, [])
+  assert_eq(out.skipped.length(), 2)
+  assert_true(out.skipped[0].contains("`deploy` is already taken"))
+  assert_true(out.skipped[1].contains("`creation_code` is already taken"))
+}
+
+///|
+/// A constructor's parameter is renamed exactly as a method's is: `from` is the
+/// account that signs the deployment, so a constructor that named an argument
+/// `from` gets it back one underscore longer.
+test "generate: a constructor parameter moves out of the sender's way" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|{
+      #|  "abi": [{ "type": "constructor", "stateMutability": "payable",
+      #|            "inputs": [{ "name": "from", "type": "address" }] }],
+      #|  "bytecode": "0x60006000"
+      #|}
+    ),
+  )
+  assert_true(
+    out.code.contains(
+      (
+        #|  from~ : @types.Address,
+        #|  from_~ : @types.Address,
+        #|  value? : @types.Wei,
+      ),
+    ),
+  )
+  // a `payable` constructor is handed the ether it was sent
+  assert_true(out.code.contains("args=[Address(from_)],\n    value?,\n"))
+}
+
+///|
+/// An artifact with no `constructor` entry still deploys: a contract that
+/// declares none has one taking nothing.
+test "generate: a contract that declares no constructor still deploys" {
+  let out = @codegen.generate(
+    "Bare",
+    (
+      #|{ "abi": [], "bytecode": "0x60006000" }
+    ),
+  )
+  assert_true(out.deploys)
+  assert_true(
+    out.code.contains(
+      (
+        #|pub async fn[P : @provider.Provider] Bare::deploy(
+        #|  provider : P,
+        #|  from~ : @types.Address,
+        #|) -> Bare raise @contract.ContractError {
+        #|  let deployed = @contract.deploy(
+        #|    provider,
+        #|    from~,
+        #|    bytecode=Bare::creation_code(),
+        #|  )
+        #|  Bare::{ contract: deployed }
+        #|}
+      ),
+    ),
+  )
+}
+
+///|
+/// Every shape a compiler writes the same two facts in is read as the same
+/// document.
+test "read: the artifact shapes every compiler emits" {
+  let shapes = [
+    // Hardhat: the bytecode is the string itself
+    (
+      "hardhat",
+      (
+        #|{ "abi": [], "bytecode": "0x6001" }
+      ),
+    ),
+    // solc's standard JSON, per contract
+    (
+      "standard json",
+      (
+        #|{ "abi": [], "evm": { "bytecode": { "object": "6001" } } }
+      ),
+    ),
+    // `solc --combined-json abi,bin`, whose `abi` is a JSON *string* and whose
+    // contracts are keyed by `File.sol:Name`
+    (
+      "combined json",
+      (
+        #|{ "contracts": { "Foo.sol:Foo": { "abi": "[]", "bin": "6001" } } }
+      ),
+    ),
+    // solc's standard JSON output, wrapped by file and then by name
+    (
+      "standard json output",
+      (
+        #|{ "contracts": { "Foo.sol": { "Foo": {
+        #|  "abi": [], "evm": { "bytecode": { "object": "6001" } } } } } }
+      ),
+    ),
+  ]
+  for shape in shapes {
+    let out = @codegen.generate("Foo", shape.1)
+    assert_true(out.deploys)
+    // the `0x` a compiler leaves off is what `Hex` requires
+    assert_true(out.code.contains("from_string(\"0x6001\")"), msg=shape.0)
+  }
+}
+
+///|
+/// An artifact holding several contracts is refused rather than resolved: one
+/// document generates one struct, under the name the caller gave, and choosing
+/// which contract wears it is not this generator's choice to make.
+test "read: an artifact of several contracts says which they are" {
+  let combined =
+    #|{ "contracts": {
+    #|  "Token.sol:Token": { "abi": [], "bin": "6001" },
+    #|  "Vault.sol:Vault": { "abi": [], "bin": "6002" }
+    #|} }
+  try @codegen.generate("Token", combined) catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidJson(this artifact holds 2 contracts (Token.sol:Token, Vault.sol:Vault); " +
+          "generating one struct from it would mean choosing one — compile them apart, or pass one contract's artifact)",
+      )
+  } noraise {
+    _ => fail("expected several contracts to be refused")
+  }
+}
+
+///|
+/// Bytecode that cannot be deployed is `skipped`, not raised: the file is not
+/// broken — the ABI's twenty methods are still worth generating — it is this
+/// one thing that cannot be done with it.
+test "read: bytecode that cannot be deployed is skipped with a reason" {
+  let cases = [
+    // a library the linker never filled in
+    (
+      (
+        #|{ "abi": [], "bytecode": "0x6001__$3f2a1c$__6002" }
+      ),
+      "unlinked library references",
+    ),
+    // what an interface or an abstract contract compiles to
+    (
+      (
+        #|{ "abi": [], "bytecode": "0x" }
+      ),
+      "its bytecode is empty",
+    ),
+    (
+      (
+        #|{ "abi": [], "bin": "" }
+      ),
+      "its bytecode is empty",
+    ),
+    // half a byte
+    (
+      (
+        #|{ "abi": [], "bytecode": "0x601" }
+      ),
+      "odd number of hex digits",
+    ),
+    (
+      (
+        #|{ "abi": [], "bytecode": "0xnothex" }
+      ),
+      "is not hex",
+    ),
+  ]
+  for case in cases {
+    let out = @codegen.generate("Foo", case.0)
+    assert_false(out.deploys)
+    assert_false(out.code.contains("creation_code"))
+    assert_eq(out.skipped.length(), 1)
+    assert_true(out.skipped[0].contains(case.1), msg=case.0)
+    // and it is in the file the caller reads, not only in the CLI's output
+    assert_true(out.code.contains("//   - `deploy`:"))
+  }
+}
+
+///|
+/// An artifact that simply holds no bytecode — `--combined-json abi` on its own
+/// — is an ABI document that came in an object. Nothing is deployed and nothing
+/// is reported: it never said it could be.
+test "read: an artifact with no bytecode is an ABI document" {
+  let out = @codegen.generate(
+    "Foo",
+    (
+      #|{ "abi": [{ "type": "function", "name": "paused",
+      #|            "stateMutability": "view", "inputs": [],
+      #|            "outputs": [{ "name": "", "type": "bool" }] }] }
+    ),
+  )
+  assert_false(out.deploys)
+  assert_eq(out.members, ["paused()"])
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// A constructor taking a type this generator does not translate costs the
+/// `deploy` and nothing else — the same judgement `function_block` makes, said
+/// about the one member that cannot be reached through
+/// `@contract.Contract::call` afterwards.
+test "read: a constructor this generator cannot type skips only deploy" {
+  let out = @codegen.generate(
+    "Blob",
+    (
+      #|{
+      #|  "abi": [
+      #|    { "type": "constructor", "stateMutability": "nonpayable",
+      #|      "inputs": [{ "name": "salt", "type": "bytes32" }] },
+      #|    { "type": "function", "name": "paused", "stateMutability": "view",
+      #|      "inputs": [], "outputs": [{ "name": "", "type": "bool" }] }
+      #|  ],
+      #|  "bytecode": "0x6001"
+      #|}
+    ),
+  )
+  assert_false(out.deploys)
+  assert_eq(out.members, ["paused()"])
+  assert_eq(out.skipped, [
+    "`constructor(bytes32)`: parameter 0 is `bytes32`, which is not generated — so no `deploy` was either; `creation_code()` still is, for `@contract.deploy`",
+  ])
+  // the escape hatch the file must not lose: this is precisely the caller who
+  // has to deploy by hand, so the bytes stay
+  assert_true(out.code.contains("pub fn Blob::creation_code() -> @types.Hex {"))
+  assert_false(out.code.contains("Blob::deploy("))
+}
+
+///|
+/// A `bytecode` that is not a string is a document no compiler wrote, so it
+/// stops the file rather than costing it a `deploy` — the same line every other
+/// wrong-typed field in an ABI is held to.
+test "read: a bytecode that is not a string raises" {
+  try
+    @codegen.generate(
+      "Foo",
+      (
+        #|{ "abi": [], "bytecode": 6001 }
+      ),
+    )
+  catch {
+    e =>
+      inspect(e, content="InvalidAbi(this artifact's bytecode is not a string)")
+  } noraise {
+    _ => fail("expected a numeric bytecode to raise")
+  }
+}
+
+///|
+/// A contract has one constructor. Two is not something a compiler emits, and
+/// letting the last one win would encode the wrong arguments into a deployment
+/// that cannot be re-run — so it is refused rather than resolved.
+test "read: two constructors raise" {
+  try
+    @codegen.generate(
+      "Twice",
+      (
+        #|{ "abi": [
+        #|  { "type": "constructor", "inputs": [{ "name": "a", "type": "uint256" }] },
+        #|  { "type": "constructor", "inputs": [{ "name": "b", "type": "address" }] }
+        #|], "bytecode": "0x6001" }
+      ),
+    )
+  catch {
+    e =>
+      inspect(
+        e,
+        content="InvalidAbi(this ABI declares more than one constructor)",
+      )
+  } noraise {
+    _ => fail("expected two constructors to raise")
+  }
+}
+
+///|
+/// A pre-0.6 ABI says `payable: true` where a later one says
+/// `stateMutability`, and a constructor is where that mattered most: getting it
+/// wrong drops the ether a deployment was funded with.
+test "read: a pre-0.6 constructor still says it is payable" {
+  let out = @codegen.generate(
+    "Old",
+    (
+      #|{ "abi": [{ "type": "constructor", "payable": true, "inputs": [] }],
+      #|  "bytecode": "0x6001" }
+    ),
+  )
+  assert_true(out.code.contains("  value? : @types.Wei,\n"))
+}
+
+///|
+/// A constructor is read now, so a constructor no compiler could have emitted
+/// stops the document exactly as a function's would: the file is not an ABI, and
+/// nothing else in it is more trustworthy than that entry.
+test "read: a constructor declaring a type that cannot exist raises" {
+  try
+    @codegen.generate(
+      "Odd",
+      (
+        #|{ "abi": [{ "type": "constructor", "inputs": [
+        #|  { "name": "n", "type": "uint7" }] }], "bytecode": "0x6001" }
+      ),
+    )
+  catch {
+    e => assert_true(e is InvalidAbi(_))
+  } noraise {
+    _ => fail("expected `uint7` in a constructor to raise")
+  }
 }

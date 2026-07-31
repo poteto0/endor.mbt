@@ -315,3 +315,33 @@ test "init reports a config that is already there and is broken" {
   @fs.write_string_to_file(join(dir, "endor.yaml"), "abi:\n  out: gen\n")
   assert_eq(init_in(dir), 1)
 }
+
+///|
+/// The other fixture: a compiler artifact, which carries the creation code as
+/// well and therefore generates a contract the caller can put on chain.
+const ARTIFACT_FIXTURE = "../fixtures/abi/answer.json"
+
+///|
+/// An artifact goes through the same pipeline as a bare ABI, and what it adds
+/// is a `deploy`.
+///
+/// It reads the repository's fixture for the same reason the ERC-20 test does:
+/// the file `just codegen-check` compiles the output of is the file this points
+/// at, so a fixture that stops being an artifact fails here first.
+test "an artifact generates a contract that can be deployed" {
+  let out = fresh("artifact-out")
+  let config = {
+    version: None,
+    abi_in: given("artifact-in", [
+      ("answer.json", @fs.read_file_to_string(ARTIFACT_FIXTURE)),
+    ]),
+    abi_out: out,
+  }
+  assert_eq(generate_all(config), 0)
+  let code = @fs.read_file_to_string(join(out, "answer.mbt"))
+  assert_true(code.contains("pub fn Answer::creation_code() -> @types.Hex {"))
+  assert_true(
+    code.contains("pub async fn[P : @provider.Provider] Answer::deploy("),
+  )
+  assert_true(code.contains("bytecode=Answer::creation_code(),"))
+}

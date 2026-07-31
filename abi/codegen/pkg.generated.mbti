@@ -23,6 +23,7 @@ pub(all) struct Generated {
   code : String
   members : Array[String]
   skipped : Array[String]
+  deploys : Bool
 }
 
 // Type aliases

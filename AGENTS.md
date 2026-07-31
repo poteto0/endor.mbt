@@ -91,7 +91,12 @@ Layout:
   `types`, `codec` and `crypto` and on no transport, so calldata can be built
   with no provider in hand
 - `abi/codegen/` — **experimental, in progress (#48)**: renders the *source* of
-  a `Contract` preset from a JSON ABI document. It emits text and nothing else,
+  a `Contract` preset from a JSON ABI document, or from a compiler *artifact*
+  (`solc --combined-json`, standard JSON, Foundry, Hardhat), which carries the
+  creation code as well and so also generates a `creation_code()` and a
+  `deploy`. Bytecode is validated as hex while generating, which is what lets
+  the generated `Hex::from_string` be infallible; bytecode that cannot be
+  deployed is skipped with its reason, never embedded. It emits text and nothing else,
   so it depends on `abi` (to resolve and validate the declared types) and on
   neither `contract` nor `provider`, whose names it only ever spells. It
   translates what it can type unambiguously and skips the rest by name rather

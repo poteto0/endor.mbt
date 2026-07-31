@@ -19,6 +19,15 @@ pub(all) struct Generated {
   members : Array[String]
   /// One line per ABI member left out, saying which and why.
   skipped : Array[String]
+  /// Whether the file holds a `deploy`, which is whether the document was an
+  /// artifact carrying creation code this generator would put on the wire.
+  ///
+  /// False for a bare ABI document — there is nothing to deploy, and nothing
+  /// was left out either. False *with* a line in `skipped` for an artifact
+  /// whose bytecode cannot be deployed: unlinked libraries, an interface that
+  /// compiled to none, a constructor taking a type this generator does not
+  /// translate.
+  deploys : Bool
 }
 
 ///|
@@ -36,9 +45,15 @@ pub(all) struct Generated {
 /// values — is **skipped**, not approximated: emitting a plausible-looking
 /// wrong signature would be worse than emitting nothing, and
 /// `@contract.Contract::call` still reaches it by hand. Events are exempt,
-/// since a topic needs only the signature; `constructor`, `fallback`,
-/// `receive` and `error` entries are dropped, because a preset wraps a
-/// contract that is already deployed.
+/// since a topic needs only the signature; `fallback`, `receive` and `error`
+/// entries are dropped, since nothing generated dispatches to them.
+///
+/// `document` is either the JSON array of ABI members or a compiler
+/// **artifact** holding one — `solc --combined-json abi,bin`, solc's standard
+/// JSON, a Foundry or Hardhat artifact. An artifact also carries the creation
+/// code, and then two more things are generated: a `creation_code()` and a
+/// `deploy` over `@contract.deploy`, which takes the constructor's arguments
+/// and answers with the contract it created.
 ///
 /// ```
 /// let out = @codegen.generate("Erc20", abi_json)
@@ -49,18 +64,40 @@ pub(all) struct Generated {
 /// ```
 pub fn generate(
   name : String,
-  abi_json : String,
+  document : String,
 ) -> Generated raise CodegenError {
   guard is_type_ident(name) else {
     raise InvalidName("`\{name}` is not a MoonBit type name")
   }
-  let doc = Document::parse(abi_json)
+  let doc = Document::parse(document)
   let members = []
   let skipped = []
   let blocks = [preamble(name)]
-  // `new` and `address` are the template's own methods, so nothing generated
-  // may take those names
-  let taken = Set::Set(["new", "address"][:])
+  // the template's own methods, so nothing generated may take those names.
+  // `deploy` and `creation_code` are reserved whether or not there is code to
+  // put in them: which members a document generates must not change when the
+  // same ABI is passed again as an artifact
+  let taken = Set::Set(["new", "address", "creation_code", "deploy"][:])
+  // the constructor comes first in the file for the same reason it comes first
+  // in the contract's life
+  let mut deploys = false
+  match doc.creation_code {
+    Absent => ()
+    Unusable(reason) => skipped.push("`deploy`: \{reason}")
+    Code(code) => {
+      // the code goes in whether or not a `deploy` does: a constructor this
+      // generator cannot type is exactly the caller who needs to reach
+      // `@contract.deploy` themselves, and the bytes are what they need for it
+      blocks.push(creation_code_block(name, code))
+      match deploy_block(name, doc.ctor) {
+        Ok(block) => {
+          blocks.push(block)
+          deploys = true
+        }
+        Err(reason) => skipped.push(reason)
+      }
+    }
+  }
   for f in doc.functions {
     match function_block(name, f, taken) {
       Ok((signature, block)) => {
@@ -82,7 +119,7 @@ pub fn generate(
   if !skipped.is_empty() {
     blocks.push(skipped_note(skipped))
   }
-  { code: blocks.join("\n"), members, skipped }
+  { code: blocks.join("\n"), members, skipped, deploys }
 }
 
 ///|

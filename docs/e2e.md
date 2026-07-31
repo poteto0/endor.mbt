@@ -100,6 +100,14 @@ teeth. The fixture it reads, `fixtures/abi/erc20.abi`, is the same file
 `just codegen-check` runs the CLI against, so a change to one is caught by the
 other.
 
+`fixtures/abi/answer.json` is the second half of the same arrangement: a
+compiler *artifact*, so the generator emits a `deploy` from it, and the file
+deploys the creation code it embedded — the answer contract's — through
+`@contract.deploy` with the constructor arguments the generated file encodes.
+Compiling that `deploy` is `just codegen-check`'s job; putting its bytes on a
+real chain is this one's, and it is the only check that the hex reached the
+generated literal intact.
+
 Tests share one chain and run concurrently, so assertions are about what a
 fresh chain guarantees (a nonce *grows*, it does not become exactly `n + 1`),
 and the shim is installed once rather than per test. The shim also queues

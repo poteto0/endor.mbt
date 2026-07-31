@@ -195,3 +195,53 @@ async test "the topic the fixture yields is the topic the preset uses" {
     )
   })
 }
+
+///|
+/// The other fixture: a compiler artifact, so the generator embeds its creation
+/// code and emits a `deploy`. The same file `just codegen-check` compiles the
+/// output of.
+const ANSWER_FIXTURE = "fixtures/abi/answer.json"
+
+///|
+/// The creation code the generator embedded, put on a real chain.
+///
+/// The unit tests compare the emitted `deploy` to expected source and
+/// `just codegen-check` compiles it. Neither can say the *bytes* that reached
+/// the literal are still creation code a node accepts — a generator that lost a
+/// digit on the way in emits a file that compiles, formats and deploys nothing.
+/// So the literal is checked against the bytes the fixture holds, and those
+/// bytes are deployed and called.
+///
+/// The deployment is `@contract.deploy` spelled out rather than the generated
+/// `deploy` itself, because `e2e/` cannot compile MoonBit the generator wrote
+/// mid-suite; it is the same call the emitted body makes, and the assertion
+/// above it is what ties the two together.
+async test "the creation code the fixture embeds deploys and answers" {
+  @anvil.on(provider => {
+    let out = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))
+    assert_true(out.deploys)
+    assert_eq(out.skipped.join("\n"), "")
+    // the bytes in the generated literal are the fixture's, unmangled
+    assert_true(out.code.contains("\"\{@anvil.answer_contract_code()}\""))
+    let deployed = @contract.deploy(
+      provider,
+      from=@anvil.dev_account(),
+      bytecode=@anvil.answer_contract_code(),
+      inputs=[Uint(256)],
+      args=[Uint(42N)],
+      timeout=5_000,
+      poll_interval=100,
+    )
+    // there is code at the address the receipt named
+    assert_true(@provider.is_contract(provider, deployed.address()))
+    // and `answer()`, the one member the fixture declares, reaches it
+    assert_true(out.members.contains("answer()"))
+    assert_eq(
+      @contract.uint_answer(
+        deployed.call(provider, name="answer", outputs=[Uint(256)]),
+        what="answer",
+      ),
+      42N,
+    )
+  })
+}

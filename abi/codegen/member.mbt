@@ -81,6 +81,31 @@ fn param_name(param : Param, at~ : Int, taken : Set[String]) -> String {
 }
 
 ///|
+/// Every parameter of a member as the pair the emitters take — the name it gets
+/// in the generated source and how its type is spelled on all four sides — or
+/// the reason the member cannot be generated at all.
+///
+/// `scope` is what the name has to dodge and is *added to* as it goes, so two
+/// parameters the ABI named the same thing do not come out as one.
+fn scalar_params(
+  inputs : Array[Param],
+  scope : Set[String],
+  signature~ : String,
+) -> Result[Array[(String, Scalar)], String] {
+  let params = []
+  for i, p in inputs {
+    guard scalar(p.ty) is Some(s) else {
+      let what = p.ty.name() catch { _ => "?" }
+      return Err(
+        "`\{signature}`: parameter \{i} is `\{what}`, which is not generated",
+      )
+    }
+    params.push((param_name(p, at=i, scope), s))
+  }
+  Ok(params)
+}
+
+///|
 /// One method, or the reason there is none.
 ///
 /// `taken` carries the method names already emitted, so a Solidity overload —
@@ -120,15 +145,9 @@ fn function_block(
     scope.add("from")
     scope.add("value")
   }
-  let params = []
-  for i, p in f.inputs {
-    guard scalar(p.ty) is Some(s) else {
-      let what = p.ty.name() catch { _ => "?" }
-      return Err(
-        "`\{signature}`: parameter \{i} is `\{what}`, which is not generated",
-      )
-    }
-    params.push((param_name(p, at=i, scope), s))
+  let params = match scalar_params(f.inputs, scope, signature~) {
+    Ok(params) => params
+    Err(reason) => return Err(reason)
   }
   let block = if f.mutating {
     sending_block(struct_name, f, signature~, fn_name~, params~)
@@ -150,16 +169,21 @@ fn function_block(
 
 ///|
 /// The `///|` marker, doc comment and function declaration through
-/// `provider : P,` — the five lines every generated method opens with,
-/// whether it reads or writes. `reading_block` and `sending_block` diverge
-/// only after this point: in what other parameters they add (`from~`,
-/// `value?`) and in how they close the signature.
+/// `provider : P,` — the lines every generated method opens with, whatever it
+/// then does. `reading_block`, `sending_block` and `deploy_block` diverge only
+/// after this point: in what other parameters they add (`from~`, `value?`) and
+/// in how they close the signature.
+///
+/// `receiver` is false for exactly one of them. `deploy` answers with the
+/// contract it created, so there is no `self` to take: it is the one generated
+/// function that is called before there is anything to call it on.
 fn write_head(
   struct_name : String,
   fn_name : String,
   doc~ : String,
   from~ : Bool,
   params~ : Array[(String, Scalar)],
+  receiver~ : Bool,
 ) -> StringBuilder {
   let head = StringBuilder::new()
   head.write_string("///|\n")
@@ -167,7 +191,9 @@ fn write_head(
   head.write_string(
     "pub async fn[P : @provider.Provider] \{struct_name}::\{fn_name}(\n",
   )
-  head.write_string("  self : \{struct_name},\n")
+  if receiver {
+    head.write_string("  self : \{struct_name},\n")
+  }
   head.write_string("  provider : P,\n")
   // a write's `from~` precedes the ABI's own parameters, so that a caller
   // reading the signature sees who signs before what is signed
@@ -199,6 +225,7 @@ fn reading_block(
       "/// and prompts no one.\n",
     from=false,
     params~,
+    receiver=true,
   )
   let call = ["provider", "name=\"\{f.name}\""]
   call.append(abi_args(params))
@@ -233,6 +260,7 @@ fn sending_block(
       "/// it did is in its receipt.\n",
     from=true,
     params~,
+    receiver=true,
   )
   // `value?` closes the parameter list rather than joining `from~` ahead of it:
   // it is optional, and an optional parameter reads as an afterthought because
@@ -251,6 +279,100 @@ fn sending_block(
     "}\n",
   )
   head.to_string()
+}
+
+///|
+/// The `deploy` that sends the creation code, or the reason there is none.
+///
+/// This is the one generated function that is not a call to a contract: it
+/// *makes* one. It is emitted separately from `creation_code_block`, and only
+/// that one is unconditional: a constructor this generator cannot type costs
+/// the `deploy` and must not also cost the literal, since handing those bytes
+/// to `@contract.deploy` by hand is exactly what the caller is left with.
+fn deploy_block(
+  struct_name : String,
+  ctor : AbiConstructor,
+) -> Result[String, String] {
+  // a constructor has no name; `constructor(uint256)` is how one is written,
+  // and unlike a function's signature nothing hashes it — the arguments go
+  // behind the creation code with no selector in front
+  let signature = @abi.signature(
+    name="constructor",
+    inputs=ctor.inputs.map(p => p.ty),
+  ) catch {
+    e => return Err("`constructor`: \{e}")
+  }
+  let scope = Set::Set(["provider", "from", "value", "deployed"][:])
+  let params = match scalar_params(ctor.inputs, scope, signature~) {
+    Ok(params) => params
+    Err(reason) =>
+      return Err(
+        "\{reason} — so no `deploy` was either; `creation_code()` still is, for `@contract.deploy`",
+      )
+  }
+  let head = write_head(
+    struct_name,
+    "deploy",
+    doc="/// Deploy a new `\{struct_name}` and answer with the one now on chain.\n" +
+      "///\n" +
+      "/// `\{signature}` — its arguments are ABI-encoded behind the creation code\n" +
+      "/// above and sent as a transaction with no recipient, so it signs and\n" +
+      "/// therefore prompts. It waits for the receipt: a deployment that reverted,\n" +
+      "/// or one whose receipt names no address, raises rather than answering with\n" +
+      "/// a `\{struct_name}` that is not there.\n",
+    from=true,
+    params~,
+    receiver=false,
+  )
+  let deploy = ["provider", "from~", "bytecode=\{struct_name}::creation_code()"]
+  deploy.append(abi_args(params))
+  if ctor.payable {
+    head.write_string("  value? : @types.Wei,\n")
+    deploy.push("value?")
+  }
+  head.write_string(
+    ") -> \{struct_name} raise @contract.ContractError {\n" +
+    call_expr("let deployed = @contract.deploy", deploy, indent=2, suffix="") +
+    "  \{struct_name}::{ contract: deployed }\n" +
+    "}\n",
+  )
+  Ok(head.to_string())
+}
+
+///|
+/// The creation code as the generated file carries it.
+///
+/// Public, and therefore worth being: `deploy` passes none of
+/// `@contract.deploy`'s waiting knobs (`confirmations`, `timeout`,
+/// `poll_interval`) — restating them here would mean this template holding a
+/// copy of that signature, to drift from it on the next parameter either one
+/// grows. A caller who needs the wait described their own way calls
+/// `@contract.deploy` with this, which is the same deployment with the waiting
+/// left to them.
+///
+/// The `abort` is unreachable by construction: the digits were validated as hex
+/// before they were written here, so the only way to reach it is to edit the
+/// literal in the generated file, which is the one thing its header says not to
+/// do.
+///
+/// The call stays on one line however long the code is — real creation code is
+/// thousands of digits — because that is what `moon fmt` does with it: a string
+/// literal is not something it can break, so wrapping the call around one only
+/// produces a file the next `just fmt` unwraps.
+fn creation_code_block(struct_name : String, code : String) -> String {
+  (
+    $|///|
+    $|/// The creation code this file was generated from: what `\{struct_name}::deploy`
+    $|/// puts on the wire, and what to hand `@contract.deploy` to deploy the same
+    $|/// contract while waiting for it your own way.
+    $|pub fn \{struct_name}::creation_code() -> @types.Hex {
+    $|  // validated as hex when this file was generated
+    $|  @types.Hex::from_string("\{code}") catch {
+    $|    _ => abort("generated creation code is not hex")
+    $|  }
+    $|}
+    $|
+  )
 }
 
 ///|
