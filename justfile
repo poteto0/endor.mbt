@@ -150,7 +150,18 @@ docs-build: docs-islands
 # written to say so rather than to break.
 [group("docs")]
 docs-smoke: docs-build
-  @cd website && npx playwright install --with-deps chromium && node smoke.mjs dist-docs
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website"
+  # `--with-deps` installs the system libraries the browser needs, which takes
+  # root — fine on a CI runner, a password prompt on a developer's machine that
+  # already has them
+  if [ -n "${CI:-}" ]; then
+    npx playwright install --with-deps chromium
+  else
+    npx playwright install chromium
+  fi
+  node smoke.mjs dist-docs
 
 # serve the site on http://localhost:7777 with the demos wired up
 [group("docs")]
