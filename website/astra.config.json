@@ -10,6 +10,9 @@
     "dir": "public/islands",
     "basePath": "/islands/"
   },
+  "headSnippets": [
+    "<link rel=\"stylesheet\" href=\"/endor-demo.css\">"
+  ],
   "cssUtilities": {
     "enabled": true,
     "split": true

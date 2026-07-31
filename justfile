@@ -142,6 +142,16 @@ docs-islands:
 docs-build: docs-islands
   @cd website && npm ci --silent && npx astra build
 
+# the check neither `docs-check` nor `docs-islands` can make: that the built
+# demos are ones a browser hydrates. A wrong `link` format, an island renamed
+# out from under its `<Island name=…>`, a missing stylesheet — each of those
+# fails silently, leaving a page that renders with the demo simply absent.
+# Drives no wallet: there is none in a headless browser, and every demo is
+# written to say so rather than to break.
+[group("docs")]
+docs-smoke: docs-build
+  @cd website && npx playwright install --with-deps chromium && node smoke.mjs dist-docs
+
 # serve the site on http://localhost:7777 with the demos wired up
 [group("docs")]
 docs-dev: docs-islands

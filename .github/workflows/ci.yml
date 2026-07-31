@@ -69,10 +69,11 @@ jobs:
           cache: npm
           cache-dependency-path: website/package-lock.json
 
-      # compiles the islands and renders the site — the demos on the cookbook
-      # pages are MoonBit, so this fails when either half breaks
-      - name: Build the documentation site
-        run: just docs-build
+      # compiles the islands, renders the site, then opens every page that
+      # carries a demo in a headless browser and requires the island to have
+      # hydrated. The demos are MoonBit, so this fails when either half breaks.
+      - name: Build the documentation site and hydrate its demos
+        run: just docs-smoke
 
   # separate job: the only one that needs a node, and its failures should read
   # as "the wire format broke", not as a unit-test regression
