@@ -310,8 +310,8 @@ release-check tag:
   expect "moon.mod version" \
     "$(grep -m1 '^version' moon.mod | cut -d'"' -f2)"
   # the demo should show the version being released, not the previous one
-  expect "examples/get-address dependency on poteto0/endor" \
-    "$(grep -m1 'poteto0/endor@' examples/get-address/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
+  expect "examples/demo dependency on poteto0/endor" \
+    "$(grep -m1 'poteto0/endor@' examples/demo/moon.mod | cut -d'@' -f2 | cut -d'"' -f1)"
   # the CLI is its own module and its own release, but it generates code against
   # this SDK — a CLI declaring a version the SDK never had is a CLI nobody can
   # resolve, so both its own version and what it pins move together with the tag
@@ -334,12 +334,12 @@ analyze-coverage +pkg:
   @moon coverage analyze -p {{pkg}}
 
 alias ex := example
-# serve examples/get-address on http://localhost:8000 (MetaMask needs http://, not file://)
+# serve examples/demo on http://localhost:8000 (MetaMask needs http://, not file://)
 # the example is its own module (see moon.work), so its artifact lands under its
 # own module name rather than under `examples/`
 [group("develop")]
 example port="8000":
   @moon build --target {{target}}
-  @cp _build/{{target}}/debug/build/poteto0/endor-examples-get-address/endor-examples-get-address.js examples/get-address/main.js
+  @cp _build/{{target}}/debug/build/poteto0/endor-examples-demo/endor-examples-demo.js examples/demo/main.js
   @echo "open http://localhost:{{port}}/ in a browser with MetaMask installed"
-  @python3 -m http.server {{port}} -d examples/get-address
+  @python3 -m http.server {{port}} -d examples/demo

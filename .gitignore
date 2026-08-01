@@ -7,7 +7,7 @@ target
 _coverage/
 
 # build artifact copied next to the example's index.html by `just example`
-examples/get-address/main.js
+examples/demo/main.js
 # where `just codegen-check` puts the generated package it compiles. Its `trap`
 # removes it, but a run that is killed outright leaves behind a package of this
 # module that the next `moon check` and `moon fmt` would pick up

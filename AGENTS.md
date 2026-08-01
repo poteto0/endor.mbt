@@ -90,8 +90,8 @@ Layout:
   re-exports from `types` (spelled `@abi.AbiType`, as before). Depends on
   `types`, `codec` and `crypto` and on no transport, so calldata can be built
   with no provider in hand
-- `abi/codegen/` — **experimental, in progress (#48)**: renders the *source* of
-  a `Contract` preset from a JSON ABI document, or from a compiler *artifact*
+- `abi/codegen/` — **experimental, in progress (#48)**: renders the _source_ of
+  a `Contract` preset from a JSON ABI document, or from a compiler _artifact_
   (`solc --combined-json`, standard JSON, Foundry, Hardhat), which carries the
   creation code as well and so also generates a `creation_code()` and a
   `deploy`. Bytecode is validated as hex while generating, which is what lets
@@ -130,7 +130,7 @@ Layout:
   `backend/` and `e2e/` are repo-only: `moon.mod` excludes both from the
   published archive and `just release-check` asserts it (see `docs/e2e.md`)
 
-- `examples/get-address/` — browser demo; a separate MoonBit module so the SDK's
+- `examples/demo/` — browser demo; a separate MoonBit module so the SDK's
   own `moon.mod` stays free of UI dependencies
 - `website/` — the documentation site, <https://endor.poteto-mahiro.com>,
   rendered by `astra` (a static site generator written in MoonBit) and deployed
@@ -151,8 +151,8 @@ Layout:
   (`poteto0/endor-cli`, listed in `moon.work`) so its dependencies stay out of
   this one: it needs `moonbitlang/x` for file access and therefore a `native`
   build, and the SDK must need neither. Being a separate module keeps it out of
-  the *package graph*; the `exclude` list in `moon.mod` keeps it out of the
-  *archive*, which `moon package` fills from the directory tree — both are
+  the _package graph_; the `exclude` list in `moon.mod` keeps it out of the
+  _archive_, which `moon package` fills from the directory tree — both are
   needed, exactly as for `examples/`. Its version and its `poteto0/endor@…`
   pin move with the release tag, which `just release-check` asserts. Its own
   recipes are `just cli-check` / `just cli-test`, because everything else here
