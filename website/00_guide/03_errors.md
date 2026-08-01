@@ -105,7 +105,9 @@ async fn token_errors(
 (bytes that will not read back as the expected types).
 
 `CodecError` is what a domain type's constructor raises, and it is where user
-input gets rejected. Type into this and watch which variant comes back:
+input gets rejected. **Try it:** type into the box and the first line names the
+variant that came back — delete a character for `InvalidLength`, put a `z` in it
+for `InvalidHex`, change the case of one letter for `InvalidChecksum`.
 
 <Island name="address_tool" trigger="visible" />
 

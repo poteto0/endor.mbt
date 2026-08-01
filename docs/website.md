@@ -80,15 +80,47 @@ wallet installed, which is most of them.
 All of them live in the repository's `justfile` and run from its root:
 
 ```sh
-just docs-dev      # build the demos, serve the site on localhost:7777
+just docs-dev      # build everything, serve website/dist-docs on localhost:7777
 just docs-build    # build the demos, render the site into website/dist-docs
 just docs-check    # compile every ```moonbit block on the site and in the README
 just docs-smoke    # build, then check in a browser that the demos hydrate and answer
 ```
 
+`docs-dev` serves the **built** tree rather than running `astra dev`. astra's dev
+server renders pages but does not serve `public/`, so the stylesheet 404s and
+every island 404s with it: the site comes up in astra's default colours with no
+demos on it, which is a preview of nothing. The cost is a rebuild after each
+edit.
+
 `docs-check` runs as part of `just ci` and `just ci-check`, which is also the
 pre-commit hook — it needs only the MoonBit toolchain. `docs-smoke` needs Node and
 a browser, so it runs in its own CI job.
+
+## Markup astra does not have
+
+Two things look like they work and do not. `just docs-build` fails on both, but
+it is quicker to know:
+
+- **`:::` containers.** `::: warning … :::` is a VitePress convention; astra's
+  markdown prints the fences as text. Raw HTML passes straight through, and
+  astra's theme ships the classes — so a callout is:
+
+  ```html
+  <div class="alert alert--warning" role="note">
+    <div class="alert__title">This one is real</div>
+    <div class="alert__description">
+
+  Blank lines around the body, so the markdown inside it is still markdown.
+
+    </div>
+  </div>
+  ```
+
+  The variants are `alert--warning`, `alert--error`, `alert--success` and
+  `alert--status`.
+
+- **HTML inside a config string.** `theme.footer.message` is escaped and comes
+  out as its own source. Links belong in `theme.footer.links`.
 
 ## Adding a page
 
@@ -113,6 +145,11 @@ The sidebar is `"sidebar": "auto"`, so nothing has to be registered.
 
 Keep the SDK code in a demo shaped the way the page describes it — the demo is
 the claim that the recipe works.
+
+A widget with no button has nothing to say what it is, so `@ui.panel` takes a
+title naming the call it makes and prints a `LIVE` chip beside it. Introduce it
+in the prose with **Try it:** and one sentence on what to change and what will
+happen — a box of inputs and values is not self-explanatory on a page of prose.
 
 ## Deploying
 

@@ -52,7 +52,7 @@
       }
     ],
     "footer": {
-      "message": "Released under the MIT License. Built with <a href=\"https://mooncakes.io/docs/mizchi/astra\">astra</a>, a static site generator written in MoonBit.",
+      "message": "Released under the MIT License. Built with astra, a static site generator written in MoonBit.",
       "copyright": "Copyright 2025 poteto0",
       "links": [
         {
@@ -106,7 +106,7 @@
             },
             {
               "label": "astra",
-              "href": "https://github.com/mizchi/luna.mbt/tree/main/astra"
+              "href": "https://mooncakes.io/docs/mizchi/astra"
             }
           ]
         }

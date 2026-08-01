@@ -101,8 +101,19 @@ pub fn computed_checked(
 ///|
 /// A demo with no status line: nothing here talks to a wallet, so there is
 /// nothing to narrate. What it does is visible in the fields.
-pub fn panel(children : Array[DomNode]) -> DomNode {
-  div(class="endor-demo") <| children
+///
+/// `title` names the call the widget is making, because a box of inputs and
+/// values on a documentation page does not otherwise say what it is.
+pub fn panel(title : String, children : Array[DomNode]) -> DomNode {
+  div(class="endor-demo") <| [
+    p(class="endor-demo-title") <| [
+      span(class="endor-demo-live") <| [
+        text("live"),
+      ],
+      text(title),
+    ],
+    ..children,
+  ]
 }
 
 ///|

@@ -94,13 +94,16 @@ come back as `Deployment(what)` rather than as an absence to notice.
 ## The encoding on its own
 
 `endor/abi` is usable with no provider in hand — no network, no wallet, not even
-a `js` target. Here it is hashing a signature as you type it:
+a `js` target. **Try it:** type a function signature and the four bytes calldata
+opens with appear underneath, along with the 32-byte topic the same signature
+would be logged under as an event.
 
 <Island name="abi_tool" trigger="visible" />
 
 Edit one character and every digit changes, which is why
 `transfer(address,uint256)` and `transfer(address,uint)` are different functions
-as far as the chain is concerned.
+as far as the chain is concerned — and why a signature has no spaces and no
+parameter names in it.
 
 The rest of the package:
 

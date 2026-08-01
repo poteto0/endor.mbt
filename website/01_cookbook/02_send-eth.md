@@ -11,10 +11,15 @@ islands:
 The first call that spends the user's money, and so the first that always
 prompts.
 
-::: warning This one is real
+<div class="alert alert--warning" role="note">
+  <div class="alert__title">This one is real</div>
+  <div class="alert__description">
+
 The demo below broadcasts a transaction from your wallet, for the amount you
 type. Switch to a testnet first. Every other demo on this site only reads.
-:::
+
+  </div>
+</div>
 
 <Island name="send_eth" trigger="load" />
 
@@ -60,13 +65,16 @@ fn one_ether() -> @endor.Wei {
 ```
 
 The SDK never scales an amount for you. Turning `"0.001"` into wei is a
-presentation concern, and it belongs in the layer that has a text input in it —
-which is exactly what this is. Ask for more decimals than the currency carries
-and it refuses rather than rounds:
+presentation concern, and it belongs in the layer that has a text input in it.
+
+**Try it:** the first box is the amount a person typed, the second is the
+currency's `decimals` — 18 for ether, 6 for USDC. Ask for a digit finer than the
+currency can carry and it is refused rather than rounded, because silently
+dropping a digit of somebody's money is worse than making them retype it.
 
 <Island name="units" trigger="visible" />
 
-The same function, written out:
+That widget is this function, which is the one you would write:
 
 ```moonbit
 /// Parse a human amount into whole wei, or `None` when it is not a decimal

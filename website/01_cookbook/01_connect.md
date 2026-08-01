@@ -77,11 +77,16 @@ fn address_forms(addr : @endor.Address) -> Unit {
 }
 ```
 
-Building one from user input is where a typo is caught. The widget below is
-`Address::from_string` itself, run on every keystroke — change one character of
-the checksummed form and watch which error it raises:
+Building one from user input is where a typo is caught. **Try it:** the box
+below runs `Address::from_string` on whatever you type, every keystroke, and
+shows what it answered. Change one character of the checksummed address and the
+first line turns into the error it raised — the wire form and the EIP-55 form
+under it are what you get when it does not.
 
 <Island name="address_tool" trigger="visible" />
+
+No wallet is involved, and nothing is sent anywhere: this is the constructor and
+`crypto/keccak256`, running in the page.
 
 
 ```moonbit
@@ -108,7 +113,12 @@ holds both itself and subscribes to the events that say they went stale. That is
 [React to wallet changes](/cookbook/events/), and it is why the fields update
 when you switch account in the extension without touching the page.
 
-::: tip Next
+<div class="alert alert--status" role="note">
+  <div class="alert__title">Next</div>
+  <div class="alert__description">
+
 [Send ETH](/cookbook/send-eth/) — the first call that spends money, and so the
 first that always prompts.
-:::
+
+  </div>
+</div>

@@ -44,7 +44,7 @@ fn View::units(self : View) -> BigInt? {
 
 ///|
 fn View::render(self : View) -> DomNode {
-  @ui.panel([
+  @ui.panel("Scaling an amount — the SDK does none of this for you", [
     @ui.row([
       @ui.text_input(placeholder="0.015", self.amount),
       @ui.text_input(placeholder="18", self.decimals),

@@ -43,7 +43,7 @@ fn View::verdict(self : View) -> Verdict {
 
 ///|
 fn View::render(self : View) -> DomNode {
-  @ui.panel([
+  @ui.panel("@endor.Address::from_string — edit the address and watch", [
     @ui.row([@ui.text_input(placeholder="0x… an address", self.typed)]),
     @ui.computed_checked(
       "Address::from_string",

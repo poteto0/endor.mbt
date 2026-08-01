@@ -46,12 +46,17 @@ Reads cost nothing and prompt nobody: `eth_call` and the `eth_get*` family are
 evaluated against the node's state and need no signature. Writes are the ones
 that spend money, and they are exactly the ones that open a popup.
 
-::: warning About the live demos
+<div class="alert alert--warning" role="note">
+  <div class="alert__title">About the live demos</div>
+  <div class="alert__description">
+
 The demos drive your **real** wallet on whatever chain it is currently on. The
 reading ones cannot cost you anything. [Send ETH](./send-eth/) can: it sends the
 amount you type, and it is the only demo on this site that broadcasts a
 transaction. Point your wallet at a testnet before using it.
-:::
+
+  </div>
+</div>
 
 ## Start here
 

@@ -40,6 +40,9 @@
   --nav-link-color: #5b6660;
   --sidebar-link-color: #3d453f;
   --error: #a3342b;
+  --warning: #8a6d1f;
+  --destructive: #a3342b;
+  --success: #1a6b4a;
   /* astra's default theme leans on a gradient and a frosted bar; this design
    * has neither, so they are turned off rather than recoloured */
   --hero-gradient-start: #1a6b4a;
@@ -68,6 +71,9 @@ html.dark {
   --nav-link-color: #93a09a;
   --sidebar-link-color: #b8c2bc;
   --error: #f2938a;
+  --warning: #d9b45a;
+  --destructive: #f2938a;
+  --success: #5fc99a;
   --glass-bg: transparent;
   --glass-border: transparent;
 }
@@ -87,6 +93,9 @@ html.dark {
     --nav-link-color: #93a09a;
     --sidebar-link-color: #b8c2bc;
     --error: #f2938a;
+    --warning: #d9b45a;
+    --destructive: #f2938a;
+    --success: #5fc99a;
     --glass-bg: transparent;
     --glass-border: transparent;
   }
@@ -367,6 +376,33 @@ html.dark .markdown-body :not(pre) > code {
   background: var(--code-bg);
   padding: 1rem 1.25rem;
   margin: 1.75rem 0;
+}
+
+/* what the widget is. A box of inputs and values on a documentation page does
+ * not say that by itself, and the ones that answer as you type have no button
+ * to hint at it either. */
+.endor-demo-title {
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: var(--endor-rule);
+  font-family: var(--endor-mono);
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.endor-demo-live {
+  display: inline-block;
+  margin-right: 0.6rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 2px;
+  background: var(--primary-color);
+  color: var(--bg-color);
+  font-family: var(--endor-sans);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  vertical-align: 1px;
 }
 
 /* the line that narrates what the wallet is doing. It is the first thing that

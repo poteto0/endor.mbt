@@ -146,7 +146,27 @@ docs-islands:
 # expects, and a lockfile written by the newer one is one the older one rejects.
 [group("docs")]
 docs-build: docs-islands
-  @cd website && npm ci --no-audit --no-fund && npx astra build
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website"
+  npm ci --no-audit --no-fund
+  npx astra build
+  # Two ways a page comes out wrong that still build, render and deploy — both
+  # of them shipped once before this check existed:
+  #
+  #   `:::`      a VitePress container. astra's markdown does not know the
+  #              syntax and prints the fences as text. Raw HTML passes through,
+  #              so a callout is `<div class="alert alert--warning">`.
+  #   `&lt;a `   markup written where astra escapes it — the footer's `message`
+  #              is text, not HTML, so a link there arrives as its source.
+  bad=$(grep -rl -e ':::' -e '&lt;a ' dist-docs --include='*.html' || true)
+  [ -z "$bad" ] || {
+    echo "error: markup that did not render, in:"
+    echo "$bad" | sed 's/^/  /'
+    echo "  \`:::\` containers are not astra syntax — use <div class=\"alert alert--warning\">"
+    echo "  HTML in a config string is escaped — put the link in \`footer.links\`"
+    exit 1
+  }
 
 # the check neither `docs-check` nor `docs-islands` can make: that the built
 # demos are ones a browser hydrates. A wrong `link` format, an island renamed
@@ -169,10 +189,16 @@ docs-smoke: docs-build
   fi
   node smoke.mjs dist-docs
 
-# serve the site on http://localhost:7777 with the demos wired up
+# serve the built site on http://localhost:7777
+#
+# Not `astra dev`: that renders pages but does not serve `public/`, so the
+# stylesheet 404s and every island 404s with it — the site comes up in astra's
+# default colours with no demos on it, which is a preview of nothing. Serving
+# `dist-docs` costs a rebuild on each change and shows exactly what deploys.
 [group("docs")]
-docs-dev: docs-islands
-  @cd website && npx astra dev
+docs-dev port="7777": docs-build
+  @echo "open http://localhost:{{port}}/ — re-run \`just docs-dev\` after an edit"
+  @python3 -m http.server {{port}} -d website/dist-docs
 
 # every documented MoonBit example, compiled: the site's pages and the README
 # the registry shows. `moon test` never reaches markdown in this module (#8), so

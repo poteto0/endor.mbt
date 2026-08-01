@@ -25,7 +25,7 @@ fn View::typed(self : View) -> String {
 
 ///|
 fn View::render(self : View) -> DomNode {
-  @ui.panel([
+  @ui.panel("@abi.selector and @abi.event_topic — keccak256, live", [
     @ui.row([
       @ui.text_input(placeholder="transfer(address,uint256)", self.signature),
     ]),

@@ -28,7 +28,7 @@ pub fn input_of(String) -> @signals.Signal[String]
 
 pub fn note(Array[@dom.DomNode]) -> @dom.DomNode
 
-pub fn panel(Array[@dom.DomNode]) -> @dom.DomNode
+pub fn panel(String, Array[@dom.DomNode]) -> @dom.DomNode
 
 pub fn row(Array[@dom.DomNode]) -> @dom.DomNode
 
