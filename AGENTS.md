@@ -116,16 +116,21 @@ Layout:
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`
 - `provider/http/` — `HttpProvider`, JSON-RPC over HTTP: the id-and-envelope
-  framing as pure MoonBit, over an `HttpTransport` the caller supplies. That
-  seam is what keeps the package backend-agnostic — the HTTP client is the
-  transport's, not this package's — and it is why the read layer works with no
-  browser wallet in sight, a node URL being enough. It implements `Provider`
-  and deliberately not `EventSource`: plain HTTP pushes nothing
-- `provider/http/fetch/` — `FetchTransport`, the `HttpTransport` backed by the
-  `fetch` a browser and Node both have. `js`-only, and the only reason
-  `provider/http` itself needs no backend
+  framing as pure MoonBit, over an `HttpTransport`. No `supported_targets` and
+  no FFI, so it builds on every backend `types` does, `wasm-gc` included. It
+  implements `Provider` and deliberately not `EventSource`: plain HTTP pushes
+  nothing. `HttpTransport` is not what makes this portable — `Endpoint` already
+  is — it is the seam for a caller whose HTTP is its own: retries, a pool, an
+  authenticating proxy, a recorded fixture
+- `provider/http/endpoint/` — `Endpoint` and `at`, the transport almost every
+  caller wants: `moonbitlang/async`'s HTTP client, which this module already
+  depends on and which is written per backend (`fetch` on `js`, sockets and TLS
+  on `native` / `wasm`). So the SDK binds no HTTP itself, and the same call
+  reads a chain from a browser, a CLI or a server. Excludes only `wasm-gc`,
+  the one backend that library has no client for
 - `ffi/js/` — the **only** package whose shipped code contains `extern "js"`
-  bindings: `globalThis.ethereum`, `fetch`, and JS Promises
+  bindings: `globalThis.ethereum` and JS Promises. Not HTTP — that is
+  `moonbitlang/async`'s, on every backend at once
 - `backend/` — the `Backend` trait: what an end-to-end run needs in place
   before the SDK can reach a real node, and the shared skip/install/task-group
   protocol (`run`). Backend-agnostic, no FFI
@@ -137,8 +142,8 @@ Layout:
   dev accounts and test-contract helpers, and `js.mbt`, which injects a fake
   EIP-1193 wallet at `globalThis.ethereum`
 - `backend/http/` — the same node reached over plain HTTP, through
-  `HttpProvider` and `FetchTransport`. Its `install` is empty, and that emptiness
-  is the claim it exists to make: an HTTP transport needs nothing in place — one
+  `@endpoint.at`. Its `install` is empty, and that emptiness is the claim it
+  exists to make: an HTTP transport needs nothing in place — one
   `ENDOR_E2E_RPC_URL` drives both ways in
 - `e2e/` — the end-to-end test cases themselves, driven through `@anvil.on` and
   `@http_backend.on`; test files only, so the package exports nothing
@@ -176,12 +181,14 @@ Layout:
 
 ## SDK design rules
 
-- **Primary target is `js`.** The SDK's FFI — the injected wallet, `fetch` —
-  is written for the JS backend, and every recipe pins it. Do not add wasm-gc
-  glue. But `js` is where the _transports_ live, not where the SDK does:
-  everything above `Provider` is backend-agnostic, and since `provider/http`
-  the transport layer has a backend-agnostic package of its own too, whose
-  `HttpTransport` a non-JS client can implement without this rule moving.
+- **Primary target is `js`.** The SDK's own FFI — the injected wallet — is
+  written for the JS backend, and every recipe pins it. Do not add wasm-gc glue.
+  But `js` is where the _wallet_ is, not where the SDK is: since `provider/http`
+  the whole read layer builds on every backend, and `provider/http/endpoint`
+  reaches a node on all of them through `moonbitlang/async`. **Before writing an
+  `extern "js"` for something that is not the wallet, check whether
+  `moonbitlang/async` already has it on every backend** — HTTP was written as a
+  `fetch` binding first, and that was a `js` lock-in bought for nothing.
 - **Isolate FFI.** All `extern "js"` declarations in shipped code live in the
   `ffi/js` package. Everything above it is pure MoonBit and must be testable
   with a mock provider (dependency injection via the `Provider` abstraction).

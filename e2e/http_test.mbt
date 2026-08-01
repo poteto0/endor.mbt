@@ -2,7 +2,7 @@
 /// The proof that the read layer needs no wallet: the same node every other
 /// e2e test reaches through an injected `globalThis.ethereum`, reached here
 /// over plain HTTP with nothing installed at all. `@http_backend.on` builds an
-/// `HttpProvider` over `FetchTransport` and skips when `ENDOR_E2E_RPC_URL` is
+/// `HttpProvider` over an `Endpoint` and skips when `ENDOR_E2E_RPC_URL` is
 /// unset, exactly as `@anvil.on` does.
 ///
 /// Deliberately two cases, not a transcription of `browser_test.mbt`. A

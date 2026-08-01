@@ -40,15 +40,15 @@ import {
 
 ### Without a wallet: JSON-RPC over HTTP
 
-A browser wallet is needed to _sign_; it is not needed to _read_. Point the
-HTTP transport at a node URL and the same typed helpers work with no extension
-installed:
+A browser wallet is needed to _sign_; it is not needed to _read_. Point the SDK
+at a node URL and the same typed helpers work with no extension installed —
+**and on any backend**, not only `js`:
 
 ```
 import {
-  "poteto0/endor/provider",            // @provider — Provider, typed RPC, errors
-  "poteto0/endor/provider/http",       // @http — HttpProvider, HttpTransport
-  "poteto0/endor/provider/http/fetch", // @fetch — that transport over `fetch`
+  "poteto0/endor/provider",               // @provider — Provider, typed RPC, errors
+  "poteto0/endor/provider/http",          // @http — HttpProvider, HttpTransport
+  "poteto0/endor/provider/http/endpoint", // @endpoint — a node at a URL
 }
 ```
 
@@ -56,8 +56,21 @@ import {
 async fn read_chain_over_http(
   url : String,
 ) -> @endor.ChainId raise @provider.ProviderError {
-  let provider = @http.HttpProvider::new(@fetch.FetchTransport::new(url))
-  @provider.chain_id(provider)
+  @provider.chain_id(@endpoint.at(url))
+}
+```
+
+There is no FFI under this. `@endpoint.at` uses `moonbitlang/async`'s HTTP
+client, which is `fetch` on `js` and sockets with TLS on `native` and `wasm`,
+so the call above compiles and runs in a browser, in a CLI and on a server. A
+hosted provider that wants a key takes `headers~`:
+
+```mbt-example
+async fn read_chain_from_a_paid_node(
+  url : String,
+  key : String,
+) -> @endor.ChainId raise @provider.ProviderError {
+  @provider.chain_id(@endpoint.at(url, headers={ "Authorization": "Bearer \{key}" }))
 }
 ```
 
@@ -65,8 +78,9 @@ async fn read_chain_over_http(
 typed reads, `Contract::call`, the ABI layer — is unchanged. What HTTP cannot
 serve, it says so about: every `wallet_*` method and `eth_requestAccounts`
 raise `UnsupportedMethod`, since there is nothing behind a URL to prompt the
-user. `HttpTransport` is a trait, so a different HTTP client is a transport
-away.
+user. `HttpTransport` stays a trait for a caller whose HTTP is its own —
+retries, a connection pool, a proxy — and for `wasm-gc`, the one backend
+`@endpoint` cannot reach.
 
 The domain types are re-exported from the root package, so
 `"poteto0/endor"` gives you `@endor.Address`, `@endor.ChainId`, and friends when

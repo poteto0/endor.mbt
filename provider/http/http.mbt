@@ -2,12 +2,12 @@
 /// How an HTTP JSON-RPC request leaves the process: one POST of a JSON body,
 /// answered by the response body as text.
 ///
-/// The transport owns the endpoint URL and any headers it needs (an API key, a
-/// bearer token), which is what keeps `HttpProvider` free of every difference
-/// between one HTTP client and the next: `fetch` in a browser, a Node agent, a
-/// native client. It POSTs `body` with `content-type: application/json` and
-/// answers with the raw response body — the JSON-RPC envelope is parsed above,
-/// not here.
+/// `Endpoint` is the implementation almost everyone wants, and it is portable,
+/// so this trait is not what makes the SDK work off the browser — it is the
+/// seam for a caller whose HTTP is its own: a client with retries or a
+/// connection pool, an authenticating proxy, a recorded fixture in a test. It
+/// POSTs `body` with `content-type: application/json` and answers with the raw
+/// response body — the JSON-RPC envelope is parsed above, not here.
 ///
 /// A network failure or a non-2xx status raises
 /// `@provider.ProviderError::internal(...)` with a message naming what
@@ -41,10 +41,10 @@ pub(open) trait HttpTransport {
 /// a transport can answer RPC without being able to push anything back.
 ///
 /// ```
-/// async fn[T : @http.HttpTransport] chain(
-///   transport : T,
+/// async fn chain(
+///   url : String,
 /// ) -> @endor.ChainId raise @provider.ProviderError {
-///   @provider.chain_id(@http.HttpProvider::new(transport))
+///   @provider.chain_id(@endpoint.at(url))
 /// }
 /// ```
 pub struct HttpProvider[T] {

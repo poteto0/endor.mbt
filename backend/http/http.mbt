@@ -36,10 +36,8 @@ impl @backend.Backend for Http with fn install(_, _) {
 /// })
 /// ```
 pub async fn on(
-  body : async (@rpc.HttpProvider[@fetch.FetchTransport]) -> Unit,
+  body : async (@rpc.HttpProvider[@endpoint.Endpoint]) -> Unit,
 ) -> Unit {
   let url = @env.endpoint()
-  @backend.run(Http::{ url, }, () => {
-    body(@rpc.HttpProvider::new(@fetch.FetchTransport::new(url)))
-  })
+  @backend.run(Http::{ url, }, () => body(@endpoint.at(url)))
 }

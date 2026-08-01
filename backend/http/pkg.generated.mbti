@@ -2,11 +2,11 @@
 package "poteto0/endor/backend/http"
 
 import {
-  "poteto0/endor/provider/http/fetch",
+  "poteto0/endor/provider/http/endpoint",
 }
 
 // Values
-pub async fn on(async (@poteto0/endor/provider/http.HttpProvider[@fetch.FetchTransport]) -> Unit) -> Unit
+pub async fn on(async (@poteto0/endor/provider/http.HttpProvider[@endpoint.Endpoint]) -> Unit) -> Unit
 
 // Errors
 

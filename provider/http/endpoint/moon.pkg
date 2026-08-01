@@ -1,0 +1,18 @@
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/http",
+  // the HTTP client itself, and the only reason this is a package apart from
+  // `provider/http`. `moonbitlang/async` is already this module's dependency
+  // and its client is written per backend — `fetch` on `js`, sockets and TLS
+  // on `native` and `wasm` — so the SDK needs no FFI of its own here.
+  "moonbitlang/async/http" @client,
+}
+
+// Every backend that library has an HTTP client for, which is all of them but
+// `wasm-gc`. Naming them here is what keeps `provider/http` itself universal:
+// the JSON-RPC framing and the `HttpTransport` trait build everywhere `types`
+// does, so a `wasm-gc` host that supplies its own HTTP still has a provider to
+// put behind it. Note this is the only package in the SDK that pins targets for
+// a reason other than the browser — which is the point of the exercise.
+
+supported_targets = "+js +native +wasm"

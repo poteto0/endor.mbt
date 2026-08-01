@@ -3,12 +3,12 @@ import {
   "poteto0/endor/backend/env",
   // aliased: this package is itself `http`, and two `@http` cannot coexist
   "poteto0/endor/provider/http" @rpc,
-  "poteto0/endor/provider/http/fetch",
+  "poteto0/endor/provider/http/endpoint",
 }
 
-// `js`-only for one reason only: `FetchTransport` binds `fetch`. Nothing here
-// fakes a wallet — that is the point of this backend — so it imports neither
-// `ffi/js` nor `backend/anvil`, whose `js.mbt` installs one. The URL comes from
-// `backend/env`, which both backends share.
+// `js`-only because `backend/env` reads `process.env` and the suite runs on
+// `js`. Not because of the transport: `@rpc.HttpProvider::at` is portable, and
+// nothing here fakes a wallet — that is the point of this backend, so it
+// imports neither `ffi/js` nor `backend/anvil`, whose `js.mbt` installs one.
 
 supported_targets = "js"

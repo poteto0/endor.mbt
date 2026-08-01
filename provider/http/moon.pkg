@@ -7,7 +7,8 @@ import {
   "moonbitlang/async",
 } for "test"
 
-// Backend-agnostic on purpose: the JSON-RPC framing is pure MoonBit, and the
-// HTTP client is the caller's, handed over as an `HttpTransport`. So this
-// package declares no `supported_targets` and imports no FFI — the one that
-// binds `fetch` is `provider/http/fetch`.
+// No `supported_targets`, and no FFI: the JSON-RPC framing is pure MoonBit, so
+// it builds on every backend `types` does — `wasm-gc` included, which is the
+// one `provider/http/endpoint` cannot reach because the HTTP client it uses has
+// no implementation there. A host that supplies its own HTTP implements
+// `HttpTransport` and still gets a provider.
