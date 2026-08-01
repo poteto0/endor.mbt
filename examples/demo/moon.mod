@@ -3,7 +3,7 @@
 // library. `moon.work` at the repository root wires `poteto0/endor` here to the
 // local checkout instead of the registry.
 
-name = "poteto0/endor-examples-get-address"
+name = "poteto0/endor-examples-demo"
 
 version = "0.1.0"
 
