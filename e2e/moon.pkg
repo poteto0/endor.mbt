@@ -7,6 +7,9 @@ import {
   "poteto0/endor/abi",
   "poteto0/endor/abi/codegen",
   "poteto0/endor/backend/anvil",
+  // aliased: `@http` is `provider/http` everywhere else, and this is the
+  // harness, not the transport
+  "poteto0/endor/backend/http" @http_backend,
   "moonbitlang/async",
 } for "test"
 

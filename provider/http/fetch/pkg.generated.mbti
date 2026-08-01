@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/provider/http/fetch"
+
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/http",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct FetchTransport {
+  // private fields
+}
+pub fn FetchTransport::new(String) -> Self
+pub impl @http.HttpTransport for FetchTransport
+
+// Type aliases
+
+// Traits
+

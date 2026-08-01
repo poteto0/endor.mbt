@@ -1,0 +1,14 @@
+import {
+  "poteto0/endor/backend",
+  "poteto0/endor/backend/env",
+  // aliased: this package is itself `http`, and two `@http` cannot coexist
+  "poteto0/endor/provider/http" @rpc,
+  "poteto0/endor/provider/http/fetch",
+}
+
+// `js`-only for one reason only: `FetchTransport` binds `fetch`. Nothing here
+// fakes a wallet — that is the point of this backend — so it imports neither
+// `ffi/js` nor `backend/anvil`, whose `js.mbt` installs one. The URL comes from
+// `backend/env`, which both backends share.
+
+supported_targets = "js"

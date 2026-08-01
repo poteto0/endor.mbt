@@ -1,6 +1,7 @@
 import {
   "poteto0/endor/types",
   "poteto0/endor/backend",
+  "poteto0/endor/backend/env",
   "poteto0/endor/provider",
   "poteto0/endor/provider/browser",
 }
@@ -9,7 +10,8 @@ import {
   "moonbitlang/async",
 } for "test"
 
-// `js`-only, and the one package outside `ffi/js` that declares `extern "js"`:
-// it fakes the environment underneath the SDK. See `js.mbt`.
+// `js`-only, and the one package outside `ffi/js` that declares an
+// `extern "js"` *wallet*: it fakes the environment underneath the SDK. See
+// `js.mbt`. (`backend/env` binds `process.env`, which is not one.)
 
 supported_targets = "js"

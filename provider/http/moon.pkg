@@ -1,0 +1,13 @@
+import {
+  "poteto0/endor/provider",
+  "moonbitlang/core/json",
+}
+
+import {
+  "moonbitlang/async",
+} for "test"
+
+// Backend-agnostic on purpose: the JSON-RPC framing is pure MoonBit, and the
+// HTTP client is the caller's, handed over as an `HttpTransport`. So this
+// package declares no `supported_targets` and imports no FFI — the one that
+// binds `fetch` is `provider/http/fetch`.

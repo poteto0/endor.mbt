@@ -38,6 +38,36 @@ import {
 }
 ```
 
+### Without a wallet: JSON-RPC over HTTP
+
+A browser wallet is needed to _sign_; it is not needed to _read_. Point the
+HTTP transport at a node URL and the same typed helpers work with no extension
+installed:
+
+```
+import {
+  "poteto0/endor/provider",            // @provider — Provider, typed RPC, errors
+  "poteto0/endor/provider/http",       // @http — HttpProvider, HttpTransport
+  "poteto0/endor/provider/http/fetch", // @fetch — that transport over `fetch`
+}
+```
+
+```mbt-example
+async fn read_chain_over_http(
+  url : String,
+) -> @endor.ChainId raise @provider.ProviderError {
+  let provider = @http.HttpProvider::new(@fetch.FetchTransport::new(url))
+  @provider.chain_id(provider)
+}
+```
+
+`HttpProvider` is a `Provider` like any other, so everything above it — the
+typed reads, `Contract::call`, the ABI layer — is unchanged. What HTTP cannot
+serve, it says so about: every `wallet_*` method and `eth_requestAccounts`
+raise `UnsupportedMethod`, since there is nothing behind a URL to prompt the
+user. `HttpTransport` is a trait, so a different HTTP client is a transport
+away.
+
 The domain types are re-exported from the root package, so
 `"poteto0/endor"` gives you `@endor.Address`, `@endor.ChainId`, and friends when
 you need to spell a type out.

@@ -114,18 +114,34 @@ Layout:
   contract behind (`Deployment`)
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
-- `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;
-  the only _shipped_ package above `ffi/js` that is `js`-only
+- `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`
+- `provider/http/` — `HttpProvider`, JSON-RPC over HTTP: the id-and-envelope
+  framing as pure MoonBit, over an `HttpTransport` the caller supplies. That
+  seam is what keeps the package backend-agnostic — the HTTP client is the
+  transport's, not this package's — and it is why the read layer works with no
+  browser wallet in sight, a node URL being enough. It implements `Provider`
+  and deliberately not `EventSource`: plain HTTP pushes nothing
+- `provider/http/fetch/` — `FetchTransport`, the `HttpTransport` backed by the
+  `fetch` a browser and Node both have. `js`-only, and the only reason
+  `provider/http` itself needs no backend
 - `ffi/js/` — the **only** package whose shipped code contains `extern "js"`
-  bindings to `globalThis.ethereum` / JS Promises
+  bindings: `globalThis.ethereum`, `fetch`, and JS Promises
 - `backend/` — the `Backend` trait: what an end-to-end run needs in place
   before the SDK can reach a real node, and the shared skip/install/task-group
   protocol (`run`). Backend-agnostic, no FFI
+- `backend/env/` — where `ENDOR_E2E_RPC_URL` is read, and nothing else. Its own
+  package because the URL is the *suite's* configuration rather than any one
+  backend's: `backend/http` needs it and must not import `backend/anvil`, which
+  installs a fake wallet, merely to learn it
 - `backend/anvil/` — the `Backend` implementation for a local Anvil node, its
   dev accounts and test-contract helpers, and `js.mbt`, which injects a fake
   EIP-1193 wallet at `globalThis.ethereum`
-- `e2e/` — the end-to-end test cases themselves, driven through
-  `@anvil.on`; test files only, so the package exports nothing
+- `backend/http/` — the same node reached over plain HTTP, through
+  `HttpProvider` and `FetchTransport`. Its `install` is empty, and that emptiness
+  is the claim it exists to make: an HTTP transport needs nothing in place — one
+  `ENDOR_E2E_RPC_URL` drives both ways in
+- `e2e/` — the end-to-end test cases themselves, driven through `@anvil.on` and
+  `@http_backend.on`; test files only, so the package exports nothing
 
   `backend/` and `e2e/` are repo-only: `moon.mod` excludes both from the
   published archive and `just release-check` asserts it (see `docs/e2e.md`)
@@ -160,8 +176,12 @@ Layout:
 
 ## SDK design rules
 
-- **Primary target is `js`.** The SDK talks to a browser-injected JS object,
-  so FFI is written for the JS backend. Do not add wasm-gc glue.
+- **Primary target is `js`.** The SDK's FFI — the injected wallet, `fetch` —
+  is written for the JS backend, and every recipe pins it. Do not add wasm-gc
+  glue. But `js` is where the _transports_ live, not where the SDK does:
+  everything above `Provider` is backend-agnostic, and since `provider/http`
+  the transport layer has a backend-agnostic package of its own too, whose
+  `HttpTransport` a non-JS client can implement without this rule moving.
 - **Isolate FFI.** All `extern "js"` declarations in shipped code live in the
   `ffi/js` package. Everything above it is pure MoonBit and must be testable
   with a mock provider (dependency injection via the `Provider` abstraction).
@@ -170,7 +190,10 @@ Layout:
   `backend/anvil/js.mbt` — but never to bind new wallet functionality; that
   belongs in `ffi/js` regardless of who calls it. Keep the two apart: `ffi/js`
   binds the wallet a browser really injected and ships to consumers, so a
-  function that _fabricates_ a wallet must not live there.
+  function that _fabricates_ a wallet must not live there. What a binding
+  _decides_ is bounded too: `ffi/js` reports what happened (a status, a thrown
+  message) and never which `ProviderError` that is — mapping is
+  `provider/error.mbt`'s, where it can be tested.
 - **Typed surface over stringly RPC.** Public API functions like
   `request_accounts` / `send_transaction` take and return domain types
   (`Address`, `Wei`, …), never raw JSON or raw hex strings. The generic

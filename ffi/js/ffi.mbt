@@ -104,3 +104,46 @@ pub fn decode_envelope(result_json : String) -> Json raise JsError {
 
   v
 }
+
+///|
+/// POST `body` to `url` as `application/json`. Transport and nothing else: the
+/// JSON-RPC framing above this is `provider/http`'s business, and what an HTTP
+/// status *means* is `@fetch.FetchTransport`'s.
+///
+/// The returned promise **always resolves**, to the status and the response
+/// body separated by one newline:
+///
+/// ```text
+/// 200\n{"jsonrpc":"2.0","id":1,"result":"0x1"}
+/// 0\nfailed to fetch
+/// ```
+///
+/// Status `0` is the answer that never came — a refused connection, a DNS
+/// failure — and then the rest is the thrown message.
+///
+/// Deliberately *not* the `{"ok"|"err"}` envelope `decode_envelope` reads.
+/// That envelope exists because `_request` hands back a live JS value, which
+/// has to be serialized to cross the boundary at all; a response body is
+/// already a string and already JSON, so wrapping it would be a second escape
+/// pass and a second parse of every byte, only to unwrap it again. Splitting
+/// on one newline costs neither. It also keeps `-32603` out of JavaScript:
+/// which failures are which error is a decision `provider/error.mbt` owns.
+extern "js" fn _post_json(
+  url : String,
+  body : String,
+) -> @js_async.Promise[String] =
+  #| (url, body) =>
+  #|   fetch(url, {
+  #|     method: 'POST',
+  #|     headers: { 'content-type': 'application/json' },
+  #|     body,
+  #|   })
+  #|     .then(res => res.text().then(text => `${res.status}\n${text}`))
+  #|     .catch(e => `0\n${String((e && e.message) ? e.message : e)}`)
+
+///|
+/// POST `body` to `url`, answering with `"<status>\n<response body>"` — see
+/// `_post_json` for what that says and why it is not the `ok`/`err` envelope.
+pub fn post_json(url : String, body : String) -> @js_async.Promise[String] {
+  _post_json(url, body)
+}

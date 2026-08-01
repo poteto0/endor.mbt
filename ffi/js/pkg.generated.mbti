@@ -18,6 +18,8 @@ pub fn is_metamask(Ethereum) -> Bool
 
 pub fn on(Ethereum, event~ : String, handler~ : (Json) -> Unit) -> Listener
 
+pub fn post_json(String, String) -> @js_async.Promise[String]
+
 pub fn remove_listener(Ethereum, event~ : String, listener~ : Listener) -> Unit
 
 pub fn request(Ethereum, String) -> @js_async.Promise[String]

@@ -14,6 +14,34 @@ applies.
 
 ## [Unreleased]
 
+### Added
+
+- An HTTP JSON-RPC transport, so the read layer works without a browser wallet:
+  `@http.HttpProvider` (`provider/http`) is a `Provider` that frames each call
+  as JSON-RPC 2.0 — unique, monotonic ids, checked against the id the answer
+  carries — over an `@http.HttpTransport` the caller supplies, and
+  `@fetch.FetchTransport` (`provider/http/fetch`) is that transport over
+  `fetch`. A node URL is all it needs:
+
+  ```moonbit
+  let provider = @http.HttpProvider::new(
+    @fetch.FetchTransport::new("http://127.0.0.1:8545"),
+  )
+  let chain = @provider.chain_id(provider)
+  ```
+
+  `provider/http` declares no `supported_targets` and imports no FFI, so a
+  non-JS HTTP client is a transport away. The methods that need a wallet UI —
+  every `wallet_*`, plus `eth_requestAccounts` — raise `UnsupportedMethod`
+  without a round trip; everything a node can serve, including
+  `eth_sendTransaction` against an unlocked account, is forwarded.
+  `HttpProvider` implements `Provider` and deliberately not `EventSource`:
+  plain HTTP pushes nothing. (#19)
+- `@provider.ProviderError::from_error_object`, the decoder for the
+  `{ code, message }` object EIP-1193 and JSON-RPC both carry. It was already
+  there privately, behind the event path's `from_json`; a node's `error` member
+  needed the same reading, and one mapping is better than two. (#19)
+
 ### Changed
 
 - **Breaking:** EIP-712 typed data moved out of `types` into its own package:
