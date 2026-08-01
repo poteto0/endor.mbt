@@ -1,6 +1,6 @@
 members = [
   ".",
   "./cmd",
-  "./examples/get-address",
+  "./examples/demo",
   "./website/islands",
 ]

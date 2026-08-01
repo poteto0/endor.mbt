@@ -77,7 +77,7 @@ other MoonBit block on this site is compiled.
 
 Wallets gate `eth_requestAccounts` behind a user gesture, so the flow belongs
 behind a button rather than on load. The
-[`examples/get-address`](https://github.com/poteto0/endor.mbt/tree/main/examples/get-address)
+[`examples/demo`](https://github.com/poteto0/endor.mbt/tree/main/examples/demo)
 module is exactly that: a page, an `index.html`, and the build-and-serve steps in
 [`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md).
 

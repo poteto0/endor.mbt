@@ -12,7 +12,12 @@ import path from 'node:path'
 
 const [root = 'dist-docs', url = '/', out = 'shot.png', mode = 'light'] =
   process.argv.slice(2)
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' }
+const TYPES = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.svg': 'image/svg+xml',
+}
 
 const server = http.createServer((req, res) => {
   let file = path.join(root, decodeURIComponent(req.url.split('?')[0]))

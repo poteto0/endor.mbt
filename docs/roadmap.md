@@ -10,12 +10,12 @@
 
 ## 長期: v1.0 — 「MoonBit で dapp が書ける」
 
-|        | 目標                                                                                        | issue                                                 |
-| ------ | ------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| **L1** | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20 プリセット（済）／残りはログのデコードと ERC-721 | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
+|         | 目標                                                                                                                                                                                         | issue                                                 |
+| ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **L1**  | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20 プリセット（済）／残りはログのデコードと ERC-721                                                                            | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
 | **L1'** | ABI からのプリセット生成 — `abi/codegen` と `endor-cli abi`。**実験的、進行中**: 安全に型付けできるものだけを生成し、それ以外は「生成しない」と名指しでスキップする。安定 API とは見なさない | [#48](https://github.com/poteto0/endor.mbt/issues/48) |
-| **L2** | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
-| **L3** | ドキュメント / クックブック、semver ポリシー確立                                            | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
+| **L2**  | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする                                                                                                  | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
+| **L3**  | ドキュメント / クックブック、semver ポリシー確立                                                                                                                                             | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
 
 L1 が SDK の価値の中心で、L2 は「何がコアか」を決める。この2つは独立に見えて、
 どちらも同じ問いに触る: **`Provider` trait はどこまで背負うのか**。
@@ -23,7 +23,7 @@ L1 が SDK の価値の中心で、L2 は「何がコアか」を決める。こ
 `types/` が真のコアになる。
 
 UI ライブラリへの統合は長期目標に**含めない**。`mizchi/luna` は
-`examples/get-address/` という独立モジュール内だけの依存であり、SDK 本体は
+`examples/demo/` という独立モジュール内だけの依存であり、SDK 本体は
 `moonbitlang/async` 以外に依存しない（`moon.mod` の `exclude` コメント参照）。
 リアクティブに使いたい要求は、イベント API をプレーンなコールバック +
 unsubscribe ハンドルとして公開することで満たす — 購読側でラップできる形にする、
@@ -33,15 +33,15 @@ unsubscribe ハンドルとして公開することで満たす — 購読側で
 
 読み取り専用では「繋いで残高を見る」までしかできない。ここを埋めるのが中期。
 
-|        | 目標                                                                   | issue                                                 |
-| ------ | ---------------------------------------------------------------------- | ----------------------------------------------------- |
-| **M1** | `eth_call` / `eth_estimateGas`                                         | [#9](https://github.com/poteto0/endor.mbt/issues/9)   |
-| **M2** | `eth_sendTransaction` + `TransactionRequest` / `TxHash` 型             | [#10](https://github.com/poteto0/endor.mbt/issues/10) |
-| **M3** | ブロック / レシート + `wait_for_receipt`（済）                          | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
-| **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`（済）         | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
-| **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む  | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
+|        | 目標                                                                         | issue                                                 |
+| ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **M1** | `eth_call` / `eth_estimateGas`                                               | [#9](https://github.com/poteto0/endor.mbt/issues/9)   |
+| **M2** | `eth_sendTransaction` + `TransactionRequest` / `TxHash` 型                   | [#10](https://github.com/poteto0/endor.mbt/issues/10) |
+| **M3** | ブロック / レシート + `wait_for_receipt`（済）                               | [#11](https://github.com/poteto0/endor.mbt/issues/11) |
+| **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`（済）               | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
+| **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む        | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
 | **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect`（済） | [#16](https://github.com/poteto0/endor.mbt/issues/16) |
-| **M7** | EIP-6963 — 複数の injected provider を列挙する                         | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
+| **M7** | EIP-6963 — 複数の injected provider を列挙する                               | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
 
 M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も承認 UI も要らないので
 `MockProvider` だけで完結して検証でき、かつ L1 への足場になる。

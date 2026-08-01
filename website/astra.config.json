@@ -18,7 +18,8 @@
     "basePath": "/islands/"
   },
   "headSnippets": [
-    "<link rel=\"stylesheet\" href=\"/endor.css\">"
+    "<link rel=\"stylesheet\" href=\"/endor.css\">",
+    "<link rel=\"icon\" href=\"/logo.svg\" type=\"image/svg+xml\">"
   ],
   "cssUtilities": {
     "enabled": true,

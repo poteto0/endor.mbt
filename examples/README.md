@@ -1,6 +1,6 @@
 # endor.mbt examples
 
-`get-address` below is the full one: a page that connects, reads, sends, switches
+`demo` below is the full one: a page that connects, reads, sends, switches
 chains and reads a token, in one module you can build and serve.
 
 The **cookbook** at <https://endor.poteto-mahiro.com/cookbook/> is the other half
@@ -9,7 +9,7 @@ The **cookbook** at <https://endor.poteto-mahiro.com/cookbook/> is the other hal
 that explains it. Reach for those when you want one recipe; reach for this when
 you want a dapp to start from.
 
-## get-address
+## demo
 
 A minimal browser dapp that detects MetaMask, connects the wallet, shows the
 provider name, connected address, balance and current chain id **on the page**,
@@ -28,7 +28,7 @@ Luna updates the DOM. `index.html` contributes only a `#app` root and the CSS.
 
 ### A separate module
 
-The example is its own MoonBit module (`examples/get-address/moon.mod`) so that
+The example is its own MoonBit module (`examples/demo/moon.mod`) so that
 the SDK's own `moon.mod` stays free of UI dependencies. The repository root
 carries a `moon.work` listing both members, which is what resolves
 `poteto0/endor` to this checkout instead of the registry.
@@ -36,7 +36,7 @@ carries a `moon.work` listing both members, which is what resolves
 That also means the build artifact lands under the example's module name:
 
 ```
-_build/js/debug/build/poteto0/endor-examples-get-address/endor-examples-get-address.js
+_build/js/debug/build/poteto0/endor-examples-demo/endor-examples-demo.js
 ```
 
 ### Run
