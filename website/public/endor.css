@@ -214,16 +214,19 @@ body {
   letter-spacing: 0;
 }
 
-/* the mark before the title: a filled square in the accent, which is the only
- * ornament on the page */
+/* the mark before the title: the logo — a round green planet with a small grey
+ * satellite — which is the only ornament on the page. It is a background image
+ * rather than astra's `theme.logo`, because that option swaps the title text
+ * out for the image; here the mark and the word sit together. The green in
+ * `logo.svg` is the accent, so it needs no recolouring in either theme. */
 .nav-home::before {
   content: '';
   display: inline-block;
-  width: 0.6rem;
-  height: 0.6rem;
-  margin-right: 0.55rem;
-  background: var(--primary-color);
-  vertical-align: baseline;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-right: 0.5rem;
+  background: url('/logo.svg') no-repeat center / contain;
+  vertical-align: -0.22rem;
 }
 
 .nav-link {

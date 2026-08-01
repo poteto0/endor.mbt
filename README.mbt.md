@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/poteto0/endor.mbt/main/website/public/logo.svg" alt="" width="88" height="88">
+
 # endor.mbt
 
 [![docs](https://img.shields.io/badge/docs-endor.poteto--mahiro.com-1f6feb)](https://endor.poteto-mahiro.com)
@@ -47,7 +49,7 @@ moon install poteto0/endor-cli/endor-cli
 ```
 
 It generates MoonBit contract presets from JSON ABI documents
-(`endor-cli init`, then `endor-cli abi`). Point it at a compiler *artifact* —
+(`endor-cli init`, then `endor-cli abi`). Point it at a compiler _artifact_ —
 `solc --combined-json abi,bin`, a Foundry or Hardhat one — and the preset gets a
 `deploy` too, with the creation code embedded. **Experimental**, and not
 required to use the SDK — [`cmd/README.md`](cmd/README.md) has the details.
@@ -77,7 +79,7 @@ fn main {
 ```
 
 A runnable version of this lives in
-[`examples/get-address`](https://github.com/poteto0/endor.mbt/tree/main/examples/get-address),
+[`examples/demo`](https://github.com/poteto0/endor.mbt/tree/main/examples/demo),
 which renders the same values onto a page, together with an `index.html` you can
 open in a browser that has a wallet installed — see
 [`examples/README.md`](https://github.com/poteto0/endor.mbt/blob/main/examples/README.md)
@@ -384,7 +386,7 @@ handler is the only place a new one arrives. Read the starting point with
 fails to decode is dropped rather than raised — an event arrives outside any call
 you made, so there is nowhere to raise to — and the subscription stays live.
 
-[`examples/get-address`](https://github.com/poteto0/endor.mbt/tree/main/examples/get-address)
+[`examples/demo`](https://github.com/poteto0/endor.mbt/tree/main/examples/demo)
 does exactly this against a real wallet: it holds the account and chain in
 signals, subscribes on connect, and unsubscribes when the wallet goes away.
 
@@ -420,8 +422,8 @@ for what counts as a breaking change while this is still `0.x`.
 | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                                        |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs   |
-| `endor/codec`            | the wire's arithmetic: hex digits, the 32-byte word, two's complement, the ABI's width rules                 |
-| `endor/eip712`           | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                             |
+| `endor/codec`            | the wire's arithmetic: hex digits, the 32-byte word, two's complement, the ABI's width rules                |
+| `endor/eip712`           | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                            |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
 | `endor/abi`              | ABI encode / decode, function selectors and event topics — `AbiType`, `AbiValue`, `AbiError`                |
 | `endor/contract`         | `Contract` — typed calls over the ABI layer — `deploy`, and the `Erc20` preset                              |

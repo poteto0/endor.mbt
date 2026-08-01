@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="endor.mbt">
+  <!--
+    endor.mbt's mark: a round green planet with a small grey satellite off its
+    lower right — the SDK, and the wallet that orbits it.
+
+    Both colours are literal rather than `currentColor`: the mark has to read
+    the same in the nav and in a favicon, where no stylesheet of ours is loaded.
+  -->
+  <circle cx="12.8" cy="12.8" r="11.4" fill="#2f9068" />
+  <circle cx="26" cy="26" r="3.9" fill="#8b968f" />
+</svg>

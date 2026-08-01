@@ -42,6 +42,9 @@ applies.
 
 ### Added
 
+- A logo: a round green planet with a small grey satellite off its lower right,
+  as `website/public/logo.svg`. It is the mark beside the site title in the
+  header, the favicon, and the top of the README.
 - **Experimental:** `abi/codegen` reads a compiler **artifact** as well as a
   bare ABI array — `solc --combined-json abi,bin`, solc's standard JSON, a
   Foundry or a Hardhat artifact — and an artifact carries the creation code, so
