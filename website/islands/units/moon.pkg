@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/core/string",
+  "poteto0/endor",
+  "poteto0/endor-website-islands/ui",
+  "mizchi/luna/dom" @element,
+  "mizchi/signals",
+  "mizchi/js_browser/dom",
+  "mizchi/js/core" @jsc,
+}
+
+supported_targets = "js"
+
+pkgtype(kind: "executable")
+
+options(
+  link: { "js": { "exports": [ "hydrate" ], "format": "esm" } },
+)

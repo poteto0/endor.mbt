@@ -113,6 +113,145 @@ cli-test-coverage:
   @cd cmd && moon coverage clean && moon test --enable-coverage --target native -p poteto0/endor-cli/endor-cli
   @cd cmd && moon coverage report -f summary
 
+# The documentation site: https://endor.poteto-mahiro.com
+#
+# `website/` is markdown rendered by `astra`, a static site generator written in
+# MoonBit, and the live demo on each cookbook page is a package of
+# `website/islands/` compiled to an ES module the page hydrates. So the recipes
+# below are two builds — the MoonBit one, then the site around it.
+
+# the compiled demos. `moon.work` lists `website/islands` as a member, so this
+# resolves `poteto0/endor` from the working tree: what the reader clicks is the
+# SDK as it is now, not as the registry last published it.
+[group("docs")]
+docs-islands:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website/islands"
+  moon build --target {{target}} --release
+  out="{{justfile_directory()}}/website/public/islands"
+  rm -rf "$out" && mkdir -p "$out"
+  built="{{justfile_directory()}}/_build/{{target}}/release/build/poteto0/endor-website-islands"
+  # every package except the shared `ui`, which is a library and links no entry
+  for js in "$built"/*/*.js; do
+    grep -q 'as hydrate' "$js" && cp "$js" "$out/"
+  done
+  ls "$out" | sed 's/^/  /'
+
+# `npm ci` rather than `npm install`, so the site is built from the versions the
+# lockfile names. Not `--silent`: npm silences its *errors* too, and a lockfile
+# npm refuses then fails this recipe in under a second with nothing on screen.
+# `package-lock.json` is generated with npm 10, the version Node 22 ships and CI
+# therefore runs — npm 11 prunes optional transitive packages that npm 10 still
+# expects, and a lockfile written by the newer one is one the older one rejects.
+[group("docs")]
+docs-build: docs-islands
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website"
+  npm ci --no-audit --no-fund
+  npx astra build
+  # Two ways a page comes out wrong that still build, render and deploy — both
+  # of them shipped once before this check existed:
+  #
+  #   `:::`      a VitePress container. astra's markdown does not know the
+  #              syntax and prints the fences as text. Raw HTML passes through,
+  #              so a callout is `<div class="alert alert--warning">`.
+  #   `&lt;a `   markup written where astra escapes it — the footer's `message`
+  #              is text, not HTML, so a link there arrives as its source.
+  bad=$(grep -rl -e ':::' -e '&lt;a ' dist-docs --include='*.html' || true)
+  [ -z "$bad" ] || {
+    echo "error: markup that did not render, in:"
+    echo "$bad" | sed 's/^/  /'
+    echo "  \`:::\` containers are not astra syntax — use <div class=\"alert alert--warning\">"
+    echo "  HTML in a config string is escaped — put the link in \`footer.links\`"
+    exit 1
+  }
+
+# the check neither `docs-check` nor `docs-islands` can make: that the built
+# demos are ones a browser hydrates. A wrong `link` format, an island renamed
+# out from under its `<Island name=…>`, a missing stylesheet — each of those
+# fails silently, leaving a page that renders with the demo simply absent.
+# Drives no wallet: there is none in a headless browser, and every demo is
+# written to say so rather than to break.
+[group("docs")]
+docs-smoke: docs-build
+  #!/usr/bin/env bash
+  set -euo pipefail
+  cd "{{justfile_directory()}}/website"
+  # `--with-deps` installs the system libraries the browser needs, which takes
+  # root — fine on a CI runner, a password prompt on a developer's machine that
+  # already has them
+  if [ -n "${CI:-}" ]; then
+    npx playwright install --with-deps chromium
+  else
+    npx playwright install chromium
+  fi
+  node smoke.mjs dist-docs
+
+# serve the built site on http://localhost:7777
+#
+# Not `astra dev`: that renders pages but does not serve `public/`, so the
+# stylesheet 404s and every island 404s with it — the site comes up in astra's
+# default colours with no demos on it, which is a preview of nothing. Serving
+# `dist-docs` costs a rebuild on each change and shows exactly what deploys.
+[group("docs")]
+docs-dev port="7777": docs-build
+  @echo "open http://localhost:{{port}}/ — re-run \`just docs-dev\` after an edit"
+  @python3 -m http.server {{port}} -d website/dist-docs
+
+# every documented MoonBit example, compiled: the site's pages and the README
+# the registry shows. `moon test` never reaches markdown in this module (#8), so
+# each one would otherwise be prose that nothing proves — and prose about an API
+# rots silently. When this check was written, `README.mbt.md` had two examples
+# that no longer compiled: a package that had moved, and a `catch` that had gone
+# non-exhaustive under a variant added since.
+#
+# Each file becomes one package of *this* module, so a snippet resolves the
+# working tree rather than whatever the registry last published, and so two
+# pages may name the same function without colliding.
+#
+# A block that cannot compile on its own — a `fn main`, a fragment, a shell
+# transcript — is tagged ```moonbit no-check and skipped: the info string is
+# matched exactly, so tagging is deliberate rather than accidental.
+[group("ci")]
+docs-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  root="{{justfile_directory()}}"
+  out="$root/_docs_check"
+  trap 'rm -rf "$out"' EXIT
+  rm -rf "$out"
+  pkgs=()
+  while IFS= read -r md; do
+    # ```moonbit on the site, where astra highlights it; ```mbt-example in the
+    # README, where `moon fmt` claims every ```moonbit block as a doctest and
+    # rewrites it — inserting `///|` before each definition and retagging it
+    # `nocheck`, which would both uglify the README and turn this check off.
+    body=$(awk '
+      /^```(moonbit|mbt-example)$/ { on = 1; next }
+      /^```/                       { on = 0; next }
+      on                           { print }
+    ' "$md")
+    [ -n "$body" ] || continue
+    slug=$(printf '%s' "${md#website/}" | sed 's/\.mbt\.md$//; s/\.md$//; s#[/_.]#-#g')
+    mkdir -p "$out/$slug"
+    printf '%s\n' "$body" > "$out/$slug/main.mbt"
+    cp "$root/website/.docs-check.moon.pkg" "$out/$slug/moon.pkg"
+    pkgs+=("_docs_check/$slug")
+  # the site's pages, plus the published README. `README.md` is a symlink to
+  # `README.mbt.md`, so checking one checks both. `islands/` is MoonBit source
+  # with its own `.mooncakes` checkout under it, and every build directory
+  # carries a README nobody here wrote — feeding either to the compiler would
+  # check somebody else's docs.
+  done < <(cd "$root" && { echo README.mbt.md; find website \
+    \( -name node_modules -o -name islands -o -name dist-docs -o -name public \
+       -o -name .mooncakes -o -name _build -o -name target \) -prune \
+    -o -name '*.md' -print | sort; })
+  [ ${#pkgs[@]} -gt 0 ] || { echo "error: no \`\`\`moonbit blocks found"; exit 1; }
+  moon check --target {{target}} --deny-warn "${pkgs[@]}"
+  echo "ok: ${#pkgs[@]} documentation pages compile"
+
 # the check the ABI generator itself cannot make: that what it wrote compiles.
 # `moon test` never compiles generated source — it only compares it to a string
 # — which is the same blind spot doc examples have in this repository, and the
@@ -148,11 +287,11 @@ codegen-check:
 
 # what the pre-commit hook runs: formats and regenerates in place
 [group("ci")]
-ci: unit-test fmt check info archive-check cli-check cli-test codegen-check
+ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check
+ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release

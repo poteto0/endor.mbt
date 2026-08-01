@@ -45,6 +45,36 @@ jobs:
       - name: Published archive check
         run: just archive-check
 
+      # the documentation site's code blocks, compiled. `moon test` never
+      # reaches markdown (#8), so this is the only thing standing between an
+      # example and rot
+      - name: Documentation examples check
+        run: just docs-check
+
+  # separate job: it is the only one that needs Node, and a broken site build
+  # should read as "the docs broke", not as an SDK regression. Builds on every
+  # PR; `deploy-docs.yml` is what publishes it.
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      # compiles the islands, renders the site, then opens every page that
+      # carries a demo in a headless browser and requires the island to have
+      # hydrated. The demos are MoonBit, so this fails when either half breaks.
+      - name: Build the documentation site and hydrate its demos
+        run: just docs-smoke
+
   # separate job: the only one that needs a node, and its failures should read
   # as "the wire format broke", not as a unit-test regression
   e2e:

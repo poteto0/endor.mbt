@@ -1,5 +1,14 @@
 # endor.mbt examples
 
+`get-address` below is the full one: a page that connects, reads, sends, switches
+chains and reads a token, in one module you can build and serve.
+
+The **cookbook** at <https://endor.poteto-mahiro.com/cookbook/> is the other half
+— one focused demo per task, each a package of
+[`website/islands/`](../website/islands/) that runs in the browser on the page
+that explains it. Reach for those when you want one recipe; reach for this when
+you want a dapp to start from.
+
 ## get-address
 
 A minimal browser dapp that detects MetaMask, connects the wallet, shows the
@@ -62,13 +71,16 @@ is finer than a wei, never becomes a `Wei`. Units are a UI concern — the SDK
 deals in wei — so `wei_of_ether` in `main.mbt` does that conversion.
 
 What comes back is a `TxHash`, which means **broadcast, not mined**. The card
-re-reads the balance right away and will usually still show the old one; there
-is no receipt layer yet ([#11](https://github.com/poteto0/endor.mbt/issues/11)).
+re-reads the balance right away and will usually still show the old one — the
+example does not wait. `@provider.wait_for_receipt` is what turns the hash into
+an outcome, and the
+[Send ETH](https://endor.poteto-mahiro.com/cookbook/send-eth/) demo does wait, so
+it can report the block, the gas, and a revert.
 
 > This spends real funds on whatever chain the wallet is on. Switch to
 > **Sepolia** or **Polygon Amoy** first — both have public faucets.
 
-The **Mainnet / Sepolia / Polygon Amoy / Polygon** buttons below the card call
+The **Mainnet / Sepolia / Polygon** buttons below the card call
 `@provider.switch_or_add_chain`, which switches the wallet and — if the wallet
 answers 4902 because it does not know the chain — adds it from the
 `ChainParams` in `main.mbt` and switches again. The card re-reads the balance

@@ -1,5 +1,6 @@
 # endor.mbt
 
+[![docs](https://img.shields.io/badge/docs-endor.poteto--mahiro.com-1f6feb)](https://endor.poteto-mahiro.com)
 [![mooncakes.io](https://img.shields.io/badge/mooncakes.io-poteto0%2Fendor-blue)](https://mooncakes.io/docs/poteto0/endor)
 [![CI](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml/badge.svg)](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/poteto0/endor.mbt/blob/main/LICENSE)
@@ -11,9 +12,10 @@ and exposes it as typed, async MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
-> See [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)
-> for what's wrapped — anything unwrapped is still reachable through
-> `Provider::request`.
+> **[endor.poteto-mahiro.com](https://endor.poteto-mahiro.com)** is the
+> documentation: a cookbook whose every recipe carries a demo you can drive
+> against your own wallet, and a reference for what is wrapped — anything
+> unwrapped is still reachable through `Provider::request`.
 
 ## Install
 
@@ -52,7 +54,7 @@ required to use the SDK — [`cmd/README.md`](cmd/README.md) has the details.
 
 ## Getting a wallet address
 
-```
+```mbt-example no-check
 async fn connect() -> Unit {
   try {
     // raises NotInstalled when no wallet extension is present
@@ -83,14 +85,14 @@ for the build-and-serve steps.
 
 ## Calling a contract
 
-```
+```mbt-example
 async fn holdings(
   wallet : @browser.BrowserProvider,
   token : @endor.Address,
   who : @endor.Address,
 ) -> Unit {
   try {
-    let token = @contract.Erc20::new(token)
+    let token = @erc20.Erc20::new(token)
     // four eth_calls, no prompt and no gas: reads cost the user nothing
     let decimals = token.decimals(wallet)
     let amount = token.balance_of(wallet, who)
@@ -99,11 +101,13 @@ async fn holdings(
   } catch {
     Abi(e) => println("that address is not an ERC-20: \{e}")
     Rpc(e) => println("the wallet said: \{e}")
+    e => println("error: \{e}")
   }
 }
 ```
 
-`Erc20` is a preset over `Contract`, which is `eth_call` / `eth_sendTransaction`
+`Erc20` lives in its own package, `poteto0/endor/contract/erc20`, and is a
+preset over `Contract`, which is `eth_call` / `eth_sendTransaction`
 with the arguments encoded and the answer decoded. Amounts are `BigInt` in the
 token's smallest unit — `decimals` says where the point goes, and scaling it for
 a human stays out of the SDK, exactly as it does for `Wei`. `transfer` and
@@ -111,7 +115,7 @@ a human stays out of the SDK, exactly as it does for `Wei`. `transfer` and
 
 Any other contract is one `call` away, with the types spelled out:
 
-```
+```mbt-example
 async fn owner_of(
   wallet : @browser.BrowserProvider,
   nft : @endor.Address,
@@ -132,7 +136,7 @@ async fn owner_of(
 A contract that is not deployed yet is one `deploy` away, since a transaction
 with no recipient deploys its `data`:
 
-```
+```mbt-example
 async fn put_on_chain(
   wallet : @browser.BrowserProvider,
   me : @endor.Address,
@@ -162,7 +166,7 @@ and the topic an event is logged under.
 
 ## Reading state without an ABI
 
-```
+```mbt-example
 async fn total_supply(
   wallet : @browser.BrowserProvider,
   token : @endor.Address,
@@ -192,7 +196,7 @@ which makes `estimate_gas` a cheap pre-flight check before asking anyone to sign
 
 ## Sending a transaction
 
-```
+```mbt-example
 async fn tip(
   wallet : @browser.BrowserProvider,
   from : @endor.Address,
@@ -228,7 +232,7 @@ it did is in its receipt.
 
 ## Waiting for the receipt
 
-```
+```mbt-example
 async fn transfer(
   wallet : @browser.BrowserProvider,
   request : @endor.TransactionRequest,
@@ -262,7 +266,7 @@ node does not know.
 
 ## Signing a message
 
-```
+```mbt-example
 async fn login(
   wallet : @browser.BrowserProvider,
   who : @endor.Address,
@@ -288,7 +292,7 @@ your backend to verify.
 EIP-712 typed data is `sign_typed_data`, which takes an `@endor.TypedData` and
 sends it to `eth_signTypedData_v4`:
 
-```
+```mbt-example
 fn permit(
   token : @endor.Address,
   holder : @endor.Address,
@@ -321,7 +325,7 @@ cannot disagree. The wallet hashes the document, so nothing is hashed here.
 
 ## Switching chains
 
-```
+```mbt-example
 async fn to_polygon(wallet : @browser.BrowserProvider) -> Unit {
   try {
     @provider.switch_or_add_chain(
@@ -348,7 +352,7 @@ fallback is the part every dapp otherwise writes by hand; `switch_chain` and
 
 ## Reacting to wallet changes
 
-```
+```mbt-example
 fn watch(wallet : @browser.BrowserProvider) -> @provider.Subscription {
   // accountsChanged: the user switched account, or revoked the dapp's access
   let sub = @provider.on_accounts_changed(wallet, accounts => {
@@ -401,10 +405,14 @@ of that, `endor/abi` encodes and decodes ABI values and `endor/contract` turns
 them into typed contract calls, with an `Erc20` preset. `Provider::request`
 reaches any method the SDK does not wrap, with raw `Json`.
 
-**→ [`docs/scope.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/scope.md)**
-for the full list, what each helper returns, and how to use the escape hatch.
-**→ [`docs/roadmap.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/roadmap.md)**
-for where the unimplemented parts sit in the plan.
+**→ [Reference](https://endor.poteto-mahiro.com/reference/)** for the full list,
+what each helper returns, and how to use the escape hatch.
+**→ [Not wrapped yet](https://endor.poteto-mahiro.com/reference/not-wrapped/)**
+for what is missing and why, and
+[`docs/roadmap.md`](https://github.com/poteto0/endor.mbt/blob/main/docs/roadmap.md)
+for where it sits in the plan.
+**→ [Versioning policy](https://endor.poteto-mahiro.com/reference/versioning/)**
+for what counts as a breaking change while this is still `0.x`.
 
 ## Layout
 
@@ -437,10 +445,8 @@ recipes below live in its `justfile`, which is not part of the published package
 The default target is `js`, since the SDK drives a browser-injected object.
 
 ```sh
-just ut     # unit tests — no browser or wallet needed
-just build  # build for js, including the example
-just ci     # test, format, check, and refresh generated interfaces
+just ut        # unit tests — no browser or wallet needed
+just build     # build for js, including the example
+just ci        # test, format, check, and refresh generated interfaces
+just docs-dev  # the documentation site, demos and all, on localhost:7777
 ```
-
-The typed RPC layer is tested against `MockProvider`, so nothing in the test
-suite requires a wallet.

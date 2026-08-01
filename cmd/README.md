@@ -100,7 +100,7 @@ put in it.
 ## `endor-cli abi`
 
 **Experimental.** A code generator: it turns a contract's JSON ABI into the
-MoonBit source of a preset shaped like `@contract.Erc20` — a struct wrapping a
+MoonBit source of a preset shaped like `@erc20.Erc20` — a struct wrapping a
 `Contract`, one method per function, a topic getter per event.
 
 It takes no arguments. What it reads and where it writes is `endor.yaml` in the

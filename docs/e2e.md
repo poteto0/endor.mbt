@@ -35,8 +35,8 @@ only the transport underneath the injected object differs from a browser.
 
 ### What is real and what is emulated
 
-Real — answered by Anvil's EVM: every helper in
-[`docs/scope.md`](./scope.md) — the reads, `call` / `estimate_gas` against a
+Real — answered by Anvil's EVM: every helper in the
+[reference](https://endor.poteto-mahiro.com/reference/) — the reads, `call` / `estimate_gas` against a
 contract the suite deploys, and `send_transaction`, whose transactions the node
 really mines and prices (which is how the suite pins that `Fee::Auto` produces
 a type-`0x02` transaction).

@@ -1,0 +1,58 @@
+name: Deploy docs
+
+# https://endor.poteto-mahiro.com — the site is rebuilt and published on every
+# push to `main` that touches it. It is a Workers Static Assets deployment, so
+# what ships is the tree `astra build` writes plus the compiled islands, and
+# there is no worker script to review.
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'website/**'
+      # the demos and the code blocks are both built out of the SDK, so a change
+      # to the SDK can change the site without anything under `website/` moving
+      - 'abi/**'
+      - 'contract/**'
+      - 'provider/**'
+      - 'types/**'
+      - 'moon.mod'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+# a deploy that lost the race must not overwrite the one that won
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up the MoonBit toolchain
+        uses: ./.github/actions/setup
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: website/package-lock.json
+
+      - name: Build the documentation site
+        run: just docs-build
+
+      # needs two repository secrets: CLOUDFLARE_API_TOKEN, with the
+      # "Edit Cloudflare Workers" template scoped to the zone that serves
+      # poteto-mahiro.com, and CLOUDFLARE_ACCOUNT_ID
+      - name: Deploy to Cloudflare Workers
+        working-directory: website
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx wrangler deploy

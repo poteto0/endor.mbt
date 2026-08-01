@@ -4,8 +4,9 @@
 [GitHub issues](https://github.com/poteto0/endor.mbt/issues) 側で追う。
 このファイルはその上位の枠組み — なぜその順番なのか — を書いておく場所。
 
-何が実装済みで何がそうでないかの正確な一覧は
-[`docs/scope.md`](./scope.md) にある。
+何が実装済みで何がそうでないかの正確な一覧はドキュメントサイトの
+[Reference](https://endor.poteto-mahiro.com/reference/) にある。未実装のものは
+[Not wrapped yet](https://endor.poteto-mahiro.com/reference/not-wrapped/)。
 
 ## 長期: v1.0 — 「MoonBit で dapp が書ける」
 
