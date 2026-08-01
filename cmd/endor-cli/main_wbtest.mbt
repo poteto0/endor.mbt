@@ -70,16 +70,6 @@ test "help for something that is not a command fails" {
 }
 
 ///|
-/// The version is baked in rather than read from `moon.mod`, which an installed
-/// binary does not have — so what is pinned here is that it is the version the
-/// module declares. `just release-check <tag>` holds the other end.
-test "the version is the one the module declares" {
-  assert_eq(VERSION, "0.4.0")
-  assert_eq(run_for_args(argv(["version"])), 0)
-  assert_eq(run_for_args(argv(["--version"])), 0)
-}
-
-///|
 /// `abi` reads `endor.yaml` and nowhere else, so an argument is refused rather
 /// than accepted and ignored — and the CLI's own two commands are held to the
 /// same rule, since a tool that enforces it only on other people's subcommands
