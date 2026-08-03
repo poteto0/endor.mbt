@@ -103,7 +103,7 @@ each other is what `TypedData::new` does.
 Nothing is hashed locally: the **wallet** computes the digest, which is why
 signing needs no keccak256 here even though `crypto/` has it.
 
-`endor/eip712` does implement the EIP-712 hashing — `encodeType`, `typeHash`,
+`endor/eips/eip712` does implement the EIP-712 hashing — `encodeType`, `typeHash`,
 `encodeData`, `hashStruct`, `domainSeparator`, `digest` — for the callers that
 need the digest itself. Wiring it into signing is
 [#45](https://github.com/poteto0/endor.mbt/issues/45), and the thing that will
