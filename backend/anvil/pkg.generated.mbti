@@ -20,8 +20,6 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(P, @types.Hex) -> @typ
 
 pub fn dev_account() -> @types.Address
 
-pub fn endpoint() -> String
-
 pub async fn on(async (@browser.BrowserProvider) -> Unit) -> Unit
 
 pub fn other_account() -> @types.Address

@@ -1,11 +1,14 @@
+import {
+  // aliased: this package is itself `env`. The read is per backend in *there*
+  // — `process.env` on `js`, `getenv` on `native`, an import on `wasm` — which
+  // is why nothing here has to be.
+  "moonbitlang/core/env" @core_env,
+}
+
 // The suite's configuration, and nothing else. Its own package because both
 // backends need it and neither should need the other: `backend/anvil` installs
 // a fake wallet, `backend/http` exists to prove nothing has to be installed —
 // so the second must not import the first merely to learn a URL.
 //
-// `js`-only because reading an environment variable is `process.env`, which is
-// FFI. Not wallet FFI: `ffi/js` binds the wallet a browser injected, and this
-// binds nothing of the sort. Repo-only either way — `backend/` is excluded from
-// the published archive.
-
-supported_targets = "js"
+// No `supported_targets`: reading an environment variable is not a browser
+// thing, and the one package that fabricates a wallet is `backend/anvil`.

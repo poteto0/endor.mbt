@@ -184,7 +184,7 @@ async test "switch_or_add_chain adds the chain the wallet does not know" {
     let params = @types.ChainParams::new(
       @types.ChainId::new(4242),
       chain_name="Endor E2E",
-      rpc_urls=[@anvil.endpoint()],
+      rpc_urls=[@env.endpoint()],
       native_currency=@types.NativeCurrency::new(name="Ether", symbol="ETH"),
     )
     // the switch raises 4902, and the fallback adds the chain and switches again

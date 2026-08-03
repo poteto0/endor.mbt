@@ -74,12 +74,3 @@ extern "js" fn install_wallet(rpc_url : String, reject_from : String) -> Unit =
   #|     },
   #|   }
   #| }
-
-///|
-/// The endpoint the suite runs against — `@env.endpoint()`, re-exported so a
-/// test that already has `@anvil` in scope needs nothing else. The read itself
-/// is `backend/env`'s, because `backend/http` needs it too and must not import
-/// the package that installs a fake wallet to get it.
-pub fn endpoint() -> String {
-  @env.endpoint()
-}

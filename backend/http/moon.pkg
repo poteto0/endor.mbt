@@ -6,9 +6,10 @@ import {
   "poteto0/endor/provider/http/endpoint",
 }
 
-// `js`-only because `backend/env` reads `process.env` and the suite runs on
-// `js`. Not because of the transport: `@rpc.HttpProvider::at` is portable, and
-// nothing here fakes a wallet — that is the point of this backend, so it
-// imports neither `ffi/js` nor `backend/anvil`, whose `js.mbt` installs one.
+// Every backend `provider/http/endpoint` reaches, which is every one but
+// `wasm-gc`. Nothing here is `js`: it fakes no wallet — that is the point of
+// this backend — so it imports neither `ffi/js` nor `backend/anvil`, whose
+// `js.mbt` installs one, and `backend/env` reads the URL portably. The suite
+// that drives it still runs on `js`, because `backend/anvil` must.
 
-supported_targets = "js"
+supported_targets = "+js +native +wasm"

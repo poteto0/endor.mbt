@@ -137,14 +137,19 @@ Layout:
 - `backend/env/` — where `ENDOR_E2E_RPC_URL` is read, and nothing else. Its own
   package because the URL is the *suite's* configuration rather than any one
   backend's: `backend/http` needs it and must not import `backend/anvil`, which
-  installs a fake wallet, merely to learn it
+  installs a fake wallet, merely to learn it. Pure MoonBit over
+  `moonbitlang/core/env`, so it pins no backend — an environment variable is
+  not a browser thing
 - `backend/anvil/` — the `Backend` implementation for a local Anvil node, its
   dev accounts and test-contract helpers, and `js.mbt`, which injects a fake
-  EIP-1193 wallet at `globalThis.ethereum`
+  EIP-1193 wallet at `globalThis.ethereum` and holds nothing else — it is the
+  fake wallet's file, not a place for whatever else needs a runtime
 - `backend/http/` — the same node reached over plain HTTP, through
   `@endpoint.at`. Its `install` is empty, and that emptiness is the claim it
   exists to make: an HTTP transport needs nothing in place — one
-  `ENDOR_E2E_RPC_URL` drives both ways in
+  `ENDOR_E2E_RPC_URL` drives both ways in. It pins no backend beyond what
+  `@endpoint` reaches; the suite around it is `js` only because `backend/anvil`
+  must be
 - `e2e/` — the end-to-end test cases themselves, driven through `@anvil.on` and
   `@http_backend.on`; test files only, so the package exports nothing
 
