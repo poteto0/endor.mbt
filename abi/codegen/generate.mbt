@@ -109,9 +109,15 @@ pub fn generate(
   }
   for e in doc.events {
     match event_block(name, e, taken) {
-      Ok((signature, block)) => {
-        members.push(signature)
-        blocks.push(block)
+      Ok(ev) => {
+        members.push(ev.signature)
+        blocks.push(ev.code)
+        // an event can lose its decoder and keep its topic: the two are
+        // separate answers about the same member, so the reason is reported
+        // alongside a member that *was* generated
+        if ev.no_decoder is Some(reason) {
+          skipped.push(reason)
+        }
       }
       Err(reason) => skipped.push(reason)
     }

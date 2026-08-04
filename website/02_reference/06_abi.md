@@ -86,8 +86,9 @@ absence to notice.
 
 `@erc20.Erc20` — the package is `poteto0/endor/contract/erc20` — spells the
 standard interface once: `name`, `symbol`, `decimals`, `total_supply`,
-`balance_of`, `allowance`, `transfer`, `approve`, and `Erc20::transfer_topic()`
-for finding transfers in a receipt's logs.
+`balance_of`, `allowance`, `transfer`, `approve`, and — for the transfers in a
+receipt's logs — `Erc20::transfer_topic()` to find them and
+`Erc20::decode_transfer(log)`, which answers with `(from, to, value)`.
 
 ```moonbit
 async fn token_calls(
@@ -121,6 +122,7 @@ whose success is in the receipt.
 | `@abi.signature(name~, inputs~)`          | `"transfer(address,uint256)"`              |
 | `@abi.selector(signature)`                | the 4 bytes calldata starts with           |
 | `@abi.event_topic(signature)`             | the 32-byte topic an event is logged under |
+| `@abi.decode_log(name~, params~, …)`      | one log, as the event's arguments          |
 
 `@abi.AbiType` describes a parameter — `Uint(256)`, `Address`, `FixedBytes(32)`,
 `Array(String)`, `FixedArray(t, k)`, `Tuple([…])` — and `@abi.AbiValue` carries
@@ -136,13 +138,59 @@ alongside `AbiType`, because `AbiType::name` checks the same width and size rule
 themselves are predicates in `@codec`, which is also where the hex-digit and word
 arithmetic both this layer and `@eip712` work in lives.
 
-**Not covered:** `bytesN` beyond 32, and decoding a log's indexed arguments.
+**Not covered:** `bytesN` beyond 32.
+
+## Reading a log
+
+An event's arguments are in two places. The ones Solidity declared `indexed` are
+the log's `topics` after the first — `topics[0]` is the signature hash
+`@abi.event_topic` computes — and the rest are ABI-encoded in `data`.
+`@abi.decode_log` checks `topics[0]`, reads both halves, and answers with one
+array in the order the event declares them:
+
+```moonbit
+fn transfer_of(log : @endor.Log) -> Array[@abi.AbiValue] raise @abi.AbiError {
+  @abi.decode_log(
+    name="Transfer",
+    params=[
+      // event Transfer(address indexed from, address indexed to, uint256 value)
+      { ty: Address, indexed: true },
+      { ty: Address, indexed: true },
+      { ty: Uint(256), indexed: false },
+    ],
+    topics=log.topics,
+    data=log.data,
+  )
+}
+```
+
+`@abi.EventParam` is that pairing — an `AbiType` and whether it is `indexed` —
+and it is what the log cannot supply: nothing on the wire says which half a value
+came from. A log of another event raises `InvalidData` rather than decoding into
+plausible nonsense, which matters because a receipt holds the logs of every
+contract the transaction touched.
+
+**An indexed `string`, `bytes`, array or struct comes back as its hash.** A topic
+is one 32-byte word and those do not fit in one, so what Solidity puts there is
+the `keccak256` of the encoded value. The value was never in the log and cannot
+be recovered from it — by anyone, not just by this SDK — so `decode_log` answers
+with `Bytes` holding those 32 bytes. A caller with a candidate value hashes it
+and compares, which is all a log filter ever does with one.
+
+**Anonymous events are not decoded.** An `anonymous` event writes no signature
+hash, so its log has no `topics[0]` to match and its first topic is already an
+argument. Nothing in such a log says which event it is, so passing the wrong
+parameter list would decode silently into the wrong values instead of raising.
+`decode_log` always expects `topics[0]`, and a log of an anonymous event fails
+that check; read one with `@abi.decode` over `data` and the topics by hand, where
+the assumption is written down as yours.
 
 ## Generating a preset — experimental
 
 `@codegen.generate(name, document)` (`abi/codegen`) reads a JSON ABI document and
 renders the *source* of a preset shaped like `@erc20.Erc20` — a struct wrapping a
-`Contract`, a method per function, a topic getter per event. `endor-cli abi`, its
+`Contract`, a method per function, and a topic getter plus a log decoder per
+event. `endor-cli abi`, its
 command-line front end, lives in `cmd/`, which is a **separate module**
 (`poteto0/endor-cli`) and is not part of what this one publishes — it is
 installed as a binary, not depended on.
@@ -157,9 +205,13 @@ endor-cli abi       # reads ./abi, writes ./outputs
 what it can type without guessing — parameters and single return values of
 `address`, `bool`, `string`, `uintN`, `intN` — and *skips* every other member
 rather than approximating it, naming each one in `Generated::skipped` and in a
-comment in the generated file. Events are exempt, since a topic needs only the
-signature; `fallback`, `receive` and `error` entries are dropped, since nothing
-generated dispatches to them. Read what it produces before shipping it.
+comment in the generated file. An event's *topic* is exempt, since it needs only
+the signature — its `decode_…` runs into the same limit every other method does,
+and an event that loses it keeps the topic, which is what a caller filters logs
+with before decoding them by hand. An `anonymous` event generates nothing at all:
+its logs carry no `topics[0]` to match or decode. `fallback`, `receive` and
+`error` entries are dropped, since nothing generated dispatches to them. Read
+what it produces before shipping it.
 
 The document may be the JSON array of ABI members or a **compiler artifact**
 holding one — `solc --combined-json abi,bin`, solc's standard JSON, a Foundry

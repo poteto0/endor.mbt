@@ -6,6 +6,9 @@ priv struct Param {
   name : String
   /// The declared type, resolved into the `AbiType` the SDK encodes with.
   ty : @abi.AbiType
+  /// `indexed` — an event parameter that went into the log's `topics` instead
+  /// of its `data`. Always false for anything but an event.
+  indexed : Bool
 }
 
 ///|
@@ -22,11 +25,13 @@ priv struct AbiFunction {
 }
 
 ///|
-/// An event of the ABI. Only its signature matters here: what is generated is
-/// the topic it is logged under.
+/// An event of the ABI: the topic its logs carry, and how to read one back.
 priv struct AbiEvent {
   name : String
   inputs : Array[Param]
+  /// `anonymous` — the log carries no signature hash in `topics[0]`, so
+  /// nothing generated from this entry could match a log or decode one.
+  anonymous : Bool
 }
 
 ///|
@@ -395,16 +400,20 @@ fn read_function(
 }
 
 ///|
-/// One `"type": "event"` entry. Only the name and the parameter types are
-/// read: an event's `indexed` flags decide which arguments land in `topics`
-/// rather than in `data`, and nothing generated from this ABI decodes a log
-/// yet, so nothing here would use them.
+/// One `"type": "event"` entry: its name, its parameters with the `indexed`
+/// flags that say which half of the log each one is in, and whether it is
+/// anonymous — which is what decides whether anything can be generated from it
+/// at all.
 fn read_event(
   fields : Map[String, Json],
   at~ : Int,
 ) -> AbiEvent raise CodegenError {
   let name = read_name(fields, at~, kind="event")
-  { name, inputs: read_params(fields, "inputs", of="event `\{name}`") }
+  {
+    name,
+    inputs: read_params(fields, "inputs", of="event `\{name}`"),
+    anonymous: fields.get("anonymous") is Some(True),
+  }
 }
 
 ///|
@@ -474,7 +483,15 @@ fn read_params(
       Some(_) =>
         raise InvalidAbi("\{of} has a parameter with a non-string name")
     }
-    params.push({ name, ty: read_type(param, of~) })
+    params.push({
+      name,
+      ty: read_type(param, of~),
+      // only an event's parameters carry it, and a document that puts it on a
+      // function's is answered the same way as one that leaves it off an
+      // event's: not indexed. `indexed` means "went into `topics`", and
+      // nothing but an event has topics
+      indexed: param.get("indexed") is Some(True),
+    })
   }
   params
 }

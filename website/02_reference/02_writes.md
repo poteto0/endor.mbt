@@ -110,6 +110,6 @@ common way a dapp reports success for something that failed.
 
 `logs` is an array of `@endor.Log`, each with its raw `topics` and `data`.
 `@abi.event_topic("Transfer(address,address,uint256)")` is what `topics[0]` is
-matched against to find the logs of one event, and `@abi.decode` reads the
-non-indexed arguments out of `data`. Pairing indexed arguments back up with their
-topics is [not wrapped yet](./not-wrapped/).
+matched against to find the logs of one event, and
+[`@abi.decode_log`](./abi/#reading-a-log) reads one back as the arguments it was
+emitted with — the `indexed` ones out of `topics`, the rest out of `data`.
