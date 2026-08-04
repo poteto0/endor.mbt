@@ -15,17 +15,34 @@ fn usdc() -> @eip712.TypedDataDomain raise @types.CodecError {
 }
 
 ///|
+/// The two parties every fixture here uses, spelled once. They are EIP-712's
+/// own example addresses, so nothing about them is EIP-3009's.
+fn alice() -> @types.Address raise @types.CodecError {
+  @types.Address::from_string("0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826")
+}
+
+///|
+fn bob() -> @types.Address raise @types.CodecError {
+  @types.Address::from_string("0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB")
+}
+
+///|
+/// The nonce every fixture is signed against. A real one is 32 random bytes;
+/// this one is fixed so the hashes below are.
+fn nonce() -> @types.Hex raise @types.CodecError {
+  @types.Hex::from_string(
+    "0x0000000000000000000000000000000000000000000000000000000000000001",
+  )
+}
+
+///|
 fn one_dollar() -> @eip3009.Authorization raise @types.CodecError {
   @eip3009.Authorization::new(
-    from=@types.Address::from_string(
-      "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
-    ),
-    to=@types.Address::from_string("0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
+    from=alice(),
+    to=bob(),
     value=1000000,
     valid_before=2000000000,
-    nonce=@types.Hex::from_string(
-      "0x0000000000000000000000000000000000000000000000000000000000000001",
-    ),
+    nonce=nonce(),
   )
 }
 
@@ -62,22 +79,24 @@ test "transfer type hash" {
 /// only the name differs — and that is enough to make the two signatures
 /// unusable in each other's place, which is the whole point of the second form.
 test "receive type hash" {
-  let document = one_dollar().receive_typed_data(usdc())
+  let auth = one_dollar()
+  let usdc = usdc()
+  let document = auth.receive_typed_data(usdc)
   inspect(
     document.type_hash("ReceiveWithAuthorization").to_string(),
     content="0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8",
   )
-  assert_true(
-    document.digest() != one_dollar().transfer_typed_data(usdc()).digest(),
-  )
+  // the *same* authorization, under the other name
+  assert_true(document.digest() != auth.transfer_typed_data(usdc).digest())
 }
 
 ///|
 /// `CANCEL_AUTHORIZATION_TYPEHASH`, over the two members cancelling needs.
 test "cancel document" {
+  let auth = one_dollar()
   let cancel = @eip3009.CancelAuthorization::new(
-    authorizer=one_dollar().from(),
-    nonce=one_dollar().nonce(),
+    authorizer=auth.from(),
+    nonce=auth.nonce(),
   )
   let document = cancel.typed_data(usdc())
   inspect(
@@ -143,18 +162,12 @@ test "authorization reads back" {
 test "error empty validity window" {
   try
     @eip3009.Authorization::new(
-      from=@types.Address::from_string(
-        "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
-      ),
-      to=@types.Address::from_string(
-        "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-      ),
+      from=alice(),
+      to=bob(),
       value=1,
       valid_after=2000000000,
       valid_before=1000000000,
-      nonce=@types.Hex::from_string(
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-      ),
+      nonce=nonce(),
     )
     |> ignore
   catch {
@@ -174,9 +187,7 @@ test "error empty validity window" {
 test "error short nonce" {
   try
     @eip3009.CancelAuthorization::new(
-      authorizer=@types.Address::from_string(
-        "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
-      ),
+      authorizer=alice(),
       nonce=@types.Hex::from_string("0x01"),
     )
     |> ignore
@@ -195,17 +206,11 @@ test "error short nonce" {
 test "error value past uint256" {
   try
     @eip3009.Authorization::new(
-      from=@types.Address::from_string(
-        "0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826",
-      ),
-      to=@types.Address::from_string(
-        "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB",
-      ),
-      value=(1N << 256) - 1N + 1N,
+      from=alice(),
+      to=bob(),
+      value=1N << 256,
       valid_before=2000000000,
-      nonce=@types.Hex::from_string(
-        "0x0000000000000000000000000000000000000000000000000000000000000001",
-      ),
+      nonce=nonce(),
     )
     |> ignore
   catch {

@@ -108,3 +108,11 @@ signing needs no keccak256 here even though `crypto/` has it.
 need the digest itself. Wiring it into signing is
 [#45](https://github.com/poteto0/endor.mbt/issues/45), and the thing that will
 need it is EIP-1271, not this.
+
+## Documents a standard already fixed
+
+The document above is written by hand because `Permit` is yours to define. When
+the standard defines it, the SDK builds it: `endor/eips/eip3009` assembles
+EIP-3009's three authorizations — the transfer a holder signs and somebody else
+submits — and answers with the same `@endor.TypedData` this page signs. The
+recipe is [Transfer without gas](../../cookbook/gasless-transfer/).

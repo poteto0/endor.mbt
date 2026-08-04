@@ -26,8 +26,7 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
 `contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
 top of `eth_call` / `eth_sendTransaction`, and `deploy` on top of a transaction
-with no recipient. Message signing is planned but not
-implemented — do not describe it as available. Neither is decoding a _log_ into
+with no recipient. What is _not_ implemented is decoding a _log_ into
 an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
 `@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
 match `topics[0]` against. Callers reach unwrapped methods through the generic
@@ -41,10 +40,7 @@ digest — but `TypedData` can now compute it too (`digest`, #45), which is what
 EIP-1271 will need. **Which** document to sign is `eips/`: EIP-3009's three
 authorizations are built there, so a stablecoin can be moved by a holder with no
 ether. Submitting one is #73 and is not implemented — do not describe it as
-available. There is no
-ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
-`data` are raw `Hex`. Callers
-reach unwrapped methods through the generic `Provider::request` escape hatch.
+available.
 
 **The SDK is stateless.** It caches no current account and no current chain:
 events are delivered to callbacks and nowhere else, and every read goes to the
@@ -83,8 +79,8 @@ Layout:
   transport or a type. They stack: `eips/eip712` says how any document is
   hashed, and everything else under `eips/` states which document. Nothing here
   reaches a node — an EIP-3009 authorization is signed by a wallet and submitted
-  by somebody else entirely, so the layer that submits it (`contract/`) is the
-  _caller_ of these packages and never the other way round
+  by somebody else entirely, so the layer that submits it (`contract/erc20/`) is
+  the _caller_ of these packages and never the other way round
 - `eips/eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
   validation it does when it is built, and the digest a wallet signs
   (`encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator` /

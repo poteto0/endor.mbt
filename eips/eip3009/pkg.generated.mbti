@@ -22,7 +22,6 @@ pub fn Authorization::new(from~ : @types.Address, to~ : @types.Address, value~ :
 pub fn Authorization::nonce(Self) -> @types.Hex
 pub fn Authorization::receive_typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
 pub fn Authorization::to(Self) -> @types.Address
-pub fn Authorization::to_json(Self) -> Json
 pub fn Authorization::transfer_typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
 pub fn Authorization::valid_after(Self) -> @bigint.BigInt
 pub fn Authorization::valid_before(Self) -> @bigint.BigInt
@@ -34,7 +33,6 @@ pub struct CancelAuthorization {
 pub fn CancelAuthorization::authorizer(Self) -> @types.Address
 pub fn CancelAuthorization::new(authorizer~ : @types.Address, nonce~ : @types.Hex) -> Self raise @types.CodecError
 pub fn CancelAuthorization::nonce(Self) -> @types.Hex
-pub fn CancelAuthorization::to_json(Self) -> Json
 pub fn CancelAuthorization::typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
 
 // Type aliases

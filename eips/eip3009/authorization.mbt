@@ -72,6 +72,12 @@ pub struct Authorization {
 /// marks as used, so two authorizations signed with the same one are the same
 /// authorization, and only the first to be submitted takes effect. Drawing it
 /// is the caller's, because randomness is not this package's to own.
+///
+/// The widths are checked here as well as by `@eip712.TypedData::new`, which
+/// checks every message against the type it declares. That is deliberate: an
+/// authorization is a value a caller *builds*, so it is refused where it is
+/// spelled, and the submitter's path reads the members straight back out
+/// through the accessors without a document ever being built.
 pub fn Authorization::new(
   from~ : @types.Address,
   to~ : @types.Address,
@@ -132,7 +138,7 @@ pub fn Authorization::nonce(self : Authorization) -> @types.Hex {
 /// The `message` half of the document: the six members, spelled as EIP-712
 /// wants them. The numbers go out as decimal strings, since a `uint256` runs
 /// well past what a JSON number holds exactly.
-pub fn Authorization::to_json(self : Authorization) -> Json {
+fn Authorization::to_json(self : Authorization) -> Json {
   {
     "from": self.from.to_json(),
     "to": self.to.to_json(),
@@ -151,7 +157,7 @@ pub fn Authorization::transfer_typed_data(
   self : Authorization,
   domain : @eip712.TypedDataDomain,
 ) -> @eip712.TypedData raise @types.CodecError {
-  self.typed_data(domain, type_name=TRANSFER_TYPE)
+  self.typed_data(domain, type_name="TransferWithAuthorization")
 }
 
 ///|
@@ -164,7 +170,7 @@ pub fn Authorization::receive_typed_data(
   self : Authorization,
   domain : @eip712.TypedDataDomain,
 ) -> @eip712.TypedData raise @types.CodecError {
-  self.typed_data(domain, type_name=RECEIVE_TYPE)
+  self.typed_data(domain, type_name="ReceiveWithAuthorization")
 }
 
 ///|
@@ -174,22 +180,17 @@ fn Authorization::typed_data(
   domain : @eip712.TypedDataDomain,
   type_name~ : String,
 ) -> @eip712.TypedData raise @types.CodecError {
-  @eip712.TypedData::new(
+  document(
     domain,
-    primary_type=type_name,
-    types=Map([
-      (
-        type_name,
-        [
-          @eip712.TypedDataField::new("from", "address"),
-          @eip712.TypedDataField::new("to", "address"),
-          @eip712.TypedDataField::new("value", "uint256"),
-          @eip712.TypedDataField::new("validAfter", "uint256"),
-          @eip712.TypedDataField::new("validBefore", "uint256"),
-          @eip712.TypedDataField::new("nonce", "bytes32"),
-        ],
-      ),
-    ]),
+    type_name~,
+    fields=[
+      @eip712.TypedDataField::new("from", "address"),
+      @eip712.TypedDataField::new("to", "address"),
+      @eip712.TypedDataField::new("value", "uint256"),
+      @eip712.TypedDataField::new("validAfter", "uint256"),
+      @eip712.TypedDataField::new("validBefore", "uint256"),
+      @eip712.TypedDataField::new("nonce", "bytes32"),
+    ],
     message=self.to_json(),
   )
 }
@@ -234,7 +235,7 @@ pub fn CancelAuthorization::nonce(self : CancelAuthorization) -> @types.Hex {
 
 ///|
 /// The `message` half of the document.
-pub fn CancelAuthorization::to_json(self : CancelAuthorization) -> Json {
+fn CancelAuthorization::to_json(self : CancelAuthorization) -> Json {
   { "authorizer": self.authorizer.to_json(), "nonce": self.nonce.to_json() }
 }
 
@@ -244,19 +245,32 @@ pub fn CancelAuthorization::typed_data(
   self : CancelAuthorization,
   domain : @eip712.TypedDataDomain,
 ) -> @eip712.TypedData raise @types.CodecError {
+  document(
+    domain,
+    type_name="CancelAuthorization",
+    fields=[
+      @eip712.TypedDataField::new("authorizer", "address"),
+      @eip712.TypedDataField::new("nonce", "bytes32"),
+    ],
+    message=self.to_json(),
+  )
+}
+
+///|
+/// Every EIP-3009 document has the same shape: one struct type, declared under
+/// the name it is also signed as. So the primary type and the sole entry of
+/// `types` are one string, said here once rather than at each of the three.
+fn document(
+  domain : @eip712.TypedDataDomain,
+  type_name~ : String,
+  fields~ : Array[@eip712.TypedDataField],
+  message~ : Json,
+) -> @eip712.TypedData raise @types.CodecError {
   @eip712.TypedData::new(
     domain,
-    primary_type=CANCEL_TYPE,
-    types=Map([
-      (
-        CANCEL_TYPE,
-        [
-          @eip712.TypedDataField::new("authorizer", "address"),
-          @eip712.TypedDataField::new("nonce", "bytes32"),
-        ],
-      ),
-    ]),
-    message=self.to_json(),
+    primary_type=type_name,
+    types=Map([(type_name, fields)]),
+    message~,
   )
 }
 
@@ -270,6 +284,11 @@ pub fn CancelAuthorization::typed_data(
 /// `verifyingContract` is the token, `chainId` is where it lives, and `version`
 /// is almost always `"1"`. Only `name` has to be read off the token — it is
 /// `name()`, and it must match byte for byte.
+///
+/// A token whose domain is `salt`-based rather than `chainId`-based — the shape
+/// some deployments used where the chain id was out of reach — is not this
+/// helper's: build it with `@eip712.TypedDataDomain::new` directly, which takes
+/// all five fields and requires none.
 pub fn domain(
   name~ : String,
   version? : String = "1",
@@ -283,15 +302,6 @@ pub fn domain(
     verifying_contract=token,
   )
 }
-
-///|
-const TRANSFER_TYPE : String = "TransferWithAuthorization"
-
-///|
-const RECEIVE_TYPE : String = "ReceiveWithAuthorization"
-
-///|
-const CANCEL_TYPE : String = "CancelAuthorization"
 
 ///|
 fn check_uint256(n : BigInt, what~ : String) -> Unit raise @types.CodecError {

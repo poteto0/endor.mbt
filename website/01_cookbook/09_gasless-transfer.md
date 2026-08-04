@@ -19,11 +19,10 @@ what `eips/eip3009` builds.
   <div class="alert__title">No demo on this page</div>
   <div class="alert__description">
 
-Every other recipe here carries a widget you can click. This one does not: a
-signature is only half of an EIP-3009 transfer, and the other half needs a
-*submitter* — a service holding gas, willing to relay yours. This site has none.
-The SDK's side of the submission, an ERC-20 preset that sends
-`transferWithAuthorization`, is
+Every other recipe here carries a widget you can click. This one does not: the
+other half of the transfer needs a *submitter* — a service holding gas, willing
+to relay yours — and this site has none. The SDK's side of that, an ERC-20
+preset sending `transferWithAuthorization`, is
 [#73](https://github.com/poteto0/endor.mbt/issues/73).
 
   </div>
@@ -38,7 +37,7 @@ and leaves you the one it cannot — `name`, which must match the token's own
 `name()` byte for byte:
 
 ```moonbit
-fn jpyc(chain : @endor.ChainId) -> @eip712.TypedDataDomain raise @endor.CodecError {
+fn jpyc(chain : @endor.ChainId) -> @endor.TypedDataDomain raise @endor.CodecError {
   @eip3009.domain(
     // exactly what `name()` answers — not what the token is called in prose
     name="JPY Coin",
@@ -98,7 +97,7 @@ async fn sign_transfer(
   wallet : @browser.BrowserProvider,
   from : @endor.Address,
   auth : @eip3009.Authorization,
-  domain : @eip712.TypedDataDomain,
+  domain : @endor.TypedDataDomain,
 ) -> Unit raise @endor.CodecError {
   // building the document is what validates it, and it raises on its own —
   // keep it out of the `try` so the wallet's own failures stay matchable
@@ -110,8 +109,8 @@ async fn sign_transfer(
     println("authorization: \{document.to_json().stringify()}")
     println("signature: \{signature}")
   } catch {
+    // the same failures as any other prompt — see [Sign a message](../sign/)
     UserRejected => println("the user declined")
-    UnsupportedMethod => println("this wallet cannot sign typed data")
     e => println("error: \{e}")
   }
 }
@@ -149,8 +148,9 @@ async fn cancel(
   wallet : @browser.BrowserProvider,
   authorizer : @endor.Address,
   nonce : @endor.Hex,
-  domain : @eip712.TypedDataDomain,
+  domain : @endor.TypedDataDomain,
 ) -> @endor.Hex raise {
+  // no `try` here: the caller of this one wants the failure, not a println
   let cancellation = @eip3009.CancelAuthorization::new(authorizer~, nonce~)
   @provider.sign_typed_data(wallet, authorizer, cancellation.typed_data(domain))
 }
@@ -176,14 +176,6 @@ fn call_arguments(auth : @eip3009.Authorization) -> Array[@abi.AbiValue] {
 }
 ```
 
-And if you are verifying rather than submitting, `digest()` is what the signature
-was made over — the same hash the token recovers the signer from:
-
-```moonbit
-fn what_was_signed(
-  auth : @eip3009.Authorization,
-  domain : @eip712.TypedDataDomain,
-) -> @endor.Hex raise @endor.CodecError {
-  auth.transfer_typed_data(domain).digest()
-}
-```
+And if you are verifying rather than submitting,
+`auth.transfer_typed_data(domain).digest()` is what the signature was made over —
+the same hash the token recovers the signer from.
