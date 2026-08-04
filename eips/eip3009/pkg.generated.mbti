@@ -38,4 +38,3 @@ pub fn CancelAuthorization::typed_data(Self, @eip712.TypedDataDomain) -> @eip712
 // Type aliases
 
 // Traits
-

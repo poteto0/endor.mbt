@@ -32,4 +32,3 @@ pub fn Erc20::transfer_topic() -> @types.Hex
 // Type aliases
 
 // Traits
-

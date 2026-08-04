@@ -1,5 +1,6 @@
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/env",
   "moonbitlang/x/fs",
   "moonbitlang/x/sys",
   "poteto0/endor/abi/codegen",

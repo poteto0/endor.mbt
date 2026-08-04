@@ -30,4 +30,3 @@ pub using @types {type AbiType}
 pub using @types {type AbiValue}
 
 // Traits
-

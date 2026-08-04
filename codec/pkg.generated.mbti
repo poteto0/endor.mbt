@@ -57,4 +57,3 @@ pub fn word_to_unsigned(@bigint.BigInt) -> @bigint.BigInt
 // Type aliases
 
 // Traits
-

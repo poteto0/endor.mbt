@@ -23,4 +23,3 @@ pub impl @provider.Provider for BrowserProvider
 // Type aliases
 
 // Traits
-

@@ -35,4 +35,3 @@ pub fn reject_account() -> @types.Address
 // Type aliases
 
 // Traits
-
