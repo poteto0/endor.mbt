@@ -13,4 +13,3 @@ pub fn keccak256_string(String) -> Bytes
 // Type aliases
 
 // Traits
-

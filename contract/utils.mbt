@@ -4,7 +4,7 @@
 /// `Contract::call` answers with an `Array[AbiValue]`, because a function may
 /// return any number of values of any type. A getter returns one number, and a
 /// preset that knows that should not make every one of its call sites
-/// pattern-match to say so — that is what these five helpers are for, one per
+/// pattern-match to say so — that is what these six helpers are for, one per
 /// type the SDK can name on its own.
 ///
 /// A getter whose answer does not decode as one number is an address that is
@@ -85,6 +85,24 @@ pub fn bool_answer(
 ) -> Bool raise ContractError {
   guard values is [Bool(b)] else {
     raise Abi(@types.InvalidData("\{what}() did not answer a boolean"))
+  }
+  b
+}
+
+///|
+/// The single run of bytes a getter answered with — `bytes`, or any `bytesN`.
+///
+/// The width is not checked here because it has already been checked: `bytes32`
+/// in the caller's `outputs` is what makes `@abi.decode` refuse an answer of
+/// any other length, and a helper re-deciding it would let the two disagree.
+/// What is left, as for every helper above, is that the answer was one value at
+/// all.
+pub fn bytes_answer(
+  values : Array[@abi.AbiValue],
+  what~ : String,
+) -> Bytes raise ContractError {
+  guard values is [Bytes(b)] else {
+    raise Abi(@types.InvalidData("\{what}() did not answer bytes"))
   }
   b
 }

@@ -109,4 +109,3 @@ pub(open) trait EventSource {
 pub(open) trait Provider {
   async fn request(Self, method_name~ : String, params~ : Json) -> Json raise ProviderError
 }
-

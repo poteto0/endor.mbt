@@ -34,6 +34,7 @@ explains them, so the behaviour and the description are the same thing.
 | [Call any contract](./contract/)             | reads no, writes yes | writes only |
 | [React to wallet changes](./events/)         | no                  | no         |
 | [Transfer without gas](./gasless-transfer/)  | yes                 | no, not for you |
+| [Approve without a transaction](./permit/)   | yes                 | no, not for you |
 
 And the ones that need no wallet at all:
 

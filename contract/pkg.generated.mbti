@@ -13,6 +13,8 @@ pub fn address_answer(Array[@types.AbiValue], what~ : String) -> @types.Address 
 
 pub fn bool_answer(Array[@types.AbiValue], what~ : String) -> Bool raise ContractError
 
+pub fn bytes_answer(Array[@types.AbiValue], what~ : String) -> Bytes raise ContractError
+
 pub async fn[P : @provider.Provider] deploy(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei, confirmations? : Int, timeout? : Int, poll_interval? : Int) -> Contract raise ContractError
 
 pub fn deployment_data(bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue]) -> @types.Hex raise ContractError
@@ -45,4 +47,3 @@ pub async fn[P : @provider.Provider] Contract::send(Self, P, from~ : @types.Addr
 // Type aliases
 
 // Traits
-

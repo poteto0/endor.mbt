@@ -26,8 +26,11 @@ pub fn TypedData::type_hash(Self, String) -> @types.Hex raise @types.CodecError
 pub struct TypedDataDomain {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn TypedDataDomain::check_separator(Self, on_chain~ : @types.Hex) -> Unit raise @types.CodecError
 pub fn TypedDataDomain::fields(Self) -> Array[TypedDataField]
+pub fn TypedDataDomain::for_token(name~ : String, version? : String, chain_id~ : @types.ChainId, token~ : @types.Address) -> Self raise @types.CodecError
 pub fn TypedDataDomain::new(name? : String, version? : String, chain_id? : @types.ChainId, verifying_contract? : @types.Address, salt? : @types.Hex) -> Self raise @types.CodecError
+pub fn TypedDataDomain::separator(Self) -> @types.Hex raise @types.CodecError
 pub fn TypedDataDomain::to_json(Self) -> Json
 
 pub struct TypedDataField {
@@ -39,4 +42,3 @@ pub fn TypedDataField::to_json(Self) -> Json
 // Type aliases
 
 // Traits
-

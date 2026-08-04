@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/eips/eip2612"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/types",
+}
+
+// Values
+pub fn domain(name~ : String, version? : String, chain_id~ : @types.ChainId, token~ : @types.Address) -> @eip712.TypedDataDomain raise @types.CodecError
+
+// Errors
+
+// Types and methods
+pub struct Permit {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Permit::deadline(Self) -> @bigint.BigInt
+pub fn Permit::new(owner~ : @types.Address, spender~ : @types.Address, value~ : @bigint.BigInt, nonce~ : @bigint.BigInt, deadline~ : @bigint.BigInt) -> Self raise @types.CodecError
+pub fn Permit::nonce(Self) -> @bigint.BigInt
+pub fn Permit::owner(Self) -> @types.Address
+pub fn Permit::spender(Self) -> @types.Address
+pub fn Permit::typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
+pub fn Permit::value(Self) -> @bigint.BigInt
+
+// Type aliases
+
+// Traits

@@ -45,6 +45,25 @@ applies.
 
 ### Added
 
+- EIP-2612 *permit*, as `@eip2612`: the ERC-20 approval **signed instead of
+  sent**, so `approve` and the call that spends the allowance stop being two
+  transactions. `Permit::new` validates the five members and
+  `Permit::typed_data` becomes the document, and `domain` fixes the three
+  EIP-712 domain fields the standard fixes. A permit's nonce is the token's
+  counter, not random bytes, so it has to be read: `@erc20.Erc20` gained
+  `nonces` and `domain_separator`, the two EIP-2612 getters, and `eips/eip2612`
+  itself still calls no contract. DAI's non-standard permit is not built —
+  compare the token's `PERMIT_TYPEHASH` against `type_hash("Permit")` if you may
+  be handed either. (#86)
+- `@eip712.TypedDataDomain` gained three methods, all of them things a *token
+  extension* EIP needs and none of them EIP-2612's alone, so EIP-3009 uses them
+  too: `separator` is the domain separator on its own, without a message;
+  `check_separator(on_chain~)` compares it against the `DOMAIN_SEPARATOR()` a
+  verifying contract publishes and refuses a domain it would not verify under —
+  the `version` that is `"2"` on USDC and `"1"` almost everywhere else is
+  otherwise invisible until the chain rejects the transaction; and `for_token`
+  builds the four-field domain a token binds to, which `@eip2612.domain` and
+  `@eip3009.domain` are now both named wrappers over. (#86)
 - EIP-3009 *Transfer With Authorization*, as `@eip3009`: the holder signs a
   transfer and **somebody else submits it**, so a wallet holding nothing but
   stablecoins can still move them. `Authorization::new` validates the six

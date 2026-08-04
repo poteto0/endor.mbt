@@ -62,4 +62,3 @@ pub using @eip712 {type TypedDataField}
 pub using @types {type Wei}
 
 // Traits
-

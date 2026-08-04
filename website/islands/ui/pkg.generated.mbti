@@ -45,4 +45,3 @@ pub fn units_of_decimal(String, Int) -> @bigint.BigInt?
 // Type aliases
 
 // Traits
-
