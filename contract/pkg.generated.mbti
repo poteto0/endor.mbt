@@ -45,4 +45,3 @@ pub async fn[P : @provider.Provider] Contract::send(Self, P, from~ : @types.Addr
 // Type aliases
 
 // Traits
-

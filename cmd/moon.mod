@@ -24,5 +24,5 @@ description = "Command-line tools for poteto0/endor; `endor-cli abi` generates M
 
 import {
   "poteto0/endor@0.5.0",
-  "moonbitlang/x@0.4.46",
+  "moonbitlang/x@0.4.48",
 }

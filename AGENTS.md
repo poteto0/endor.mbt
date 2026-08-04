@@ -249,6 +249,13 @@ Layout:
   `.githooks/pre-commit` runs and therefore must never need a node, and
   `just e2e`, in its own job with an Anvil started by `just anvil`. Add a
   check to the matching recipe, not only to the workflow.
+- The MoonBit toolchain is pinned in `.github/actions/setup`, because it is
+  released nightly and a release that changes generated output turns every open
+  PR red at once. Bump it in its own PR, carrying whatever `just info`, `just
+  fmt` and the dependency bumps that version wants, and install the same version
+  locally (`MOONBIT_INSTALL_VERSION=… curl -fsSL
+  https://cli.moonbitlang.com/install/unix.sh | bash`) so `just ci-check` still
+  answers what CI will.
 
 ## Releasing
 
