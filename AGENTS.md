@@ -26,8 +26,7 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
 `contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
 top of `eth_call` / `eth_sendTransaction`, and `deploy` on top of a transaction
-with no recipient. Message signing is planned but not
-implemented — do not describe it as available. Neither is decoding a _log_ into
+with no recipient. What is _not_ implemented is decoding a _log_ into
 an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
 `@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
 match `topics[0]` against. Callers reach unwrapped methods through the generic
@@ -36,12 +35,12 @@ match `topics[0]` against. Callers reach unwrapped methods through the generic
 over a `String` the SDK hands over as UTF-8 bytes in hex) and
 `eth_signTypedData_v4` (`sign_typed_data`, over a `TypedData` — the EIP-712
 document as a validated value, serialized on the wire) — both answer with the
-signature as `Hex`. Neither hashes anything: the wallet computes the digest, so
-`TypedData` validates a document but does not encode one. Computing the digest
-locally is #45, and EIP-1271 is what will need it. There is no
-ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
-`data` are raw `Hex`. Callers
-reach unwrapped methods through the generic `Provider::request` escape hatch.
+signature as `Hex`. Neither call hashes anything — the wallet computes the
+digest — but `TypedData` can now compute it too (`digest`, #45), which is what
+EIP-1271 will need. **Which** document to sign is `eips/`: EIP-3009's three
+authorizations are built there, so a stablecoin can be moved by a holder with no
+ether. Submitting one is #73 and is not implemented — do not describe it as
+available.
 
 **The SDK is stateless.** It caches no current account and no current chain:
 events are delivered to callbacks and nowhere else, and every read goes to the
@@ -74,13 +73,30 @@ Layout:
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
   `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs. Also
   `AbiType` / `AbiValue` / `AbiError`, whose definitions belong with the domain
-  types both `abi` and `eip712` build on; the arithmetic their rules are stated
+  types both `abi` and `eips/eip712` build on; the arithmetic their rules are stated
   in is `codec`'s
-- `eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
+- `eips/` — one package per EIP that is a _document to be signed_ rather than a
+  transport or a type. They stack: `eips/eip712` says how any document is
+  hashed, and everything else under `eips/` states which document. Nothing here
+  reaches a node — an EIP-3009 authorization is signed by a wallet and submitted
+  by somebody else entirely, so the layer that submits it (`contract/erc20/`) is
+  the _caller_ of these packages and never the other way round
+- `eips/eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
   validation it does when it is built, and the digest a wallet signs
   (`encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator` /
   `digest`). Depends on `types`, `codec` and `crypto`; only `sign_typed_data`
   needs it, and the root re-exports the three types as `@endor.TypedData` &c
+- `eips/eip3009/` — EIP-3009 *Transfer With Authorization*: `Authorization` and
+  `CancelAuthorization`, and the `@eip712.TypedData` each becomes
+  (`TransferWithAuthorization` / `ReceiveWithAuthorization` /
+  `CancelAuthorization`), plus `domain`, which fixes the three domain fields the
+  standard fixes. This is how a stablecoin moves for a holder with no ether: the
+  holder signs, anybody submits. It builds documents and **calls no contract** —
+  the ERC-20 preset that sends `transferWithAuthorization` is
+  [#73](https://github.com/poteto0/endor.mbt/issues/73) and will read the
+  authorization back through its accessors. The nonce is 32 random bytes drawn
+  by the caller, because this package owns no randomness. Its type hashes are
+  checked against the constants USDC's own `EIP3009.sol` declares
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use

@@ -28,7 +28,7 @@ the race to inject itself. Enumerating several injected providers and letting th
 user pick is not implemented.
 
 **Computing the EIP-712 digest for signing.**
-`endor/eip712` implements the hashing, but `sign_typed_data` hands the document
+`endor/eips/eip712` implements the hashing, but `sign_typed_data` hands the document
 to the wallet and lets it hash — which is correct for signing.
 [#45](https://github.com/poteto0/endor.mbt/issues/45) is about the case that
 needs the digest locally, which is EIP-1271 contract signature verification.

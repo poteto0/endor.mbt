@@ -16,9 +16,12 @@ applies.
 
 ### Changed
 
-- **Breaking:** EIP-712 typed data moved out of `types` into its own package:
-  `@types.TypedData` / `TypedDataDomain` / `TypedDataField` are now
-  `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. Every method
+- **Breaking:** EIP-712 typed data moved out of `types` into its own package,
+  `endor/eips/eip712`: `@types.TypedData` / `TypedDataDomain` / `TypedDataField`
+  are now `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. It
+  sits under `eips/` because an EIP that is a *document to be signed* is now a
+  family — EIP-3009 below is the second, and each states which document while
+  `eip712` says how any of them is hashed. Every method
   is unchanged, as is `@endor.TypedData` — the root re-exports the three types
   from their new home, so a caller that spells them `@endor.…` needs no change.
   `types` also gained a `codec` layer underneath it (`@codec`): the hex-digit
@@ -42,6 +45,18 @@ applies.
 
 ### Added
 
+- EIP-3009 *Transfer With Authorization*, as `@eip3009`: the holder signs a
+  transfer and **somebody else submits it**, so a wallet holding nothing but
+  stablecoins can still move them. `Authorization::new` validates the six
+  members and becomes either document —
+  `transfer_typed_data` (`TransferWithAuthorization`, anyone may submit) or
+  `receive_typed_data` (`ReceiveWithAuthorization`, only the recipient may) —
+  `CancelAuthorization` burns a nonce before it is used, and `domain` fixes the
+  three EIP-712 domain fields the standard fixes, leaving only the token's
+  `name()`. What comes back is an `@eip712.TypedData`, so `sign_typed_data`
+  sends it and `digest()` says what was signed. Building documents is all it
+  does: the preset that *sends* `transferWithAuthorization` is #73, and it will
+  read the authorization back through its accessors. (#74)
 - A logo: a round green planet with a small grey satellite off its lower right,
   as `website/public/logo.svg`. It is the mark beside the site title in the
   header, the favicon, and the top of the README.

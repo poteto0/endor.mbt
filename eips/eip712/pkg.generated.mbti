@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "poteto0/endor/eip712"
+package "poteto0/endor/eips/eip712"
 
 import {
   "moonbitlang/core/debug",

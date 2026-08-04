@@ -166,10 +166,10 @@ pub fn TypedDataDomain::to_json(self : TypedDataDomain) -> Json {
 /// against each other is what this does, and a second typed value tree would
 /// only restate it.
 ///
-/// Nothing here is hashed. The wallet computes the digest, so the domain
-/// separator and `hashStruct` are not needed to send a document — computing
-/// them locally is
-/// [#45](https://github.com/poteto0/endor.mbt/issues/45).
+/// Sending a document hashes nothing: the wallet computes the digest, so
+/// neither the domain separator nor `hashStruct` is needed to sign. They are
+/// computed here anyway — `digest.mbt`, #45 — for the callers that need the
+/// hash itself rather than a signature over it, EIP-1271 being the first.
 ///
 /// ```mbt check
 /// test "doc: typed data" {

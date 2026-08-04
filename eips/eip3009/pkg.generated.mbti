@@ -1,0 +1,41 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/eips/eip3009"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/types",
+}
+
+// Values
+pub fn domain(name~ : String, version? : String, chain_id~ : @types.ChainId, token~ : @types.Address) -> @eip712.TypedDataDomain raise @types.CodecError
+
+// Errors
+
+// Types and methods
+pub struct Authorization {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Authorization::from(Self) -> @types.Address
+pub fn Authorization::new(from~ : @types.Address, to~ : @types.Address, value~ : @bigint.BigInt, valid_after? : @bigint.BigInt, valid_before~ : @bigint.BigInt, nonce~ : @types.Hex) -> Self raise @types.CodecError
+pub fn Authorization::nonce(Self) -> @types.Hex
+pub fn Authorization::receive_typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
+pub fn Authorization::to(Self) -> @types.Address
+pub fn Authorization::transfer_typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
+pub fn Authorization::valid_after(Self) -> @bigint.BigInt
+pub fn Authorization::valid_before(Self) -> @bigint.BigInt
+pub fn Authorization::value(Self) -> @bigint.BigInt
+
+pub struct CancelAuthorization {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn CancelAuthorization::authorizer(Self) -> @types.Address
+pub fn CancelAuthorization::new(authorizer~ : @types.Address, nonce~ : @types.Hex) -> Self raise @types.CodecError
+pub fn CancelAuthorization::nonce(Self) -> @types.Hex
+pub fn CancelAuthorization::typed_data(Self, @eip712.TypedDataDomain) -> @eip712.TypedData raise @types.CodecError
+
+// Type aliases
+
+// Traits
+
