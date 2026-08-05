@@ -10,8 +10,14 @@ runs:
       with:
         node-version: "22"
 
+    # pinned, not `latest`: the toolchain is released nightly and a release that
+    # changes generated output (`moon info`, `moon fmt`) turns every open PR red
+    # at once, on no commit of ours (#76). Bump this deliberately, in a PR that
+    # carries whatever regenerated files the new version wants.
     - name: Set up MoonBit
       shell: bash
+      env:
+        MOONBIT_INSTALL_VERSION: 0.10.6+80dc50f24
       run: |
         curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
         echo "$HOME/.moon/bin" >> $GITHUB_PATH
