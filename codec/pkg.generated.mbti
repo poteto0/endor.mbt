@@ -18,7 +18,7 @@ pub fn concat_words(Array[Bytes]) -> Bytes
 
 pub fn decimal_parts(StringView) -> (StringView, StringView)?
 
-pub fn decimal_scale(StringView, StringView, decimals~ : Int) -> String
+pub fn decimal_scale(StringView, StringView, decimals~ : Int) -> String?
 
 pub fn decimal_unscale(StringView, decimals~ : Int) -> String
 

@@ -116,12 +116,16 @@ pub fn digits_right_pad(digits : String) -> String {
 let word_zeros : String = "0".repeat(WORD_DIGITS)
 
 ///|
-/// `n` zero digits, for `n` in `0..=WORD_DIGITS`. Negative asks for none: a
-/// value that already fills its word needs no padding.
+/// `n` zero digits. Negative asks for none: a value that already fills its word
+/// needs no padding. Past a word's worth the run is built rather than sliced —
+/// only `decimal_scale` asks for that, and only for a currency declaring more
+/// than 64 decimals, which no real one does.
 fn zeros(n : Int) -> String {
   if n <= 0 {
     ""
-  } else {
+  } else if n <= WORD_DIGITS {
     word_zeros[:n].to_owned()
+  } else {
+    "0".repeat(n)
   }
 }

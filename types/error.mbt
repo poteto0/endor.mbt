@@ -3,8 +3,8 @@
 /// strings, JSON) into domain types.
 ///
 /// It is `pub(all)` for the same reason `AbiError` is: a layer built on the
-/// domain types validates the wire the same way and has the same four things to
-/// say about it. `@eip712` raises `InvalidJson` for a document whose shape does
+/// domain types validates the wire the same way and has the same things to say
+/// about it. `@eip712` raises `InvalidJson` for a document whose shape does
 /// not match what it declares, and `InvalidLength` for a number that does not
 /// fit the width its field is declared at.
 ///
@@ -26,7 +26,8 @@ pub(all) suberror CodecError {
   /// an address whose casing is not its EIP-55 checksum, say.
   InvalidChecksum(String)
   /// The string is not a decimal amount the target can hold: not a number at
-  /// all, or finer than the `decimals` it is being read at.
+  /// all, finer than the `decimals` it is being read at, or read at a scale
+  /// that is not one.
   InvalidDecimal(String)
 } derive(Eq)
 

@@ -47,13 +47,10 @@ pub fn Wei::to_hex(self : Wei) -> String {
 /// Read a decimal amount written the way a human writes one — `"1.5"`, `"0.05"`
 /// — as the integer of `10^-decimals` units it stands for.
 ///
-/// The amount is a `String` and not a `Double` on purpose: `0.1` is not
-/// representable in binary, so a `Double` has already lost the value before
-/// this could see it, and the digit that goes missing in a token amount is a
-/// digit of somebody's money.
-///
-/// An amount finer than `decimals` **raises** rather than being truncated:
-/// dropping digits the caller wrote is the one failure that would be silent.
+/// The amount is a `String` and never a `Double`: `0.1` is not representable in
+/// binary, so a `Double` has lost the value before this could see it. An amount
+/// finer than `decimals` raises rather than being truncated, for the same
+/// reason — a dropped digit is a digit of somebody's money.
 ///
 /// ```
 /// let amount = @types.Wei::from_units("1.5", decimals=18)
@@ -63,21 +60,17 @@ pub fn Wei::to_hex(self : Wei) -> String {
 /// ```
 pub fn Wei::from_units(value : String, decimals~ : Int) -> Wei raise CodecError {
   guard decimals >= 0 else {
-    raise InvalidDecimal("decimals cannot be negative: \{decimals}")
+    raise InvalidDecimal("a scale cannot be negative: decimals=\{decimals}")
   }
   guard @codec.decimal_parts(value) is Some((int_digits, frac_digits)) else {
     raise InvalidDecimal("not a decimal amount: \{value}")
   }
-  guard frac_digits.length() <= decimals else {
+  guard @codec.decimal_scale(int_digits, frac_digits, decimals~) is Some(digits) else {
     raise InvalidDecimal(
-      "\{value} is finer than \{decimals} decimals: it names \{frac_digits.length()}",
+      "\{value} names \{frac_digits.length()} decimals, more than the \{decimals} this holds",
     )
   }
-  Wei::{
-    value: BigInt::from_string(
-      @codec.decimal_scale(int_digits, frac_digits, decimals~),
-    ),
-  }
+  Wei::{ value: BigInt::from_string(digits) }
 }
 
 ///|
@@ -87,19 +80,15 @@ pub fn Wei::from_units(value : String, decimals~ : Int) -> Wei raise CodecError 
 /// and `1000000000000000000` is `"1"`. What comes back is the number and
 /// nothing else — no thousands separators, no symbol, no padding to a fixed
 /// width. Those are the application's, and an SDK that formatted them would be
-/// wrong in some locale.
+/// wrong in some locale. A `decimals` of zero or less is no scale at all, and
+/// the amount is written as the whole number it is.
 ///
 /// ```
 /// let balance = @types.Wei::from_int(1500000)
 /// inspect(balance.to_units(decimals=6), content="1.5")
 /// ```
 pub fn Wei::to_units(self : Wei, decimals~ : Int) -> String {
-  let digits = self.value.to_string()
-  if decimals <= 0 {
-    digits
-  } else {
-    @codec.decimal_unscale(digits[:], decimals~)
-  }
+  @codec.decimal_unscale(self.value.to_string()[:], decimals~)
 }
 
 ///|

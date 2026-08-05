@@ -7,10 +7,6 @@
 using @element {div, type DomNode}
 
 ///|
-/// How many decimal digits an ether amount has: 1 ETH is 10^18 wei.
-const WEI_DIGITS = 18
-
-///|
 struct View {
   status : @signals.Signal[String]
   from : @signals.Signal[String]
@@ -58,9 +54,7 @@ async fn View::read_account(self : View) -> Unit raise @provider.ProviderError {
   }
   self.from.set(from.to_checksum_string())
   let wei = @provider.balance(wallet, from)
-  self.balance.set(
-    "\{@ui.decimal_of_units(wei.to_bigint(), WEI_DIGITS)} (\{wei.to_bigint()} wei)",
-  )
+  self.balance.set("\{wei.to_ether()} (\{wei.to_bigint()} wei)")
 }
 
 ///|
@@ -88,7 +82,9 @@ async fn View::send(self : View) -> Unit {
       return
     }
   }
-  guard @ui.units_of_decimal(self.amount_input.get(), WEI_DIGITS) is Some(units) else {
+  // the option shape, because this re-parses on every keystroke; the scale is
+  // ether's eighteen, which `Wei::from_ether` is `from_units` with filled in
+  guard @ui.units_of_decimal(self.amount_input.get(), 18) is Some(units) else {
     self.status.set("Amount must be a decimal number, e.g. 0.001.")
     return
   }

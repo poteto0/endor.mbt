@@ -31,16 +31,20 @@ test "decimal_parts splits only a plain decimal number" {
 /// Moving the point right: what the digits become, before anybody reads them as
 /// a number.
 test "decimal_scale pads out to the full width" {
-  inspect(
+  assert_eq(
     @codec.decimal_scale("1", "5", decimals=18),
-    content="1500000000000000000",
+    Some("1500000000000000000"),
   )
-  inspect(@codec.decimal_scale("1", "", decimals=6), content="1000000")
-  inspect(@codec.decimal_scale("", "5", decimals=6), content="500000")
+  assert_eq(@codec.decimal_scale("1", "", decimals=6), Some("1000000"))
+  assert_eq(@codec.decimal_scale("", "5", decimals=6), Some("500000"))
   // no scale at all leaves the digits alone
-  inspect(@codec.decimal_scale("12", "", decimals=0), content="12")
+  assert_eq(@codec.decimal_scale("12", "", decimals=0), Some("12"))
   // exactly as fine as the scale allows: nothing left to pad
-  inspect(@codec.decimal_scale("0", "000001", decimals=6), content="0000001")
+  assert_eq(@codec.decimal_scale("0", "000001", decimals=6), Some("0000001"))
+  // and one digit finer than that is not a number this scale can carry — the
+  // rule is stated here so no caller can answer a wrongly scaled amount
+  assert_eq(@codec.decimal_scale("0", "0000001", decimals=6), None)
+  assert_eq(@codec.decimal_scale("1", "5", decimals=0), None)
 }
 
 ///|
@@ -74,7 +78,10 @@ test "a decimal survives being scaled and unscaled" {
     guard @codec.decimal_parts(written[:]) is Some((int_digits, frac_digits)) else {
       fail("\{written} should be a decimal number")
     }
-    let scaled = @codec.decimal_scale(int_digits, frac_digits, decimals=18)
+    guard @codec.decimal_scale(int_digits, frac_digits, decimals=18)
+      is Some(scaled) else {
+      fail("18 decimals should carry \{written}")
+    }
     assert_eq(@codec.decimal_unscale(scaled[:], decimals=18), written)
   }
 }

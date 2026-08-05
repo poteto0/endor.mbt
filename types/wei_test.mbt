@@ -99,48 +99,35 @@ test "from_units reads a decimal amount at any scale" {
 }
 
 ///|
-/// The failure this API exists to make impossible: digits quietly dropped. A
-/// nineteenth decimal is a value the token cannot hold, so it is refused rather
-/// than rounded.
-test "from_units refuses an amount finer than the scale" {
-  try
-    @types.Wei::from_units("1.0000000000000000001", decimals=18) |> ignore
-  catch {
-    InvalidDecimal(_) => ()
-    e => fail("expected invalid decimal, but not \{e}")
-  } noraise {
-    _ => fail("expected fail, but success")
-  }
-  try @types.Wei::from_units("1.5", decimals=0) |> ignore catch {
-    InvalidDecimal(_) => ()
-    e => fail("expected invalid decimal, but not \{e}")
-  } noraise {
-    _ => fail("expected fail, but success")
-  }
-}
-
-///|
-/// Everything that is not a decimal number, including the notations a caller
-/// might expect to work.
-test "from_units refuses what is not a decimal amount" {
-  for typed in ["", ".", "1.2.3", "-1", "1e18", "1,000", "0x10", "abc"] {
-    try @types.Wei::from_units(typed, decimals=18) |> ignore catch {
-      InvalidDecimal(_) => ()
+/// Every way an amount is refused, and the one error all of them are: an amount
+/// finer than the scale (the failure this API exists to make impossible —
+/// digits quietly dropped), anything that is not a decimal number, and a scale
+/// that is not one.
+test "from_units refuses what it cannot hold" {
+  let refused = []
+  for
+    case in [
+      ("1.0000000000000000001", 18),
+      ("1.5", 0),
+      ("", 18),
+      (".", 18),
+      ("1.2.3", 18),
+      ("-1", 18),
+      ("1e18", 18),
+      ("1,000", 18),
+      ("0x10", 18),
+      ("abc", 18),
+      ("1", -1),
+    ] {
+    let (typed, decimals) = case
+    try @types.Wei::from_units(typed, decimals~) |> ignore catch {
+      InvalidDecimal(_) => refused.push(typed)
       e => fail("expected invalid decimal for \{typed}, but not \{e}")
     } noraise {
-      _ => fail("expected \{typed} to be refused")
+      _ => fail("expected \{typed} at \{decimals} decimals to be refused")
     }
   }
-}
-
-///|
-test "from_units refuses a negative scale" {
-  try @types.Wei::from_units("1", decimals=-1) |> ignore catch {
-    InvalidDecimal(_) => ()
-    e => fail("expected invalid decimal, but not \{e}")
-  } noraise {
-    _ => fail("expected fail, but success")
-  }
+  assert_eq(refused.length(), 11)
 }
 
 ///|
