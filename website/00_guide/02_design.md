@@ -89,8 +89,11 @@ fn quantities() -> Unit {
 
 Amounts are always in the smallest whole unit — `Wei` for the chain's own
 currency, a `BigInt` in the token's own unit for an ERC-20. Scaling them for a
-human needs `decimals`, which is a presentation concern, and the SDK stays out of
-it. [Read an ERC-20](/cookbook/erc20/) shows both directions of that conversion.
+human needs `decimals`, so `Wei::from_units` / `Wei::to_units` take it as an
+argument and never guess: 18 is ether, 6 is USDC, and what any other token
+carries is what `Erc20::decimals` answered. The amount they read is a `String`,
+because a `Double` has already lost `0.1` before the SDK could see it.
+[Read an ERC-20](/cookbook/erc20/) shows both directions of that conversion.
 
 ## FFI lives in one package
 

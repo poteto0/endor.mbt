@@ -56,57 +56,84 @@ be dropped or replaced, and what it actually did is in its receipt.
 ## Amounts are wei
 
 `Wei::from_int(1000)` is a thousand wei, which is nothing at all. One ether is
-`10^18` of them:
+`10^18` of them, and `from_ether` is how you say so:
 
 ```moonbit
-fn one_ether() -> @endor.Wei {
-  @endor.Wei::from_bigint(BigInt::from_string("1000000000000000000"))
+// every one of these raises `CodecError`: the amount is a string, and a string
+// can be something other than a number
+fn amounts() -> Array[@endor.Wei] raise {
+  [
+    @endor.Wei::from_ether("1"), // 1000000000000000000 wei
+    @endor.Wei::from_ether("0.05"),
+    @endor.Wei::from_gwei("30"), // gas prices are quoted here
+    // any other scale — a token's own `decimals` — is passed in
+    @endor.Wei::from_units("1.5", decimals=6),
+  ]
 }
 ```
 
-The SDK never scales an amount for you. Turning `"0.001"` into wei is a
-presentation concern, and it belongs in the layer that has a text input in it.
+The amount is a `String` and never a `Double`. `0.1` is not representable in
+binary, so a `Double` has lost the value before the SDK could see it, and the
+digit that goes missing is a digit of somebody's money. For the same reason an
+amount **finer** than the scale raises `InvalidDecimal` instead of being
+truncated: `from_ether("1.0000000000000000001")` is refused, because dropping
+that digit silently is worse than making the user retype it.
+
+`to_units` is the inverse, with trailing zeros folded — `1500000000000000000` at
+18 decimals is `"1.5"`, not `"1.500000000000000000"`. What comes back is the
+number and nothing else: no thousands separators, no symbol, no currency. Those
+are the application's, and an SDK that guessed at them would be wrong in some
+locale.
 
 **Try it:** the first box is the amount a person typed, the second is the
-currency's `decimals` — 18 for ether, 6 for USDC. Ask for a digit finer than the
-currency can carry and it is refused rather than rounded, because silently
-dropping a digit of somebody's money is worse than making them retype it.
+currency's `decimals` — 18 for ether, 6 for USDC.
 
 <Island name="units" trigger="visible" />
 
-That widget is this function, which is the one you would write:
+## Take an amount from a text box
+
+The recipe that widget is: parse before you prompt, so a typo costs no popup and
+the wallet is only asked once everything is a domain type.
 
 ```moonbit
-/// Parse a human amount into whole wei, or `None` when it is not a decimal
-/// number that 18 decimals can carry.
-fn wei_of_ether(amount : String) -> @endor.Wei? {
-  let whole = StringBuilder::new()
-  let fraction = StringBuilder::new()
-  let mut after_point = false
-  let mut digits = 0
-  for c in amount.trim() {
-    if c == '.' {
-      guard !after_point else { return None }
-      after_point = true
-    } else if c.is_ascii_digit() {
-      digits += 1
-      (if after_point { fraction } else { whole }).write_char(c)
-    } else {
-      return None
+async fn send_typed_amount(
+  wallet : @browser.BrowserProvider,
+  from : @endor.Address,
+  typed_to : String,
+  typed_amount : String,
+) -> Unit {
+  // both of these raise `CodecError`, and neither has touched the wallet yet
+  let to = @endor.Address::from_string(typed_to) catch {
+    e => {
+      println("that is not an address: \{e}")
+      return
     }
   }
-  guard digits > 0 else { return None }
-  // more decimals than wei can carry is an error, not something to round:
-  // silently dropping a digit of somebody's money is worse than a retype
-  let padding = 18 - fraction.to_string().length()
-  guard padding >= 0 else { return None }
-  let scaled = whole.to_string() + fraction.to_string() + "0".repeat(padding)
-  Some(@endor.Wei::from_bigint(BigInt::from_string("0" + scaled)))
+  let value = @endor.Wei::from_ether(typed_amount) catch {
+    // `InvalidDecimal` is the whole story here: not a number, or finer than
+    // ether's eighteen decimals
+    e => {
+      println("that is not an amount: \{e}")
+      return
+    }
+  }
+  println("about to send \{value.to_ether()} ETH")
+  let hash = @provider.send_transaction(
+    wallet,
+    @endor.TransactionRequest::new(from, to~, value~),
+  ) catch {
+    UserRejected => {
+      println("the user declined")
+      return
+    }
+    e => {
+      println("error: \{e}")
+      return
+    }
+  }
+  println("broadcast as \{hash}")
 }
 ```
-
-Parse before you prompt. The demo above builds both the address and the amount
-into domain types first, so a typo costs no popup.
 
 ## Fees
 
@@ -126,16 +153,18 @@ builds an EIP-1559 (type `0x02`) transaction, taking the tip from its own oracle
 something to reach for by habit.
 
 ```moonbit
-fn explicit_fees(from : @endor.Address, to : @endor.Address) -> @endor.TransactionRequest {
+fn explicit_fees(
+  from : @endor.Address,
+  to : @endor.Address,
+) -> @endor.TransactionRequest raise {
   @endor.TransactionRequest::new(
     from,
     to~,
     value=@endor.Wei::from_int(1000),
-    // 30 gwei and 1 gwei. `Wei::from_int` takes an `Int`, and 30 gwei does not
-    // fit in one — every amount past ~2 ETH is a `BigInt`.
+    // 30 gwei and 1 gwei, spelled as the unit they are always quoted in
     fee=Eip1559(
-      max_fee_per_gas=@endor.Wei::from_bigint(BigInt::from_string("30000000000")),
-      max_priority_fee_per_gas=@endor.Wei::from_int(1_000_000_000),
+      max_fee_per_gas=@endor.Wei::from_gwei("30"),
+      max_priority_fee_per_gas=@endor.Wei::from_gwei("1"),
     ),
   )
 }

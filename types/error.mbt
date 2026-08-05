@@ -25,6 +25,9 @@ pub(all) suberror CodecError {
   /// The value carries a self-check that does not match its own contents —
   /// an address whose casing is not its EIP-55 checksum, say.
   InvalidChecksum(String)
+  /// The string is not a decimal amount the target can hold: not a number at
+  /// all, or finer than the `decimals` it is being read at.
+  InvalidDecimal(String)
 } derive(Eq)
 
 ///|
@@ -34,6 +37,7 @@ pub impl Show for CodecError with fn output(self, logger) {
     InvalidLength(s) => logger.write_string("InvalidLength(\{s})")
     InvalidJson(s) => logger.write_string("InvalidJson(\{s})")
     InvalidChecksum(s) => logger.write_string("InvalidChecksum(\{s})")
+    InvalidDecimal(s) => logger.write_string("InvalidDecimal(\{s})")
   }
 }
 

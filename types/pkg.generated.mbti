@@ -21,6 +21,7 @@ pub(all) suberror CodecError {
   InvalidLength(String)
   InvalidJson(String)
   InvalidChecksum(String)
+  InvalidDecimal(String)
 } derive(Eq)
 pub impl Show for CodecError
 
@@ -236,12 +237,18 @@ pub struct Wei {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Wei::from_bigint(@bigint.BigInt) -> Self
+pub fn Wei::from_ether(String) -> Self raise CodecError
+pub fn Wei::from_gwei(String) -> Self raise CodecError
 pub fn Wei::from_hex(String) -> Self raise CodecError
 pub fn Wei::from_int(Int) -> Self
 pub fn Wei::from_json(Json) -> Self raise CodecError
+pub fn Wei::from_units(String, decimals~ : Int) -> Self raise CodecError
 pub fn Wei::to_bigint(Self) -> @bigint.BigInt
+pub fn Wei::to_ether(Self) -> String
+pub fn Wei::to_gwei(Self) -> String
 pub fn Wei::to_hex(Self) -> String
 pub fn Wei::to_json(Self) -> Json
+pub fn Wei::to_units(Self, decimals~ : Int) -> String
 pub fn Wei::zero() -> Self
 pub impl Show for Wei
 

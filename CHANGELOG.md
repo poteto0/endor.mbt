@@ -16,6 +16,10 @@ applies.
 
 ### Changed
 
+- **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
+  string that is not a decimal amount the target can hold. A `catch` that
+  matched all four by name is no longer exhaustive; add the case, or a
+  catch-all. (#77)
 - **Breaking:** EIP-712 typed data moved out of `types` into its own package,
   `endor/eips/eip712`: `@types.TypedData` / `TypedDataDomain` / `TypedDataField`
   are now `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. It
@@ -45,6 +49,20 @@ applies.
 
 ### Added
 
+- `Wei::from_units(value, decimals~)` / `Wei::to_units(decimals~)`: the decimal
+  amount a person writes, and the whole smallest units the wire carries. The
+  scale is passed in because only the token says what it is — 18 for ether, 6
+  for USDC, whatever `Erc20::decimals` answers for anything else — and
+  `from_ether` / `to_ether` and `from_gwei` / `to_gwei` are the two the chain
+  itself fixes. The amount is a `String` and never a `Double`: `0.1` is not
+  representable in binary, so a `Double` has lost the value before the SDK could
+  see it. An amount **finer** than the scale raises the new
+  `CodecError::InvalidDecimal` rather than being truncated, because a digit of
+  somebody's money dropped silently is worse than a retype; `to_units` folds
+  trailing zeros (`"1.5"`, not `"1.500000000000000000"`) and formats nothing
+  else — no separators, no symbol, no fixed width. The decimal-string arithmetic
+  underneath is `@codec.decimal_parts` / `decimal_scale` / `decimal_unscale`.
+  (#77)
 - EIP-2612 *permit*, as `@eip2612`: the ERC-20 approval **signed instead of
   sent**, so `approve` and the call that spends the allowance stop being two
   transactions. `Permit::new` validates the five members and

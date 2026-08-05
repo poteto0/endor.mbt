@@ -66,7 +66,9 @@ Layout:
 - `codec/` — the wire's own arithmetic, and nothing else: hex digits (`nibble`,
   `bytes_of_digits`, `digits_of_bytes`, `hex_body`), the 32-byte word
   (`WORD_BYTES` / `WORD_DIGITS` / `WORD_BITS`, two's complement, padding in
-  either unit), and the ABI's width and size rules as predicates. A leaf
+  either unit), the decimal point's arithmetic (`decimal_parts` /
+  `decimal_scale` / `decimal_unscale`, what `Wei::from_units` is built from),
+  and the ABI's width and size rules as predicates. A leaf
   package: it names no domain type and has no error type of its own, so every
   layer above states each rule once and raises whichever error is its own
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
