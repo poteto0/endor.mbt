@@ -87,7 +87,10 @@ absence to notice.
 `@erc20.Erc20` — the package is `poteto0/endor/contract/erc20` — spells the
 standard interface once: `name`, `symbol`, `decimals`, `total_supply`,
 `balance_of`, `allowance`, `transfer`, `approve`, and `Erc20::transfer_topic()`
-for finding transfers in a receipt's logs.
+for finding transfers in a receipt's logs. Two more are EIP-2612's rather than
+ERC-20's — `nonces` and `domain_separator`, which a token without permit support
+does not have — and what they are for is
+[Approve without a transaction](../../cookbook/permit/).
 
 ```moonbit
 async fn token_calls(

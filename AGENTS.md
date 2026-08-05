@@ -85,7 +85,11 @@ Layout:
   validation it does when it is built, and the digest a wallet signs
   (`encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator` /
   `digest`). Depends on `types`, `codec` and `crypto`; only `sign_typed_data`
-  needs it, and the root re-exports the three types as `@endor.TypedData` &c
+  needs it, and the root re-exports the three types as `@endor.TypedData` &c.
+  What every _token extension_ EIP needs of a domain lives here rather than in
+  each of them: `TypedDataDomain::for_token` builds the four-field domain both
+  EIP-2612 and EIP-3009 bind to, and `check_separator` compares it against the
+  `DOMAIN_SEPARATOR()` the verifying contract publishes
 - `eips/eip3009/` — EIP-3009 *Transfer With Authorization*: `Authorization` and
   `CancelAuthorization`, and the `@eip712.TypedData` each becomes
   (`TransferWithAuthorization` / `ReceiveWithAuthorization` /
@@ -97,6 +101,19 @@ Layout:
   authorization back through its accessors. The nonce is 32 random bytes drawn
   by the caller, because this package owns no randomness. Its type hashes are
   checked against the constants USDC's own `EIP3009.sol` declares
+- `eips/eip2612/` — EIP-2612 *permit*: `Permit` and the `@eip712.TypedData` it
+  becomes, plus `domain`. The ERC-20 approval signed instead of sent, so the
+  spender submits `permit` alongside its own call. It **calls no contract**
+  either, but unlike EIP-3009 it cannot: a permit's nonce is the token's counter
+  (`nonces(owner)`) and its domain is checkable against the token's
+  `DOMAIN_SEPARATOR()`, so both are read by `contract/erc20/` — which is where
+  every contract call in this repository lives — and passed *in*. That is the
+  layer split to keep: `eips/` decides what a document says, `contract/` asks
+  the chain. The comparison itself is `@eip712.TypedDataDomain::check_separator`
+  rather than anything here, since nothing about it is EIP-2612's; it cannot
+  catch DAI's non-standard permit, whose domain is ordinary and whose *message*
+  is not, and building that document is out of scope. Its type hash is checked
+  against the `PERMIT_TYPEHASH` constant every EIP-2612 token declares
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
@@ -122,7 +139,12 @@ Layout:
   it is read, because the name is the one thing out of the document that
   reaches the generated source verbatim
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
-  and the answer decoded, plus the `Erc20` preset and `deploy` /
+  and the answer decoded, plus the `Erc20` preset — the standard interface **and
+  its common extensions**, which is why `nonces` and `DOMAIN_SEPARATOR()` are on
+  it and why `transferWithAuthorization`
+  ([#73](https://github.com/poteto0/endor.mbt/issues/73)) will be; a token
+  without the extension fails at call time, as any missing function does — and
+  `deploy` /
   `send_deployment`, which are the same thing for a transaction with no
   recipient: creation code with the constructor's arguments encoded behind it,
   and the address the receipt names. `ContractError` keeps the wallet's failures

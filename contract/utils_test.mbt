@@ -23,6 +23,12 @@ test "can decode answer" {
     ),
     content="0x000000000000000000000000000000000000dEaD",
   )
+  inspect(
+    @contract.bytes_answer([@abi.AbiValue::Bytes(b"\x01\x02")], what="test"),
+    content=(
+      #|b"\x01\x02"
+    ),
+  )
 }
 
 ///|

@@ -6,6 +6,9 @@
 /// in the token's own smallest unit — `decimals` says where the point goes, and
 /// dividing by it is a presentation concern the SDK stays out of, exactly as it
 /// does for `Wei`.
+/// This includes the EIP-2612 permit extension, which is not part of ERC-20 but is
+/// ERC20Permit.
+/// refs: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts%2Ftoken%2FERC20%2Fextensions%2FIERC20Permit.sol
 ///
 /// ```
 /// async fn[P : @provider.Provider] holdings(
@@ -162,6 +165,57 @@ pub async fn[P : @provider.Provider] Erc20::approve(
     name="approve",
     inputs=[Address, Uint(256)],
     args=[Address(spender), Uint(amount)],
+  )
+}
+
+///|
+/// `owner`'s permit counter — `nonces(address)`.
+///
+/// Part of [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612) rather than of
+/// ERC-20, so a token without permit support has no such getter and this fails
+/// as any other call to a function an address does not have. It is what a
+/// `@eip2612.Permit` is signed against: it goes up by one each time a permit is
+/// used, so it has to be read afresh for each signature, and two permits signed
+/// against the same nonce are one permit of which only the first submitted
+/// takes effect.
+pub async fn[P : @provider.Provider] Erc20::nonces(
+  self : Erc20,
+  provider : P,
+  owner : @types.Address,
+) -> BigInt raise @contract.ContractError {
+  @contract.uint_answer(
+    self.contract.call(
+      provider,
+      name="nonces",
+      inputs=[Address],
+      args=[Address(owner)],
+      outputs=[Uint(256)],
+    ),
+    what="nonces",
+  )
+}
+
+///|
+/// The EIP-712 domain the token verifies signatures under —
+/// `DOMAIN_SEPARATOR()`.
+///
+/// Also EIP-2612's rather than ERC-20's. It is a hash, so it cannot be read
+/// back into a domain — what it is for is the other direction: hand it to
+/// `@eip712.TypedDataDomain::check_separator` on the domain you built, and a
+/// `name`, `version`
+/// or chain that is not the token's own is caught before the user is asked to
+/// sign something the token will reject.
+pub async fn[P : @provider.Provider] Erc20::domain_separator(
+  self : Erc20,
+  provider : P,
+) -> @types.Hex raise @contract.ContractError {
+  @types.Hex::from_bytes(
+    @contract.bytes_answer(
+      self.contract.call(provider, name="DOMAIN_SEPARATOR", outputs=[
+        FixedBytes(32),
+      ]),
+      what="DOMAIN_SEPARATOR",
+    ),
   )
 }
 
