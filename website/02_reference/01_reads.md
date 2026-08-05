@@ -31,14 +31,35 @@ turned into an error.
 | `@provider.gas_price(p)`              | `eth_gasPrice`            | `@endor.Wei`        |
 | `@provider.code(p, who)`              | `eth_getCode`             | `@endor.Hex`        |
 | `@provider.is_contract(p, who)`       | `eth_getCode`             | `Bool`              |
+| `@provider.storage_at(p, who, slot)`  | `eth_getStorageAt`        | `@endor.Hex` (word) |
 
 `is_contract` is `code` with an emptiness test: an externally owned account has
 no bytecode.
 
+`storage_at` reads one 32-byte slot straight out of the EVM, which is the only
+way to see state a contract does not expose — no ABI declares a storage layout,
+so what the word *means* is yours to know. A slot nobody ever wrote reads as
+thirty-two zero bytes rather than as an absence. The use that motivates it is a
+proxy's implementation address, which EIP-1967 puts at a fixed slot:
+
+```moonbit
+async fn implementation_of(
+  wallet : @browser.BrowserProvider,
+  proxy : @endor.Address,
+) -> @endor.Hex raise {
+  // keccak256("eip1967.proxy.implementation") - 1
+  let slot = @endor.Hex::from_string(
+    "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+  )
+  // the address is in the word's low 20 bytes
+  @provider.storage_at(wallet, proxy, slot)
+}
+```
+
 ## Reading at a block
 
-`balance`, `transaction_count`, `code` and `is_contract` all take an optional
-`block=`, an `@endor.BlockTag`:
+`balance`, `transaction_count`, `code`, `is_contract` and `storage_at` all take
+an optional `block=`, an `@endor.BlockTag`:
 
 ```moonbit
 async fn at_a_block(
@@ -104,10 +125,17 @@ A call that reverts comes back as a `ProviderError`, which is what makes
 | `@provider.wait_for_receipt(p, hash)`    | the same, polled            | `@endor.TransactionReceipt`  |
 | `@provider.block_by_number(p, block?)`   | `eth_getBlockByNumber`      | `@endor.Block?`              |
 | `@provider.block_by_hash(p, hash)`       | `eth_getBlockByHash`        | `@endor.Block?`              |
+| `@provider.block_transaction_count_by_number(p, block?)` | `eth_getBlockTransactionCountByNumber` | `UInt64?`   |
+| `@provider.block_transaction_count_by_hash(p, hash)`     | `eth_getBlockTransactionCountByHash`   | `UInt64?`   |
 
-The three `?` returns are all the same wire fact: a node answers `null` for a
-receipt that does not exist yet and for a block it does not have, and neither is
-an error.
+The `?` returns are all the same wire fact: a node answers `null` for a receipt
+that does not exist yet and for a block it does not have, and neither is an
+error. A height past the head is the one place nodes disagree — some answer
+`null` there and others, Anvil among them, call it a bad parameter and raise —
+so `None` is the answer to expect from the counts, not the answer to rely on.
+
+The two counts are `block_by_number(…).transactions.length()` with the hashes
+left on the node: ask for them when the number is all you want.
 
 A `TransactionReceipt` carries `block_number` / `block_hash`, `gas_used` /
 `cumulative_gas_used` / `effective_gas_price`, `from` / `to`, `contract_address`
