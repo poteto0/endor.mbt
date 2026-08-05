@@ -16,6 +16,12 @@ pub fn bytes_of_digits(StringView) -> Bytes
 
 pub fn concat_words(Array[Bytes]) -> Bytes
 
+pub fn decimal_parts(StringView) -> (StringView, StringView)?
+
+pub fn decimal_scale(StringView, StringView, decimals~ : Int) -> String?
+
+pub fn decimal_unscale(StringView, decimals~ : Int) -> String
+
 pub fn digits_left_pad(String) -> String
 
 pub fn digits_of_bytes(Bytes) -> String

@@ -1,4 +1,5 @@
 import {
+  "poteto0/endor",
   "mizchi/luna/dom" @element,
   "mizchi/luna/js/resource",
   "mizchi/signals",

@@ -106,9 +106,11 @@ async fn token_calls(
 }
 ```
 
-Amounts are `BigInt` in the token's smallest unit, never scaled: `decimals` says
-where the point goes, and moving it is a presentation concern the SDK stays out
-of, exactly as it does for `Wei`. Reading is four `eth_call`s that cost the user
+Amounts are `BigInt` in the token's smallest unit: `decimals` says where the
+point goes, and it is read from the token rather than assumed, so nothing here
+scales an amount on its own. Moving the point is
+[`Wei::from_units` / `Wei::to_units`](/cookbook/send-eth/#amounts-are-wei), which
+takes the scale as an argument for that reason. Reading is four `eth_call`s that cost the user
 nothing; `transfer` and `approve` sign, so they prompt and answer with a `TxHash`
 whose success is in the receipt.
 
