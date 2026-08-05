@@ -45,6 +45,23 @@ applies.
 
 ### Added
 
+- Four reads and one write that had no typed helper, each of them small enough
+  that `Provider::request` was the only reason not to have missed them: (#85)
+  - `storage_at(p, who, slot, block?)` — `eth_getStorageAt`, one raw 32-byte
+    slot. The only way to see state a contract does not expose, since no ABI
+    declares a storage layout; what the word means stays the caller's to know.
+    A slot nobody wrote reads as zeroes, not as an absence. The use that
+    motivates it is a proxy's implementation address at its fixed EIP-1967 slot
+  - `send_raw_transaction(p, raw)` — `eth_sendRawTransaction`. The SDK holds no
+    keys and so never *builds* a signed transaction, but submitting one signed
+    elsewhere is exactly what a relayer does — an EIP-3009 authorization is
+    signed by a holder with no ether and paid for by somebody else
+  - `block_transaction_count_by_number(p, block?)` /
+    `block_transaction_count_by_hash(p, hash)` —
+    `eth_getBlockTransactionCountBy*`, the count without the hashes.
+    `UInt64?`, for the block a node does not have; a height past the head is
+    where nodes disagree, some answering `null` and Anvil raising, so `None` is
+    the answer to expect rather than to rely on
 - EIP-2612 *permit*, as `@eip2612`: the ERC-20 approval **signed instead of
   sent**, so `approve` and the call that spends the allowance stop being two
   transactions. `Permit::new` validates the five members and
