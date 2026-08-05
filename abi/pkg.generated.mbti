@@ -2,11 +2,14 @@
 package "poteto0/endor/abi"
 
 import {
+  "moonbitlang/core/debug",
   "poteto0/endor/types",
 }
 
 // Values
 pub fn decode(Array[@types.AbiType], @types.Hex) -> Array[@types.AbiValue] raise @types.AbiError
+
+pub fn decode_log(name~ : String, params~ : Array[EventParam], topics~ : Array[@types.Hex], data~ : @types.Hex) -> Array[@types.AbiValue] raise @types.AbiError
 
 pub fn encode(Array[@types.AbiType], Array[@types.AbiValue]) -> @types.Hex raise @types.AbiError
 
@@ -21,6 +24,11 @@ pub fn signature(name~ : String, inputs~ : Array[@types.AbiType]) -> String rais
 // Errors
 
 // Types and methods
+pub(all) struct EventParam {
+  ty : @types.AbiType
+  indexed : Bool
+} derive(Eq, @debug.Debug)
+pub impl Show for EventParam
 
 // Type aliases
 pub using @types {type AbiError}

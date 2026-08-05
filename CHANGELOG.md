@@ -49,6 +49,23 @@ applies.
 
 ### Added
 
+<<<<<<< HEAD
+- Decoding a **log** into the arguments its event was emitted with, which was
+  the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
+  topics~, data~)` checks `topics[0]` against the event's own signature hash,
+  reads the `indexed` arguments out of the topics after it and the rest out of
+  `data`, and answers in the order the event declares them. `@abi.EventParam` —
+  an `AbiType` and whether it is `indexed` — is what carries the half of the
+  declaration the wire does not. `@erc20.Erc20::decode_transfer(log)` is that
+  for `Transfer`, answering with `(from, to, value)` next to the
+  `transfer_topic()` that finds the log in the first place, and `abi/codegen`
+  now generates a `decode_…` per event alongside its `…_topic`.
+  Two limits, both raised rather than guessed at: an indexed `string`, `bytes`,
+  array or struct comes back as the 32-byte `keccak256` the topic holds — the
+  value was never in the log — and an `anonymous` event is not decoded, because
+  its log carries no `topics[0]` to say which event it is. (#79)
+- EIP-3009 *Transfer With Authorization*, as `@eip3009`: the holder signs a
+=======
 - `Wei::from_units(value, decimals~)` / `Wei::to_units(decimals~)`: the decimal
   amount a person writes, and the whole smallest units the wire carries. The
   scale is passed in because only the token says what it is — 18 for ether, 6
@@ -100,6 +117,7 @@ applies.
   builds the four-field domain a token binds to, which `@eip2612.domain` and
   `@eip3009.domain` are now both named wrappers over. (#86)
 - EIP-3009 _Transfer With Authorization_, as `@eip3009`: the holder signs a
+>>>>>>> main
   transfer and **somebody else submits it**, so a wallet holding nothing but
   stablecoins can still move them. `Authorization::new` validates the six
   members and becomes either document —

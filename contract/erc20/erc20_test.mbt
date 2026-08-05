@@ -183,6 +183,75 @@ async test "a rejected prompt stays a ProviderError" {
 }
 
 ///|
+/// A log of `token`, with the topics and data given.
+fn transfer_log(topics : Array[@types.Hex], data : @types.Hex) -> @types.Log {
+  {
+    address: token(),
+    topics,
+    data,
+    block_number: 1,
+    block_hash: @types.BlockHash::from_string("0x" + "11".repeat(32)) catch {
+      e => abort("bad test hash: \{e}")
+    },
+    transaction_hash: @types.TxHash::from_string("0x" + "22".repeat(32)) catch {
+      e => abort("bad test hash: \{e}")
+    },
+    transaction_index: 0,
+    log_index: 0,
+    removed: false,
+  }
+}
+
+///|
+/// A padded word, from the digits that are not padding.
+fn word(digits : String) -> @types.Hex {
+  @types.Hex::from_string("0x" + "0".repeat(64 - digits.length()) + digits) catch {
+    e => abort("bad test word: \{e}")
+  }
+}
+
+///|
+/// `from` and `to` were topics and `value` was data; what comes back is the
+/// three of them in the order the event declares them.
+test "decode_transfer reads a transfer out of its log" {
+  let (from, to, value) = @erc20.Erc20::decode_transfer(
+    transfer_log(
+      [
+        @erc20.Erc20::transfer_topic(),
+        word("f39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
+        word("000000000000000000000000000000000000dead"),
+      ],
+      word("2a"),
+    ),
+  )
+  assert_eq(from, holder())
+  assert_eq(to, address("0x000000000000000000000000000000000000dead"))
+  assert_eq(value, 42N)
+}
+
+///|
+/// A receipt holds the logs of every contract a transaction touched, so a log
+/// that is not a transfer has to be refused rather than decoded.
+test "decode_transfer refuses a log of another event" {
+  try
+    @erc20.Erc20::decode_transfer(
+      transfer_log(
+        [@abi.event_topic("Approval(address,address,uint256)")],
+        @types.Hex::from_string("0x") catch {
+          e => abort("bad test hex: \{e}")
+        },
+      ),
+    )
+    |> ignore
+  catch {
+    Abi(_) => ()
+    e => fail("unexpected error: \{e}")
+  } noraise {
+    _ => fail("expected a log of another event to be refused")
+  }
+}
+
+///|
 /// EIP-2612's two getters. `nonces` is a counter rather than the balance-shaped
 /// number it looks like — reading it stale means signing a permit the token
 /// will refuse — and `DOMAIN_SEPARATOR()` comes back as a `bytes32`, so it is

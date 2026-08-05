@@ -256,6 +256,128 @@ test "generate: an event becomes its topic" {
 }
 
 ///|
+/// The decoder is the topic's other half: one matches a log, the other reads
+/// it. The `indexed` flags out of the ABI are what put `from` and `to` in
+/// `topics` and `value` in `data`, and they have to survive into the generated
+/// `params`.
+test "generate: an event becomes a decoder as well" {
+  let out = @codegen.generate("Erc20", erc20_abi)
+  assert_true(
+    out.code.contains(
+      (
+        #|pub fn Erc20::decode_transfer(
+        #|  log : @types.Log,
+        #|) -> (@types.Address, @types.Address, BigInt) raise @contract.ContractError {
+        #|  let values = @abi.decode_log(
+        #|    name="Transfer",
+        #|    params=[
+        #|      { ty: Address, indexed: true },
+        #|      { ty: Address, indexed: true },
+        #|      { ty: Uint(256), indexed: false },
+        #|    ],
+        #|    topics=log.topics,
+        #|    data=log.data,
+        #|  ) catch {
+        #|    e => raise @contract.Abi(e)
+        #|  }
+      ),
+    ),
+  )
+  assert_true(
+    out.code.contains(
+      (
+        #|  guard values is [Address(from), Address(to), Uint(value)] else {
+      ),
+    ),
+  )
+  assert_true(out.code.contains("  (from, to, value)\n"))
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// A single parameter is answered on its own: MoonBit has no one-element
+/// tuple, and `(x)` is `x` rather than a tuple holding it.
+test "generate: an event of one parameter answers with that parameter" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Paused", "inputs": [
+      #|   { "name": "by", "type": "address", "indexed": true }] }]
+    ),
+  )
+  assert_true(
+    out.code.contains(
+      (
+        #|) -> @types.Address raise @contract.ContractError {
+      ),
+    ),
+  )
+  assert_true(out.code.contains("  guard values is [Address(by)] else {"))
+  assert_true(out.code.contains("  by\n}"))
+}
+
+///|
+/// An event with nothing to decode keeps its topic and costs no comment: the
+/// topic already says everything one of its logs carries.
+test "generate: an event with no parameters gets no decoder" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Sealed", "inputs": [] }]
+    ),
+  )
+  assert_true(out.code.contains("pub fn Vault::sealed_topic()"))
+  assert_false(out.code.contains("decode_sealed"))
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// The event equivalent of a function's unsupported parameter — except that
+/// the event keeps its topic, which is what a caller filters logs with before
+/// decoding them by hand.
+test "generate: an event whose arguments cannot be typed keeps its topic" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Blobbed", "inputs": [
+      #|   { "name": "blob", "type": "bytes" }] },
+      #| { "type": "event", "name": "Named", "inputs": [
+      #|   { "name": "what", "type": "string", "indexed": true }] }]
+    ),
+  )
+  assert_true(out.code.contains("pub fn Vault::blobbed_topic()"))
+  assert_true(out.code.contains("pub fn Vault::named_topic()"))
+  assert_false(out.code.contains("decode_blobbed"))
+  assert_false(out.code.contains("decode_named"))
+  assert_eq(
+    out.skipped.join("\n"),
+    (
+      #|`Blobbed(bytes)`: parameter 0 is `bytes`, which is not generated
+      #|event `Named(string)`: parameter 0 is an indexed `string`, which a log holds only as its hash
+    ),
+  )
+}
+
+///|
+/// An anonymous event has no `topics[0]` at all, so neither half of what this
+/// generator makes of an event means anything for one.
+test "generate: an anonymous event is skipped entirely" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Quiet", "anonymous": true, "inputs": [
+      #|   { "name": "who", "type": "address", "indexed": true }] }]
+    ),
+  )
+  assert_false(out.code.contains("quiet_topic"))
+  assert_false(out.code.contains("decode_quiet"))
+  assert_eq(
+    out.skipped.join("\n"),
+    "event `Quiet(address)`: it is `anonymous`, so its logs carry no `topics[0]` to match or decode",
+  )
+}
+
+///|
 test "generate: nothing comes of a constructor" {
   let out = @codegen.generate("Erc20", erc20_abi)
   // it is dropped while reading, so it is not reported as a casualty either

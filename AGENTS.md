@@ -33,11 +33,15 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
 `contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
 top of `eth_call` / `eth_sendTransaction`, and `deploy` on top of a transaction
-with no recipient. What is _not_ implemented is decoding a _log_ into
-an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
-`@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
-match `topics[0]` against. Callers reach unwrapped methods through the generic
-`Provider::request` escape hatch.
+with no recipient. **A log is read back** through `@abi.decode_log`
+(`EventParam`, #79): it checks `topics[0]`, reads the `indexed` arguments out of
+the remaining topics and the rest out of `data`, and answers in declaration
+order — `@erc20.Erc20::decode_transfer` is that for `Transfer`. Two things it
+deliberately does not do, both documented where they bite: an indexed `string` /
+`bytes` / array / struct comes back as the `keccak256` the topic holds, because
+that is all the log ever carried, and an `anonymous` event is not decoded at all,
+because its log has no `topics[0]` to match. Callers reach unwrapped methods
+through the generic `Provider::request` escape hatch.
 **Messages are signed by the wallet** through `personal_sign` (`sign_message`,
 over a `String` the SDK hands over as UTF-8 bytes in hex) and
 `eth_signTypedData_v4` (`sign_typed_data`, over a `TypedData` — the EIP-712

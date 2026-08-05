@@ -131,7 +131,8 @@ fn calldata(to : @endor.Address) -> Unit raise {
 `Array(String)`, `FixedArray(t, k)`, `Tuple([…])` — and `@abi.AbiValue` carries
 the value.
 
-Not covered: `bytesN` beyond 32, and decoding a log's *indexed* arguments.
+Not covered: `bytesN` beyond 32. A log is read back with `@abi.decode_log` —
+[Reading a log](/reference/abi/#reading-a-log).
 
 ## Generating a preset
 

@@ -134,9 +134,28 @@ fn transfers_in(receipt : @endor.TransactionReceipt) -> Array[@endor.Log] {
 }
 ```
 
-`@abi.decode` reads the non-indexed arguments out of a log's `data`. Pairing the
-*indexed* ones back up with their topics is not wrapped yet — it is on the
-[not-wrapped list](/reference/not-wrapped/).
+Reading one back as the arguments it was emitted with is
+[`@abi.decode_log`](/reference/abi/#reading-a-log), which puts the `indexed`
+arguments — the topics after the first — back among the ones in `data`, in the
+order the event declares them:
+
+```moonbit
+fn transferred(log : @endor.Log) -> Array[@abi.AbiValue] raise @abi.AbiError {
+  @abi.decode_log(
+    name="Transfer",
+    params=[
+      { ty: Address, indexed: true },
+      { ty: Address, indexed: true },
+      { ty: Uint(256), indexed: false },
+    ],
+    topics=log.topics,
+    data=log.data,
+  )
+}
+```
+
+For an ERC-20 that is `@erc20.Erc20::decode_transfer(log)` already —
+[Read an ERC-20](./erc20/#reading-the-transfers-back-out-of-a-receipt).
 
 ## Blocks
 

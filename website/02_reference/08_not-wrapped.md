@@ -11,18 +11,6 @@ typed helper.
 
 ## Planned
 
-**Decoding a log into an event's arguments.** A `Log`'s `topics` are raw `Hex`.
-`@abi.event_topic` computes the topic to match `topics[0]` against and
-`@abi.decode` reads the non-indexed arguments out of `data`, but pairing the
-*indexed* arguments back up with their topics is not wrapped. In the meantime:
-
-```moonbit
-fn find_transfers(receipt : @endor.TransactionReceipt) -> Array[@endor.Log] {
-  let topic = @abi.event_topic("Transfer(address,address,uint256)")
-  receipt.logs.filter(log => log.topics.get(0) is Some(t) && t == topic)
-}
-```
-
 **EIP-6963.** The SDK takes `globalThis.ethereum`, which is whichever wallet won
 the race to inject itself. Enumerating several injected providers and letting the
 user pick is not implemented.
@@ -46,6 +34,19 @@ for it — that is why `Provider` and `EventSource` are separate.
 
 **`bytesN` beyond 32** in the ABI layer. No contract can declare one: the ABI
 specification stops at `bytes32`.
+
+**Recovering an indexed `string`, `bytes`, array or struct from a log.**
+[`@abi.decode_log`](./abi/#reading-a-log) answers with the 32 bytes the topic
+holds, which are the `keccak256` of the value and not the value. This is not a
+gap in the SDK: those bytes are all the log ever carried, so nobody can invert
+them. Hash a candidate value and compare, or read the argument from a
+non-indexed copy if the contract emits one.
+
+**Decoding a log of an `anonymous` event.** Such a log has no `topics[0]`, so
+nothing in it says which event it is, and `decode_log` would have to take the
+caller's word for it and decode into the wrong values when the word was wrong.
+`@abi.decode` over `data` and the topics by hand is the honest version, and it is
+where the assumption is the caller's own.
 
 **Key management of any kind.** No private keys, no local signing, no mnemonics.
 The wallet holds the key and that is the entire security model — an SDK that

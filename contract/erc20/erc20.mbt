@@ -225,3 +225,58 @@ pub async fn[P : @provider.Provider] Erc20::domain_separator(
 pub fn Erc20::transfer_topic() -> @types.Hex {
   @abi.event_topic("Transfer(address,address,uint256)")
 }
+
+///|
+/// One `Transfer` log, read back as `(from, to, value)`.
+///
+/// The other half of `transfer_topic`: that one finds a transfer among a
+/// receipt's logs, this one says who sent what to whom. `from` and `to` are
+/// `indexed`, so they were topics rather than data — which is exactly the
+/// reassembly a caller should not be doing by hand.
+///
+/// A log of another event raises `Abi`: a receipt holds the logs of every
+/// contract the transaction touched, so filtering by `topics[0]` is not
+/// optional.
+///
+/// ```
+/// fn transfers(
+///   receipt : @endor.TransactionReceipt,
+///   token : @endor.Address,
+/// ) -> Array[(@endor.Address, @endor.Address, BigInt)] raise @contract.ContractError {
+///   // one hash, not one per log
+///   let topic = @erc20.Erc20::transfer_topic()
+///   let out = []
+///   for log in receipt.logs {
+///     if log.address == token && log.topics.get(0) is Some(t) && t == topic {
+///       out.push(@erc20.Erc20::decode_transfer(log))
+///     }
+///   }
+///   out
+/// }
+/// ```
+pub fn Erc20::decode_transfer(
+  log : @types.Log,
+) -> (@types.Address, @types.Address, BigInt) raise @contract.ContractError {
+  let values = @abi.decode_log(
+    name="Transfer",
+    params=[
+      { ty: Address, indexed: true },
+      { ty: Address, indexed: true },
+      { ty: Uint(256), indexed: false },
+    ],
+    topics=log.topics,
+    data=log.data,
+  ) catch {
+    e => raise @contract.Abi(e)
+  }
+  // unreachable: `decode_log` answers with the types named just above, or
+  // raises
+  guard values is [Address(from), Address(to), Uint(value)] else {
+    raise @contract.Abi(
+      @types.InvalidData(
+        "Transfer(address,address,uint256) did not decode as its own types",
+      ),
+    )
+  }
+  (from, to, value)
+}

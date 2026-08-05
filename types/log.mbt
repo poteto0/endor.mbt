@@ -2,10 +2,11 @@
 /// One event a transaction emitted, as a receipt carries it.
 ///
 /// `topics` is the indexed part — the first is the event signature hash for
-/// anything but an anonymous event — and `data` the ABI-encoded rest. There is
-/// no ABI layer yet, so both arrive as raw `Hex` for the caller to decode; the
-/// fields around them are what a caller needs in order to know *where* the
-/// event happened without decoding anything.
+/// anything but an anonymous event — and `data` the ABI-encoded rest. Both
+/// arrive as raw `Hex`, because what they mean is the event's declaration and
+/// not this type's business: `@abi.decode_log` takes the two together and
+/// answers with the arguments. The fields around them are what a caller needs
+/// in order to know *where* the event happened without decoding anything.
 ///
 /// `removed` is `true` when the log belonged to a block a reorg dropped, which
 /// is the one case where an already-observed event stops being true.

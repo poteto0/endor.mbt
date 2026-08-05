@@ -22,6 +22,7 @@ pub async fn[P : @provider.Provider] Erc20::allowance(Self, P, owner~ : @types.A
 pub async fn[P : @provider.Provider] Erc20::approve(Self, P, from~ : @types.Address, spender~ : @types.Address, amount~ : @bigint.BigInt) -> @types.TxHash raise @contract.ContractError
 pub async fn[P : @provider.Provider] Erc20::balance_of(Self, P, @types.Address) -> @bigint.BigInt raise @contract.ContractError
 pub async fn[P : @provider.Provider] Erc20::decimals(Self, P) -> Int raise @contract.ContractError
+pub fn Erc20::decode_transfer(@types.Log) -> (@types.Address, @types.Address, @bigint.BigInt) raise @contract.ContractError
 pub async fn[P : @provider.Provider] Erc20::domain_separator(Self, P) -> @types.Hex raise @contract.ContractError
 pub async fn[P : @provider.Provider] Erc20::name(Self, P) -> String raise @contract.ContractError
 pub fn Erc20::new(@types.Address) -> Self
