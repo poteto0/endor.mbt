@@ -40,17 +40,9 @@ pub impl Show for Log with fn output(self, logger) {
 /// Decode the JSON object a node answers with inside a receipt's `logs`.
 pub fn Log::from_json(j : Json) -> Log raise CodecError {
   let fields = json_object(j, what="log")
-  let topics = []
-  for
-    topic in json_array(
-      required_field(fields, "topics", what="log"),
-      what="topics",
-    ) {
-    topics.push(Hex::from_json(topic))
-  }
   Log::{
     address: Address::from_json(required_field(fields, "address", what="log")),
-    topics,
+    topics: array_field(fields, "topics", what="log", Hex::from_json),
     data: Hex::from_json(required_field(fields, "data", what="log")),
     block_number: quantity_field(fields, "blockNumber", what="log"),
     block_hash: BlockHash::from_json(
@@ -70,11 +62,7 @@ pub fn Log::from_json(j : Json) -> Log raise CodecError {
 /// Decode the JSON array of logs `eth_getLogs` answers with. A node that
 /// matched nothing answers with an empty array, not with `null`.
 pub fn Log::array_from_json(j : Json) -> Array[Log] raise CodecError {
-  let out = []
-  for it in json_array(j, what="logs") {
-    out.push(Log::from_json(it))
-  }
-  out
+  json_array_of(j, what="logs", Log::from_json)
 }
 
 ///|

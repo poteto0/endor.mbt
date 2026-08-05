@@ -16,13 +16,6 @@ fn topic(s : String) -> @types.Topic {
 }
 
 ///|
-fn block_hash(s : String) -> @types.BlockHash {
-  @types.BlockHash::from_string(s) catch {
-    e => abort("bad test block hash: \{e}")
-  }
-}
-
-///|
 /// A single alternative goes on the wire as the bare hex string, which is the
 /// form a node answers a log's `topics` in too.
 test "a topic with one alternative is the hex itself" {
@@ -121,16 +114,13 @@ test "an unconstrained topic position is null, and still occupies its index" {
 }
 
 ///|
-/// `blockHash` and the range are exclusive in the RPC, and there is no
-/// constructor that produces both — so this is the only shape the block form
-/// has.
 test "a block filter names the block and no range" {
-  let hash = block_hash(
-    "0xb6de5c3c1b70d24de3ea4eb90a6c9f1f5eb1d0e6a5e3b3f1b7e0c0b9a8d7c6e5",
-  )
+  let hash = @types.BlockHash::from_string(A_BLOCK_HASH) catch {
+    e => fail("unexpected error \{e}")
+  }
   let filter = @types.LogFilter::at_block(hash, topics=[Some(topic(TRANSFER))])
   inspect(
     filter.to_json().stringify(),
-    content="{\"blockHash\":\"0xb6de5c3c1b70d24de3ea4eb90a6c9f1f5eb1d0e6a5e3b3f1b7e0c0b9a8d7c6e5\",\"topics\":[\"\{TRANSFER}\"]}",
+    content="{\"blockHash\":\"\{A_BLOCK_HASH}\",\"topics\":[\"\{TRANSFER}\"]}",
   )
 }

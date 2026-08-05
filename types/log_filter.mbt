@@ -5,8 +5,7 @@
 ///
 /// A position with no constraint at all is spelled `None` in the
 /// `Array[Topic?]` a filter carries, not by a `Topic` — which is why this type
-/// has no "anything" case. The distinction matters: `None` still *occupies* the
-/// position, so a constraint after it stays at its own index.
+/// has no "anything" case.
 ///
 /// ```mbt check
 /// test "doc: topic alternatives" {
@@ -46,8 +45,10 @@ pub fn Topic::any_of(topics : Array[Hex]) -> Topic raise CodecError {
     raise InvalidLength("a topic needs at least one alternative")
   }
   for topic in topics {
-    guard topic.byte_length() == 32 else {
-      raise InvalidLength("a topic is 32 bytes, got \{topic.byte_length()}")
+    guard topic.byte_length() == @codec.WORD_BYTES else {
+      raise InvalidLength(
+        "a topic is \{@codec.WORD_BYTES} bytes, got \{topic.byte_length()}",
+      )
     }
   }
   Topic::{ alternatives: topics }
@@ -57,17 +58,19 @@ pub fn Topic::any_of(topics : Array[Hex]) -> Topic raise CodecError {
 /// Encode as the wire form: the bare hex string for a single alternative, the
 /// array for several.
 pub fn Topic::to_json(self : Topic) -> Json {
-  one_or_many(self.alternatives.map(t => t.to_json()))
+  one_or_many(self.alternatives, Hex::to_json)
 }
 
 ///|
 /// A single value, or the array of them — the shape both `address` and each
-/// `topics` position take in an `eth_getLogs` filter.
-fn one_or_many(items : Array[Json]) -> Json {
+/// `topics` position take in an `eth_getLogs` filter. The single case is the
+/// common one, so it encodes the one element rather than an array it would then
+/// throw away.
+fn[T] one_or_many(items : Array[T], to_json : (T) -> Json) -> Json {
   if items is [only] {
-    only
+    to_json(only)
   } else {
-    Json::array(items)
+    Json::array(items.map(to_json))
   }
 }
 
@@ -119,11 +122,9 @@ pub struct LogFilter {
 
 ///|
 /// Search a range of blocks. An absent bound is left out of the request, which
-/// is how the RPC spells "the latest block" for either end.
-///
-/// A wide range is what a public node refuses: the limit is the node's, not the
-/// SDK's, and it comes back as whatever error that node raises. Splitting a
-/// range into requests a node will accept is the caller's to do.
+/// is how the RPC spells "the latest block" for either end. How wide a range a
+/// node will answer is the node's business, and `@provider.logs` says what
+/// happens when one refuses.
 pub fn LogFilter::range(
   from_block? : BlockTag,
   to_block? : BlockTag,
@@ -163,7 +164,7 @@ pub fn LogFilter::to_json(self : LogFilter) -> Json {
     AtBlock(hash) => fields["blockHash"] = hash.to_json()
   }
   if !self.address.is_empty() {
-    fields["address"] = one_or_many(self.address.map(a => a.to_json()))
+    fields["address"] = one_or_many(self.address, Address::to_json)
   }
   if !self.topics.is_empty() {
     fields["topics"] = Json::array(

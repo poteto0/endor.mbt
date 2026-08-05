@@ -412,15 +412,11 @@ async test "a log filter is a request the node accepts" {
         Some(
           @types.Topic::any_of([
             @abi.event_topic("Approval(address,address,uint256)"),
-            @abi.event_topic("Transfer(address,address,uint256)"),
+            @erc20.Erc20::transfer_topic(),
           ]),
         ),
         None,
-        Some(
-          @types.Topic::exactly(
-            @abi.event_topic("Transfer(address,address,uint256)"),
-          ),
-        ),
+        Some(@types.Topic::exactly(@erc20.Erc20::transfer_topic())),
       ],
     )
     assert_true(@provider.logs(provider, filter).is_empty())

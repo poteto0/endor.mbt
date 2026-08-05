@@ -5,22 +5,15 @@ const TRANSFER_TOPIC : String = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a
 const TOKEN : String = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
 
 ///|
-fn logs_hex(s : String) -> @types.Hex {
-  @types.Hex::from_string(s) catch {
-    e => abort("bad test hex: \{e}")
-  }
-}
-
-///|
-fn logs_address(s : String) -> @types.Address {
-  @types.Address::from_string(s) catch {
+fn token() -> @types.Address {
+  @types.Address::from_string(TOKEN) catch {
     e => abort("bad test address: \{e}")
   }
 }
 
 ///|
 fn transfer_topic() -> @types.Topic {
-  @types.Topic::exactly(logs_hex(TRANSFER_TOPIC)) catch {
+  @types.Topic::exactly(@types.Hex::from_string(TRANSFER_TOPIC)) catch {
     e => abort("bad test topic: \{e}")
   }
 }
@@ -34,8 +27,8 @@ fn a_log() -> Json {
     "topics": Json::array([TRANSFER_TOPIC.to_json()]),
     "data": "0x0000000000000000000000000000000000000000000000000000000000000001".to_json(),
     "blockNumber": "0x1b4".to_json(),
-    "blockHash": "0xb6de5c3c1b70d24de3ea4eb90a6c9f1f5eb1d0e6a5e3b3f1b7e0c0b9a8d7c6e5".to_json(),
-    "transactionHash": "0x88df016429689c079f3b2f6ad39fa052532c56795b733da78a91ebe6a713944b".to_json(),
+    "blockHash": A_BLOCK.to_json(),
+    "transactionHash": TX_HASH.to_json(),
     "transactionIndex": "0x2".to_json(),
     "logIndex": "0x7".to_json(),
     "removed": false.to_json(),
@@ -52,7 +45,7 @@ async test "past logs are read back through the filter they were asked for" {
     let filter = @types.LogFilter::range(
       from_block=Number(436),
       to_block=Number(437),
-      address=[logs_address(TOKEN)],
+      address=[token()],
       topics=[Some(transfer_topic())],
     )
     let found = @provider.logs(provider, filter) catch {
