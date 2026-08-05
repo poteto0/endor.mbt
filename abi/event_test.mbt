@@ -36,8 +36,8 @@ fn decoded_log(
 }
 
 ///|
-/// The error a log raised, as text. As with `refused`: not raising is itself
-/// an answer worth seeing in the diff.
+/// The error a log raised, as text — `refused` with the hex parsed, since not
+/// raising is as much an answer here as it is there.
 fn log_refused(
   name~ : String,
   params~ : Array[@abi.EventParam],
@@ -47,12 +47,7 @@ fn log_refused(
   let data = @types.Hex::from_string(data) catch {
     e => abort("bad test data: \{e}")
   }
-  try {
-    @abi.decode_log(name~, params~, topics~, data~) |> ignore
-    "no error"
-  } catch {
-    e => "\{e}"
-  }
+  refused(() => @abi.decode_log(name~, params~, topics~, data~) |> ignore)
 }
 
 ///|

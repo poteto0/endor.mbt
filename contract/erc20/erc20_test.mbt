@@ -184,16 +184,11 @@ async test "a rejected prompt stays a ProviderError" {
 
 ///|
 /// A log of `token`, with the topics and data given.
-fn transfer_log(topics : Array[@types.Hex], data : String) -> @types.Log {
-  let hex = s => {
-    @types.Hex::from_string(s) catch {
-      e => abort("bad test hex: \{e}")
-    }
-  }
+fn transfer_log(topics : Array[@types.Hex], data : @types.Hex) -> @types.Log {
   {
     address: token(),
     topics,
-    data: hex(data),
+    data,
     block_number: 1,
     block_hash: @types.BlockHash::from_string("0x" + "11".repeat(32)) catch {
       e => abort("bad test hash: \{e}")
@@ -226,7 +221,7 @@ test "decode_transfer reads a transfer out of its log" {
         word("f39fd6e51aad88f6f4ce6ab8827279cfffb92266"),
         word("000000000000000000000000000000000000dead"),
       ],
-      "0x" + "0".repeat(62) + "2a",
+      word("2a"),
     ),
   )
   assert_eq(from, holder())
@@ -242,7 +237,9 @@ test "decode_transfer refuses a log of another event" {
     @erc20.Erc20::decode_transfer(
       transfer_log(
         [@abi.event_topic("Approval(address,address,uint256)")],
-        "0x",
+        @types.Hex::from_string("0x") catch {
+          e => abort("bad test hex: \{e}")
+        },
       ),
     )
     |> ignore

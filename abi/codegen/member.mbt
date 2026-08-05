@@ -404,33 +404,19 @@ fn call_expr(
 }
 
 ///|
-/// What one event generates: its topic getter, its decoder if it has one, and
-/// the reason it has none if it has none.
-///
-/// The two are separate answers about the same member. A topic needs only the
-/// signature, which every event has; a decoder needs each parameter's MoonBit
-/// type, which is the same limit functions run into. An event whose arguments
-/// this generator cannot name still gets its topic — that is what a caller
-/// filters a receipt's logs with before decoding them by hand.
-priv struct EventBlocks {
-  signature : String
-  code : String
-  /// Why there is no decoder, for an event whose topic was still generated.
-  no_decoder : String?
-}
-
-///|
-/// The topic an event's logs carry in `topics[0]`, and the decoder that reads
-/// one of those logs back.
+/// The topic an event's logs carry in `topics[0]`.
 ///
 /// Events survive types that functions do not: what is generated is the
 /// signature's hash, and every ABI type has a canonical name whether or not
-/// this generator can pass one as an argument.
+/// this generator can pass one as an argument. Reading one of those logs back
+/// is `decoder_block`, a separate answer about the same member: an event whose
+/// arguments cannot be named keeps its topic, which is what a caller filters a
+/// receipt's logs with before decoding them by hand.
 fn event_block(
   struct_name : String,
   e : AbiEvent,
   taken : Set[String],
-) -> Result[EventBlocks, String] {
+) -> Result[(String, String), String] {
   // as in `function_block`: unreachable, and declined rather than aborted
   let signature = @abi.signature(name=e.name, inputs=e.inputs.map(p => p.ty)) catch {
     err => return Err("event `\{e.name}`: \{err}")
@@ -457,29 +443,34 @@ fn event_block(
     return Err("event `\{signature}`: `\{fn_name}` is already taken")
   }
   taken.add(fn_name)
-  let topic_block =
-    $|///|
-    $|/// `topics[0]` of every log this event writes:
-    $|/// `\{signature}`.
-    $|///
-    $|/// What a receipt's logs are matched against to find it.
-    $|pub fn \{struct_name}::\{fn_name}() -> @types.Hex {
-    $|  @abi.event_topic("\{signature}")
-    $|}
-    $|
-  // an event with no parameters gets no decoder and is not reported as
-  // skipped: there is nothing to decode, and its topic already says everything
-  // one of its logs carries
-  guard !e.inputs.is_empty() else {
-    return Ok({ signature, code: topic_block, no_decoder: None })
-  }
-  match decoder_block(struct_name, e, signature~, taken) {
-    Ok(block) =>
-      // the blank line every block in this file is separated by: `generate`
-      // puts one between blocks, and this is two blocks arriving as one
-      Ok({ signature, code: topic_block + "\n" + block, no_decoder: None })
-    Err(reason) =>
-      Ok({ signature, code: topic_block, no_decoder: Some(reason) })
+  Ok(
+    (
+      signature,
+      (
+        $|///|
+        $|/// `topics[0]` of every log this event writes:
+        $|/// `\{signature}`.
+        $|///
+        $|/// What a receipt's logs are matched against to find it.
+        $|pub fn \{struct_name}::\{fn_name}() -> @types.Hex {
+        $|  @abi.event_topic("\{signature}")
+        $|}
+        $|
+      ),
+    ),
+  )
+}
+
+///|
+/// The parts as a tuple — the types a decoder answers with, or the names it
+/// binds. MoonBit has no one-element tuple, so a single part is itself: `(x)`
+/// is `x`, and a decoder for a one-parameter event answers with that parameter
+/// rather than with a tuple holding it.
+fn tuple_of(parts : Array[String]) -> String {
+  if parts.length() == 1 {
+    parts[0]
+  } else {
+    "(" + parts.join(", ") + ")"
   }
 }
 
@@ -500,11 +491,10 @@ fn decoder_block(
   taken : Set[String],
 ) -> Result[String, String] {
   let fn_name = "decode_" + snake_case(e.name)
-  // unreachable as things stand, for `event_block`'s reason: a name that
-  // survived `read_name` survives a `decode_` prefix too, and the only thing
-  // that could have taken this one is another event of the same name, which
-  // lost its topic first
-  guard is_value_ident(fn_name) && !taken.contains(fn_name) else {
+  // spellable by construction, for `event_block`'s reason: a name that survived
+  // `read_name` survives a prefix too. Taken, though, it can be — a contract
+  // with a `decodeTransfer()` function is generated before any event is
+  guard !taken.contains(fn_name) else {
     return Err("event `\{signature}`: `\{fn_name}` is already taken")
   }
   // an indexed `string` is the one type this generator can name and still must
@@ -523,15 +513,8 @@ fn decoder_block(
     Err(reason) => return Err(reason)
   }
   taken.add(fn_name)
-  // MoonBit has no one-element tuple, so an event with a single parameter
-  // answers with that parameter rather than with a tuple holding it
-  let answer = params.map(p => p.1.mbt).join(", ")
-  let bound = params.map(p => p.0).join(", ")
-  let (answer, bound) = if params.length() == 1 {
-    (answer, bound)
-  } else {
-    ("(\{answer})", "(\{bound})")
-  }
+  let answer = tuple_of(params.map(p => p.1.mbt))
+  let bound = tuple_of(params.map(p => p.0))
   let out = StringBuilder::new()
   out.write_string(
     (

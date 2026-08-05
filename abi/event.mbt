@@ -44,6 +44,13 @@ pub impl Show for EventParam with fn output(self, logger) {
 /// nonsense: `topics[0]` is what tells one event from another, and a receipt
 /// holds the logs of every contract the transaction touched.
 ///
+/// It takes the two fields rather than a `@types.Log` because those two are all
+/// there is to decode: a `Log` also carries where the event happened, which is
+/// nothing a decoder should have to be handed. `eth_getLogs`' answers and a
+/// subscription's payloads reach this the same way a receipt's logs do. The
+/// call that does take a `Log` belongs a layer up, where
+/// `@erc20.Erc20::decode_transfer` is.
+///
 /// ```
 /// let (from, to, value) = match
 ///   @abi.decode_log(
@@ -86,7 +93,19 @@ pub fn decode_log(
   topics~ : Array[@types.Hex],
   data~ : @types.Hex,
 ) -> Array[AbiValue] raise AbiError {
-  let signature = signature(name~, inputs=params.map(p => p.ty))
+  // the signature is every parameter, indexed or not — an event is declared
+  // once — while `data` holds only the ones that are not, so both lists come
+  // out of the one walk over the declaration
+  let declared = []
+  let in_data = []
+  for p in params {
+    declared.push(p.ty)
+    if !p.indexed {
+      in_data.push(p.ty)
+    }
+  }
+  let indexed = params.length() - in_data.length()
+  let signature = signature(name~, inputs=declared)
   guard topics is [first, .. indexed_topics] else {
     raise InvalidData("`\{signature}`: the log carries no topics at all")
   }
@@ -95,16 +114,15 @@ pub fn decode_log(
       "`\{signature}`: topics[0] is \{first}, which is another event",
     )
   }
-  let declared = params.filter(p => p.indexed).length()
-  guard indexed_topics.length() == declared else {
+  guard indexed_topics.length() == indexed else {
     raise InvalidData(
-      "`\{signature}`: \{declared} indexed parameters, but the log carries \{indexed_topics.length()} topics after the first",
+      "`\{signature}`: \{indexed} indexed parameters, but the log carries \{indexed_topics.length()} topics after the first",
     )
   }
   // the non-indexed parameters are one ABI block of their own, laid out as if
   // they were the only parameters the event had — which, as far as `data` is
   // concerned, they are
-  let rest = decode(params.filter(p => !p.indexed).map(p => p.ty), data)
+  let rest = decode(in_data, data)
   let out = []
   let mut topic = 0
   let mut plain = 0

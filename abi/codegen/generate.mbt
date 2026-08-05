@@ -109,14 +109,19 @@ pub fn generate(
   }
   for e in doc.events {
     match event_block(name, e, taken) {
-      Ok(ev) => {
-        members.push(ev.signature)
-        blocks.push(ev.code)
-        // an event can lose its decoder and keep its topic: the two are
-        // separate answers about the same member, so the reason is reported
-        // alongside a member that *was* generated
-        if ev.no_decoder is Some(reason) {
-          skipped.push(reason)
+      Ok((signature, block)) => {
+        members.push(signature)
+        blocks.push(block)
+        // an event can lose its decoder and keep its topic — the two are
+        // separate answers about the same member — so this reason is reported
+        // alongside a member that *was* generated. An event with no parameters
+        // has nothing to decode and costs no comment: its topic already says
+        // everything one of its logs carries
+        if !e.inputs.is_empty() {
+          match decoder_block(name, e, signature~, taken) {
+            Ok(block) => blocks.push(block)
+            Err(reason) => skipped.push(reason)
+          }
         }
       }
       Err(reason) => skipped.push(reason)

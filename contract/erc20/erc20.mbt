@@ -189,10 +189,11 @@ pub fn Erc20::transfer_topic() -> @types.Hex {
 ///   receipt : @endor.TransactionReceipt,
 ///   token : @endor.Address,
 /// ) -> Array[(@endor.Address, @endor.Address, BigInt)] raise @contract.ContractError {
+///   // one hash, not one per log
+///   let topic = @erc20.Erc20::transfer_topic()
 ///   let out = []
 ///   for log in receipt.logs {
-///     if log.address == token && log.topics.get(0) is Some(t) &&
-///       t == @erc20.Erc20::transfer_topic() {
+///     if log.address == token && log.topics.get(0) is Some(t) && t == topic {
 ///       out.push(@erc20.Erc20::decode_transfer(log))
 ///     }
 ///   }
@@ -218,7 +219,9 @@ pub fn Erc20::decode_transfer(
   // raises
   guard values is [Address(from), Address(to), Uint(value)] else {
     raise @contract.Abi(
-      @types.InvalidData("Transfer(address,address,uint256) did not decode"),
+      @types.InvalidData(
+        "Transfer(address,address,uint256) did not decode as its own types",
+      ),
     )
   }
   (from, to, value)
