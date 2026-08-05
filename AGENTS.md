@@ -9,15 +9,22 @@ typed, async MoonBit API.
 
 **The API reads chain state, evaluates calls, and switches chains**:
 `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `eth_getBalance`,
-`eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`
+`eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice`, `eth_getCode` and
+`eth_getStorageAt` (`storage_at`, one raw 32-byte slot — the only way to see
+state no ABI declares, a proxy's EIP-1967 implementation address above all)
 are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
 `estimate_gas`, over a `CallRequest`), `eth_sendTransaction` (`send_transaction`,
-over a `TransactionRequest`, answering with a `TxHash`) and
+over a `TransactionRequest`, answering with a `TxHash`),
+`eth_sendRawTransaction` (`send_raw_transaction` — a transaction signed
+somewhere else, since the SDK holds no keys and so never builds one; this is the
+entrance a relayer submits through) and
 `wallet_switchEthereumChain` / `wallet_addEthereumChain` (`switch_chain`,
 `add_chain`, `switch_or_add_chain`). **What was mined is read back** through
 `eth_getTransactionReceipt` (`transaction_receipt`, and `wait_for_receipt`, which
-polls for one) and `eth_getBlockByNumber` / `eth_getBlockByHash`
-(`block_by_number`, `block_by_hash`) — all three answer with an option, because a
+polls for one), `eth_getBlockByNumber` / `eth_getBlockByHash`
+(`block_by_number`, `block_by_hash`) and their cheap form
+`eth_getBlockTransactionCountBy*` (`block_transaction_count_by_number` /
+`_by_hash`) — all of them answer with an option, because a
 node answers `null` for a receipt or block it does not have.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and

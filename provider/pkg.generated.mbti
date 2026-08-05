@@ -20,6 +20,10 @@ pub async fn[P : Provider] block_by_number(P, block? : @types.BlockTag) -> @type
 
 pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
 
+pub async fn[P : Provider] block_transaction_count_by_hash(P, @types.BlockHash) -> UInt64? raise ProviderError
+
+pub async fn[P : Provider] block_transaction_count_by_number(P, block? : @types.BlockTag) -> UInt64? raise ProviderError
+
 pub async fn[P : Provider] call(P, @types.CallRequest, block? : @types.BlockTag) -> @types.Hex raise ProviderError
 
 pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
@@ -42,11 +46,15 @@ pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise Pr
 
 pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderError
 
+pub async fn[P : Provider] send_raw_transaction(P, @types.Hex) -> @types.TxHash raise ProviderError
+
 pub async fn[P : Provider] send_transaction(P, @types.TransactionRequest) -> @types.TxHash raise ProviderError
 
 pub async fn[P : Provider] sign_message(P, @types.Address, String) -> @types.Hex raise ProviderError
 
 pub async fn[P : Provider] sign_typed_data(P, @types.Address, @eip712.TypedData) -> @types.Hex raise ProviderError
+
+pub async fn[P : Provider] storage_at(P, @types.Address, @types.Hex, block? : @types.BlockTag) -> @types.Hex raise ProviderError
 
 pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise ProviderError
 

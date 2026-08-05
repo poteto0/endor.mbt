@@ -240,6 +240,46 @@ pub async fn[P : Provider] code(
 }
 
 ///|
+/// Return the raw contents of one storage slot of `who` (`eth_getStorageAt`),
+/// as the 32-byte word the EVM holds there. A slot that was never written reads
+/// as thirty-two zero bytes rather than as an absence.
+///
+/// This is the only way to read state a contract does not expose: no ABI
+/// declares a storage layout, so nothing above this can type the answer, and
+/// what the word *means* is the caller's to know. The use that motivates it is
+/// a proxy's implementation address, which EIP-1967 puts at a fixed slot —
+/// there the word is an address in its low 20 bytes.
+///
+/// `slot` goes out as it is spelled, so it is the caller that decides whether to
+/// send the full word or the short form a node also accepts.
+///
+/// ```
+/// async fn[P : @provider.Provider] implementation_slot(
+///   p : P,
+///   proxy : @types.Address,
+/// ) -> @types.Hex raise @provider.ProviderError {
+///   // EIP-1967: keccak256("eip1967.proxy.implementation") - 1
+///   let slot = @types.Hex::from_string(
+///     "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc",
+///   )
+///   @provider.storage_at(p, proxy, slot)
+/// }
+/// ```
+pub async fn[P : Provider] storage_at(
+  provider : P,
+  who : @types.Address,
+  slot : @types.Hex,
+  block? : @types.BlockTag = Latest,
+) -> @types.Hex raise ProviderError {
+  invoke_rpc(
+    provider,
+    method_name="eth_getStorageAt",
+    params=Json::array([who.to_json(), slot.to_json(), block.to_json()]),
+    decode=@types.Hex::from_json,
+  )
+}
+
+///|
 /// Whether `who` is a contract, i.e. whether `eth_getCode` returns any bytes
 /// at `block`. A contract deployed after `block` still reads as `false` there.
 ///
@@ -358,6 +398,40 @@ pub async fn[P : Provider] send_transaction(
     provider,
     method_name="eth_sendTransaction",
     params=Json::array([request.to_json()]),
+    decode=@types.TxHash::from_json,
+  )
+}
+
+///|
+/// Broadcast a transaction that is *already signed* (`eth_sendRawTransaction`),
+/// returning the hash the node accepted it under.
+///
+/// No wallet is involved and nothing prompts: `raw` is a signed, RLP-encoded
+/// transaction, and whoever signed it pays for it. The SDK holds no keys, so it
+/// never builds one — this is the entrance for a transaction signed elsewhere,
+/// which is how a *relayer* submits work somebody else authorized (EIP-3009's
+/// `transferWithAuthorization`, above all).
+///
+/// Like `send_transaction`, the hash says only that the transaction was
+/// broadcast. `wait_for_receipt` is what turns it into an answer about what it
+/// did.
+///
+/// ```
+/// async fn[P : @provider.Provider] relay(
+///   p : P,
+///   signed : @types.Hex,
+/// ) -> @types.TxHash raise @provider.ProviderError {
+///   @provider.send_raw_transaction(p, signed)
+/// }
+/// ```
+pub async fn[P : Provider] send_raw_transaction(
+  provider : P,
+  raw : @types.Hex,
+) -> @types.TxHash raise ProviderError {
+  invoke_rpc(
+    provider,
+    method_name="eth_sendRawTransaction",
+    params=Json::array([raw.to_json()]),
     decode=@types.TxHash::from_json,
   )
 }

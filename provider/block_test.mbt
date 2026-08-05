@@ -110,3 +110,73 @@ async test "a malformed block is the SDK's own error" {
     }
   })
 }
+
+///|
+/// The cheap form of the same question `block_by_number` answers: the node is
+/// asked for the count alone, so only the block parameter goes out.
+async test "a block's transaction count is read by number and by hash" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new()
+      .on(
+        method_name="eth_getBlockTransactionCountByNumber",
+        response="0x2a".to_json(),
+      )
+      .on(
+        method_name="eth_getBlockTransactionCountByHash",
+        response="0x1".to_json(),
+      )
+    let by_number = @provider.block_transaction_count_by_number(provider) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_eq(by_number, Some(42UL))
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_getBlockTransactionCountByNumber")
+    inspect(params.stringify(), content="[\"latest\"]")
+    let hash = @types.BlockHash::from_string(A_BLOCK) catch {
+      e => fail("bad test hash: \{e}")
+    }
+    let by_hash = @provider.block_transaction_count_by_hash(provider, hash) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_eq(by_hash, Some(1UL))
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_getBlockTransactionCountByHash")
+    inspect(params.stringify(), content="[\"\{A_BLOCK}\"]")
+  })
+}
+
+///|
+/// Absence is reported the same way it is for the block itself: a node that
+/// does not have the block answers `null`, and that is `None` rather than 0 —
+/// which is a real count, and a different fact.
+async test "the count of a block the node does not know reads as none" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new()
+      .on(
+        method_name="eth_getBlockTransactionCountByNumber",
+        response=Json::null(),
+      )
+      .on(
+        method_name="eth_getBlockTransactionCountByHash",
+        response=Json::null(),
+      )
+    let hash = @types.BlockHash::from_string(A_BLOCK) catch {
+      e => fail("bad test hash: \{e}")
+    }
+    let by_number = @provider.block_transaction_count_by_number(
+      provider,
+      block=Number(999_999_999),
+    ) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_true(by_number is None)
+    let by_hash = @provider.block_transaction_count_by_hash(provider, hash) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_true(by_hash is None)
+  })
+}

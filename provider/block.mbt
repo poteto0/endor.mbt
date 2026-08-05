@@ -59,3 +59,72 @@ pub async fn[P : Provider] block_by_hash(
     decode=j => decode_optional(j, @types.Block::from_json),
   )
 }
+
+///|
+/// Return how many transactions the block at `block` holds
+/// (`eth_getBlockTransactionCountByNumber`), or `None` when the node does not
+/// know the block.
+///
+/// The same count is `block_by_number(…).transactions.length()`, but this asks
+/// the node for the number alone rather than for every hash in the block.
+///
+/// A height past the head is where nodes disagree: some answer `null`, which
+/// reads as `None`, and others — Anvil among them — call it a bad parameter and
+/// raise. `None` is therefore the answer to expect, not the answer to rely on.
+///
+/// ```
+/// async fn[P : @provider.Provider] head_is_empty(
+///   p : P,
+/// ) -> Bool raise @provider.ProviderError {
+///   @provider.block_transaction_count_by_number(p) == Some(0UL)
+/// }
+/// ```
+pub async fn[P : Provider] block_transaction_count_by_number(
+  provider : P,
+  block? : @types.BlockTag = Latest,
+) -> UInt64? raise ProviderError {
+  block_transaction_count(
+    provider,
+    method_name="eth_getBlockTransactionCountByNumber",
+    key=block.to_json(),
+  )
+}
+
+///|
+/// Return how many transactions the block with `hash` holds
+/// (`eth_getBlockTransactionCountByHash`), or `None` when the node does not
+/// know the block.
+///
+/// ```
+/// async fn[P : @provider.Provider] busy(
+///   p : P,
+///   hash : @types.BlockHash,
+/// ) -> Bool raise @provider.ProviderError {
+///   @provider.block_transaction_count_by_hash(p, hash)
+///   is Some(n) && n > 100UL
+/// }
+/// ```
+pub async fn[P : Provider] block_transaction_count_by_hash(
+  provider : P,
+  hash : @types.BlockHash,
+) -> UInt64? raise ProviderError {
+  block_transaction_count(
+    provider,
+    method_name="eth_getBlockTransactionCountByHash",
+    key=hash.to_json(),
+  )
+}
+
+///|
+/// The two counts differ only in how the block is named, so the decode they
+/// share — a quantity, or `null` for a block the node does not have — is stated
+/// once here rather than in each of them.
+async fn[P : Provider] block_transaction_count(
+  provider : P,
+  method_name~ : String,
+  key~ : Json,
+) -> UInt64? raise ProviderError {
+  invoke_rpc(provider, method_name~, params=Json::array([key]), decode=j => {
+    decode_optional(j, @types.Quantity::from_json)
+  }).map(q => q.to_uint64())
+}

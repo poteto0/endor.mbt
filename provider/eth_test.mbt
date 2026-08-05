@@ -1180,3 +1180,119 @@ async test "error sign typed data unsupported by the wallet" {
     }
   })
 }
+
+///|
+/// The EIP-1967 implementation slot, the one storage read that has a standard
+/// address behind it.
+const IMPL_SLOT : String = "0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc"
+
+///|
+/// The three parameters go out in the order the RPC names them — account, slot,
+/// block — and the word comes back untouched, since nothing here knows what a
+/// slot holds.
+async test "storage is read at a slot and a block" {
+  @async.with_task_group(_ => {
+    let word = "0x000000000000000000000000ce4a1e86a5c47cd677338f53da22a91d85e5b5b1"
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_getStorageAt",
+      response=word.to_json(),
+    )
+    let slot = @types.Hex::from_string(IMPL_SLOT) catch {
+      e => fail("bad test slot: \{e}")
+    }
+    let read = @provider.storage_at(provider, test_address(), slot) catch {
+      e => fail("unexpected error \{e}")
+    }
+    inspect(read, content=word)
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_getStorageAt")
+    inspect(
+      params.stringify(),
+      content="[\"0x52908400098527886e0f7030069857d2e4169ee7\",\"\{IMPL_SLOT}\",\"latest\"]",
+    )
+    let _ = @provider.storage_at(
+      provider,
+      test_address(),
+      slot,
+      block=Number(436),
+    ) catch {
+      e => fail("unexpected error \{e}")
+    }
+    guard provider.last_call() is Some((_, params)) else {
+      fail("expected a call")
+    }
+    assert_true(params.stringify().has_suffix("\"0x1b4\"]"))
+  })
+}
+
+///|
+/// A slot nobody ever wrote is thirty-two zero bytes, not an absence — so it
+/// decodes like any other word.
+async test "an unwritten slot reads as zero" {
+  @async.with_task_group(_ => {
+    let zero = "0x0000000000000000000000000000000000000000000000000000000000000000"
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_getStorageAt",
+      response=zero.to_json(),
+    )
+    let slot = @types.Hex::from_string("0x00") catch {
+      e => fail("bad test slot: \{e}")
+    }
+    let read = @provider.storage_at(provider, test_address(), slot) catch {
+      e => fail("unexpected error \{e}")
+    }
+    inspect(read.byte_length(), content="32")
+    inspect(read, content=zero)
+  })
+}
+
+///|
+/// Nothing about this call goes through a wallet: the transaction arrives
+/// signed, and all the SDK does is hand it over and read the hash back.
+async test "a signed transaction is broadcast raw" {
+  @async.with_task_group(_ => {
+    let raw = "0x02f8710182031184773594008504a817c80082520894"
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_sendRawTransaction",
+      response=TX_HASH.to_json(),
+    )
+    let signed = @types.Hex::from_string(raw) catch {
+      e => fail("bad test payload: \{e}")
+    }
+    let hash = @provider.send_raw_transaction(provider, signed) catch {
+      e => fail("unexpected error \{e}")
+    }
+    inspect(hash, content=TX_HASH)
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_sendRawTransaction")
+    inspect(params.stringify(), content="[\"\{raw}\"]")
+  })
+}
+
+///|
+/// A raw transaction the node refuses — a bad signature, a nonce already used,
+/// a fee below the minimum — is the node's error and propagates untouched.
+async test "error a raw transaction the node rejects" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on_error(
+      method_name="eth_sendRawTransaction",
+      error=@provider.ProviderError::Rpc(code=-32000, message="nonce too low"),
+    )
+    let signed = @types.Hex::from_string("0x02f871") catch {
+      e => fail("bad test payload: \{e}")
+    }
+    try @provider.send_raw_transaction(provider, signed) catch {
+      @provider.ProviderError::Rpc(code~, message~) => {
+        inspect(code, content="-32000")
+        inspect(message, content="nonce too low")
+      }
+      e => fail("expected an rpc error, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
