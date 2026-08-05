@@ -67,6 +67,17 @@ pub fn Log::from_json(j : Json) -> Log raise CodecError {
 }
 
 ///|
+/// Decode the JSON array of logs `eth_getLogs` answers with. A node that
+/// matched nothing answers with an empty array, not with `null`.
+pub fn Log::array_from_json(j : Json) -> Array[Log] raise CodecError {
+  let out = []
+  for it in json_array(j, what="logs") {
+    out.push(Log::from_json(it))
+  }
+  out
+}
+
+///|
 /// A required hex-quantity field, decoded to the number it denotes. Block
 /// numbers and indices are all this shape, so the receipt and block decoders
 /// read them through here rather than spelling out the two steps each time.

@@ -147,3 +147,62 @@ A `TransactionReceipt` carries `block_number` / `block_hash`, `gas_used` /
 
 Waiting is on the [Writes](./writes/) page, since it is the other half of
 `send_transaction`.
+
+## Past logs
+
+| Function                        | JSON-RPC method | Returns              |
+| ------------------------------- | --------------- | -------------------- |
+| `@provider.logs(p, filter)`     | `eth_getLogs`   | `Array[@endor.Log]`  |
+
+A receipt only carries the logs of the one transaction it is a receipt for.
+`logs` is how you read events that were emitted before the dapp was ever open:
+a `@endor.LogFilter` says which blocks to look in, which contracts to accept
+logs from, and what the indexed `topics` must be.
+
+```moonbit
+async fn recent_transfers(
+  wallet : @browser.BrowserProvider,
+  token : @endor.Address,
+) -> Unit raise {
+  let transfer = @endor.Topic::exactly(
+    @abi.event_topic("Transfer(address,address,uint256)"),
+  )
+  let head = @provider.block_number(wallet)
+  let filter = @endor.LogFilter::range(
+    from_block=Number(head - 1000),
+    address=[token],
+    topics=[Some(transfer)],
+  )
+  for log in @provider.logs(wallet, filter) {
+    println("block \{log.block_number}: \{log.data.byte_length()} bytes")
+  }
+}
+```
+
+A topic position is one of three things, and that is why `topics` is an
+`Array[@endor.Topic?]` rather than an array of hashes:
+
+- `Some(@endor.Topic::exactly(t))` — this position must be `t`
+- `Some(@endor.Topic::any_of([a, b]))` — it may be either, the OR a single
+  value cannot express
+- `None` — anything, while *still occupying the position*, so that a constraint
+  after it stays at its own index
+
+`topics[0]` is the event signature hash for anything but an anonymous event, and
+the rest are the `indexed` arguments in declaration order.
+
+To search one block rather than a range, including a block a reorg dropped,
+`@endor.LogFilter::at_block(hash)` sends `blockHash` instead — the RPC does not
+accept it together with a range, which is why it is its own constructor and not
+a fourth argument.
+
+Every criterion is optional: `@endor.LogFilter::range()` is every log in the
+latest block. That is rarely what you want, because **the limits are the
+node's**. A public RPC caps how wide a range and how many logs it will answer
+with, and refuses the request with an error of its own devising when you pass
+them. The SDK sends the filter as given and does not split it up — narrowing the
+search, or walking a wide range in chunks, is yours to do.
+
+What a matched log *says* is [`@abi.decode_log`](./abi/#reading-a-log): it
+pairs the indexed arguments back up with the topics filtered on here and reads
+the rest out of `data`.

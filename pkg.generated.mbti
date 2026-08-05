@@ -41,11 +41,15 @@ pub using @types {type Hex}
 
 pub using @types {type Log}
 
+pub using @types {type LogFilter}
+
 pub using @types {type NativeCurrency}
 
 pub using @types {type Quantity}
 
 pub using @types {type ReceiptStatus}
+
+pub using @types {type Topic}
 
 pub using @types {type TransactionReceipt}
 
