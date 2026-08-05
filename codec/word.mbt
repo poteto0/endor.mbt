@@ -90,7 +90,7 @@ pub fn concat_words(words : Array[Bytes]) -> Bytes {
 /// Right-align digits within one word — the same rule as `word_left_pad`, for
 /// the caller that works in hex digits.
 pub fn digits_left_pad(digits : String) -> String {
-  zeros(WORD_DIGITS - digits.length()) + digits
+  zeros_on_positive(WORD_DIGITS - digits.length()) + digits
 }
 
 ///|
@@ -103,7 +103,7 @@ pub fn digits_right_pad(digits : String) -> String {
   if remainder == 0 {
     digits
   } else {
-    digits + zeros(WORD_DIGITS - remainder)
+    digits + zeros_on_positive(WORD_DIGITS - remainder)
   }
 }
 
@@ -116,14 +116,13 @@ pub fn digits_right_pad(digits : String) -> String {
 let word_zeros : String = "0".repeat(WORD_DIGITS)
 
 ///|
-/// `n` zero digits. Negative asks for none: a value that already fills its word
-/// needs no padding. Past a word's worth the run is built rather than sliced —
-/// only `decimal_scale` asks for that, and only for a currency declaring more
-/// than 64 decimals, which no real one does.
-fn zeros(n : Int) -> String {
+/// `n` zero digits. 
+/// Negative asks for none: a value that already fills its word needs no padding. 
+fn zeros_on_positive(n : Int) -> String {
   if n <= 0 {
     ""
   } else if n <= WORD_DIGITS {
+    // for performance, use reserved zeros
     word_zeros[:n].to_owned()
   } else {
     "0".repeat(n)

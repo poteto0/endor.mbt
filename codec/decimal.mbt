@@ -46,7 +46,7 @@ pub fn decimal_scale(
   Some(
     int_digits.to_owned() +
     frac_digits.to_owned() +
-    zeros(decimals - frac_digits.length()),
+    zeros_on_positive(decimals - frac_digits.length()),
   )
 }
 
@@ -71,7 +71,7 @@ pub fn decimal_unscale(digits : StringView, decimals~ : Int) -> String {
   } else {
     0
   }
-  let leading = zeros(decimals - digits.length())
+  let leading = zeros_on_positive(decimals - digits.length())
   // only the fold has to look at the digits: `leading` is zeros throughout, so
   // a `tail` that folds away takes it with it
   let tail = digits[point:].trim_end(chars="0")
