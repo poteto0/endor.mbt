@@ -4,8 +4,7 @@
 /// `Contract::call` answers with an `Array[AbiValue]`, because a function may
 /// return any number of values of any type. A getter returns one number, and a
 /// preset that knows that should not make every one of its call sites
-/// pattern-match to say so — that is what these six helpers are for, one per
-/// type the SDK can name on its own.
+/// pattern-match to say "the answer is one number, and here it is".
 ///
 /// A getter whose answer does not decode as one number is an address that is
 /// not the token it was taken for — the most likely mistake in this whole

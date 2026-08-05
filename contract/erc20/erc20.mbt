@@ -6,6 +6,9 @@
 /// in the token's own smallest unit — `decimals` says where the point goes, and
 /// dividing by it is a presentation concern the SDK stays out of, exactly as it
 /// does for `Wei`.
+/// This includes the EIP-2612 permit extension, which is not part of ERC-20 but is
+/// ERC20Permit.
+/// refs: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts%2Ftoken%2FERC20%2Fextensions%2FIERC20Permit.sol
 ///
 /// ```
 /// async fn[P : @provider.Provider] holdings(

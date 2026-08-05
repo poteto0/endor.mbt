@@ -14,7 +14,12 @@
 /// $ endor-cli --version
 /// ```
 fn main {
-  let code = run_for_args(@sys.get_cli_args())
+  // the argument vector comes from `moonbitlang/core`, not from
+  // `moonbitlang/x/sys`: the latter still reaches for the `$moonbit.
+  // get_cli_args` intrinsic, and the symbol it lowers to was renamed out of the
+  // native runtime — linking it now fails. `@env.args` is the same vector from
+  // the library that moves with the compiler.
+  let code = run_for_args(@env.args())
   // exiting with 0 explicitly would be the same thing, but `@sys.exit` is a
   // process-level jump: not taking it on the happy path keeps the ordinary run
   // returning from `main` like anything else

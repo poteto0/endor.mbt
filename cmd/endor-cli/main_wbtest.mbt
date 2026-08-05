@@ -4,7 +4,7 @@
 ///
 /// These are the tests that exist because `main` cannot be tested — every one
 /// of them drives `run_for_args` with the vector a shell would have built,
-/// which is the same thing `main` does with `@sys.get_cli_args()`.
+/// which is the same thing `main` does with `@env.args()`.
 
 ///|
 /// `argv[0]` is the path the binary was invoked by, and every real vector has
