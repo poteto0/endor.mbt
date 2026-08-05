@@ -183,54 +183,21 @@ pub fn input_of(initial : String) -> @signals.Signal[String] {
 /// currency with `decimals` decimal places, or `None` when it is not a decimal
 /// number that currency can carry.
 ///
-/// The SDK deals in whole smallest units and nothing else — `Wei` for the
-/// chain's own currency, a `BigInt` for a token — so scaling is a presentation
-/// concern and lives out here. More decimals than the currency has are rejected
-/// rather than rounded: silently dropping a digit of someone's money is worse
-/// than making them retype it.
+/// `Wei::from_units` is the SDK's, and it raises rather than answering an
+/// option — an amount finer than the currency carries is refused rather than
+/// rounded, because silently dropping a digit of somebody's money is worse than
+/// making them retype it. What is left out here is the option: a widget that
+/// re-parses on every keystroke asks the question far more often than it is
+/// answered yes, and a half-typed amount is not an error worth a `try`.
 pub fn units_of_decimal(amount : String, decimals : Int) -> BigInt? {
-  let whole = StringBuilder::new()
-  let fraction = StringBuilder::new()
-  let mut after_point = false
-  let mut digits = 0
-  for c in amount.trim() {
-    if c == '.' {
-      guard !after_point else { return None }
-      after_point = true
-    } else if c.is_ascii_digit() {
-      digits += 1
-      (if after_point { fraction } else { whole }).write_char(c)
-    } else {
-      return None
-    }
+  Some(@endor.Wei::from_units(amount.trim().to_owned(), decimals~).to_bigint()) catch {
+    _ => None
   }
-  guard digits > 0 else { return None }
-  let scaled = StringBuilder::new()
-  scaled.write_string(whole.to_string())
-  scaled.write_string(fraction.to_string())
-  let padding = decimals - fraction.to_string().length()
-  guard padding >= 0 else { return None }
-  for _ in 0..<padding {
-    scaled.write_char('0')
-  }
-  // "0" + the digits: `BigInt::from_string` needs at least one, and ".5"
-  // legitimately leaves the whole part empty
-  Some(BigInt::from_string("0" + scaled.to_string()))
 }
 
 ///|
 /// Render `units` of a currency with `decimals` decimal places back as a
 /// human-readable amount — the inverse of `units_of_decimal`.
 pub fn decimal_of_units(units : BigInt, decimals : Int) -> String {
-  guard decimals > 0 else { return units.to_string() }
-  let digits = units.to_string()
-  // pad so there is at least one digit in front of the point: 1 unit of a
-  // 6-decimal token is "0.000001", not ".000001"
-  let padded = if digits.length() <= decimals {
-    "0".repeat(decimals - digits.length() + 1) + digits
-  } else {
-    digits
-  }
-  let point = padded.length() - decimals
-  padded[0:point].to_owned() + "." + padded[point:].to_owned()
+  @endor.Wei::from_bigint(units).to_units(decimals~)
 }

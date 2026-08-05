@@ -14,10 +14,6 @@
 /// $ endor-cli --version
 /// ```
 fn main {
-  // `@env.args()`, not `@sys.get_cli_args()`: the latter is deprecated. The two
-  // agree on `native`, which is the backend this binary is built for — both
-  // hand back the process argv, `argv[0]` included, which `parse_invocation`
-  // skips
   let code = run_for_args(@env.args())
   // exiting with 0 explicitly would be the same thing, but `@sys.exit` is a
   // process-level jump: not taking it on the happy path keeps the ordinary run

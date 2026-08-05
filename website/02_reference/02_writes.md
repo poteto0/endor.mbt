@@ -5,8 +5,9 @@ description: send_transaction, the fee enum, and the wait that turns a hash into
 
 # Writes
 
-One function broadcasts, and it is the only one on this site that spends the
-user's money.
+One function asks the wallet to sign and broadcast, and it is the only one on
+this site that spends the user's money. The other, further down, broadcasts a
+transaction somebody else already signed and paid for.
 
 | Function                            | JSON-RPC method       | Returns          |
 | ----------------------------------- | --------------------- | ---------------- |
@@ -37,6 +38,30 @@ still be dropped or replaced, and what it actually did is in its receipt.
 
 Leaving `to` out is how a transaction **deploys** the contract in `data`. That is
 [`@contract.deploy`](./abi/#deploying) with the encoding done for you.
+
+## Broadcasting something already signed
+
+| Function                                | JSON-RPC method          | Returns         |
+| --------------------------------------- | ------------------------ | --------------- |
+| `@provider.send_raw_transaction(p, raw)` | `eth_sendRawTransaction` | `@endor.TxHash` |
+
+`raw` is a signed, RLP-encoded transaction. No wallet is involved and nothing
+prompts — whoever signed it pays for it. The SDK
+[holds no keys](./not-wrapped/), so it never builds one: this is the entrance for
+a transaction signed somewhere else, which is how a *relayer* submits work
+somebody else authorized.
+
+```moonbit
+async fn relay(
+  wallet : @browser.BrowserProvider,
+  signed : @endor.Hex,
+) -> @endor.TxHash raise {
+  @provider.send_raw_transaction(wallet, signed)
+}
+```
+
+Like `send_transaction`, the hash says the transaction was broadcast and nothing
+more; `wait_for_receipt` below is what turns it into an outcome.
 
 ## Fees
 

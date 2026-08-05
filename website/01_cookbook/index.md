@@ -34,13 +34,14 @@ explains them, so the behaviour and the description are the same thing.
 | [Call any contract](./contract/)             | reads no, writes yes | writes only |
 | [React to wallet changes](./events/)         | no                  | no         |
 | [Transfer without gas](./gasless-transfer/)  | yes                 | no, not for you |
+| [Approve without a transaction](./permit/)   | yes                 | no, not for you |
 
 And the ones that need no wallet at all:
 
 | Widget                                                    | Answers                                        |
 | --------------------------------------------------------- | ---------------------------------------------- |
 | [`Address::from_string`](./connect/#the-address-is-a-type) | accepted, or which `CodecError` it raises       |
-| [ether ⇄ wei](./send-eth/#amounts-are-wei)                 | the amount in whole smallest units              |
+| [ether ⇄ wei](./send-eth/#amounts-are-wei)                 | `Wei::from_units` at any scale, and back        |
 | [`selector` / `event_topic`](./contract/#the-encoding-on-its-own) | keccak256 of a signature                 |
 
 Reads cost nothing and prompt nobody: `eth_call` and the `eth_get*` family are

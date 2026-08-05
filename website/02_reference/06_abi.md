@@ -89,6 +89,7 @@ standard interface once: `name`, `symbol`, `decimals`, `total_supply`,
 `balance_of`, `allowance`, `transfer`, `approve`, and — for the transfers in a
 receipt's logs — `Erc20::transfer_topic()` to find them and
 `Erc20::decode_transfer(log)`, which answers with `(from, to, value)`.
+[Approve without a transaction](../../cookbook/permit/).
 
 ```moonbit
 async fn token_calls(
@@ -104,9 +105,11 @@ async fn token_calls(
 }
 ```
 
-Amounts are `BigInt` in the token's smallest unit, never scaled: `decimals` says
-where the point goes, and moving it is a presentation concern the SDK stays out
-of, exactly as it does for `Wei`. Reading is four `eth_call`s that cost the user
+Amounts are `BigInt` in the token's smallest unit: `decimals` says where the
+point goes, and it is read from the token rather than assumed, so nothing here
+scales an amount on its own. Moving the point is
+[`Wei::from_units` / `Wei::to_units`](/cookbook/send-eth/#amounts-are-wei), which
+takes the scale as an argument for that reason. Reading is four `eth_call`s that cost the user
 nothing; `transfer` and `approve` sign, so they prompt and answer with a `TxHash`
 whose success is in the receipt.
 
@@ -188,7 +191,7 @@ the assumption is written down as yours.
 ## Generating a preset — experimental
 
 `@codegen.generate(name, document)` (`abi/codegen`) reads a JSON ABI document and
-renders the *source* of a preset shaped like `@erc20.Erc20` — a struct wrapping a
+renders the _source_ of a preset shaped like `@erc20.Erc20` — a struct wrapping a
 `Contract`, a method per function, and a topic getter plus a log decoder per
 event. `endor-cli abi`, its
 command-line front end, lives in `cmd/`, which is a **separate module**
@@ -203,9 +206,9 @@ endor-cli abi       # reads ./abi, writes ./outputs
 
 **This is experimental and is not part of the stable surface.** It generates only
 what it can type without guessing — parameters and single return values of
-`address`, `bool`, `string`, `uintN`, `intN` — and *skips* every other member
+`address`, `bool`, `string`, `uintN`, `intN` — and _skips_ every other member
 rather than approximating it, naming each one in `Generated::skipped` and in a
-comment in the generated file. An event's *topic* is exempt, since it needs only
+comment in the generated file. An event's _topic_ is exempt, since it needs only
 the signature — its `decode_…` runs into the same limit every other method does,
 and an event that loses it keeps the topic, which is what a caller filters logs
 with before decoding them by hand. An `anonymous` event generates nothing at all:
@@ -219,9 +222,9 @@ holding one — `solc --combined-json abi,bin`, solc's standard JSON, a Foundry
 the creation code, and then the generated struct can put a contract on chain
 rather than only call one already there:
 
-| Generated                | From        | Underneath           |
-| ------------------------ | ----------- | -------------------- |
-| `T::new(address)`        | any document | `Contract::new`     |
+| Generated                | From         | Underneath           |
+| ------------------------ | ------------ | -------------------- |
+| `T::new(address)`        | any document | `Contract::new`      |
 | `T::creation_code()`     | an artifact  | the embedded literal |
 | `T::deploy(p, from~, …)` | an artifact  | `@contract.deploy`   |
 
@@ -232,7 +235,7 @@ waiting knobs: a caller who needs the wait described their own way hands
 public.
 
 The creation code is validated as hex when the file is generated, so the
-`Hex::from_string` in it cannot fail. Bytecode that *cannot* be deployed is
+`Hex::from_string` in it cannot fail. Bytecode that _cannot_ be deployed is
 skipped with its reason rather than embedded — unlinked library references
 (`__$…$__`), the empty bytecode an interface or an abstract contract compiles to,
 or a constructor taking a type the generator does not translate. An artifact

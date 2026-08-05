@@ -468,6 +468,99 @@ async test "a block past the head reads as none" {
 }
 
 ///|
+/// The count agrees with the block it counts, which is the only thing the two
+/// methods have to agree on — asked of the receipt's own block rather than of
+/// the head, since the tests share one chain and mine into it concurrently.
+async test "a block's transaction count agrees with its transactions" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(6),
+        value=@types.Wei::from_int(1),
+      ),
+    )
+    let receipt = @provider.wait_for_receipt(
+      provider,
+      hash,
+      timeout=5_000,
+      poll_interval=100,
+    )
+    guard @provider.block_by_hash(provider, receipt.block_hash) is Some(block) else {
+      fail("the block the receipt names is not there")
+    }
+    let counted = block.transactions.length().to_uint64()
+    assert_eq(
+      @provider.block_transaction_count_by_hash(provider, receipt.block_hash),
+      Some(counted),
+    )
+    assert_eq(
+      @provider.block_transaction_count_by_number(
+        provider,
+        block=Number(receipt.block_number),
+      ),
+      Some(counted),
+    )
+    // a block the node does not have is `null` rather than an error — for a
+    // hash, at least: Anvil answers a height past its head with an error
+    // instead, which is why `None` is the weaker claim of the two
+    let unknown = @types.BlockHash::from_string(
+      "0xe2e0000000000000000000000000000000000000000000000000000000000000",
+    )
+    assert_true(
+      @provider.block_transaction_count_by_hash(provider, unknown) is None,
+    )
+  })
+}
+
+///|
+/// Storage against a real node. Anvil can write a slot directly, so the read
+/// can be checked against a value that was put there rather than only against
+/// the zeroes an untouched slot answers with — and the word comes back padded
+/// to 32 bytes whatever was written into it.
+async test "storage reads back the word written into a slot" {
+  @anvil.on(provider => {
+    let who = recipient(7)
+    let slot = @types.Hex::from_string(
+      "0x0000000000000000000000000000000000000000000000000000000000000001",
+    )
+    let word = @types.Hex::from_string(
+      "0x000000000000000000000000000000000000000000000000000000000000002a",
+    )
+    let _ = provider.request(
+      method_name="anvil_setStorageAt",
+      params=Json::array([who.to_json(), slot.to_json(), word.to_json()]),
+    )
+    assert_eq(@provider.storage_at(provider, who, slot), word)
+    // a slot nobody wrote is zeroes, not an absence
+    let untouched = @types.Hex::from_string(
+      "0x0000000000000000000000000000000000000000000000000000000000000002",
+    )
+    inspect(
+      @provider.storage_at(provider, who, untouched),
+      content="0x0000000000000000000000000000000000000000000000000000000000000000",
+    )
+  })
+}
+
+///|
+/// The SDK holds no keys, so it can build nothing to broadcast here: what a node
+/// can still prove is that the call reaches it and that a payload it refuses
+/// comes back as the node's own error rather than as a decode failure.
+async test "a raw transaction the node cannot parse is an rpc error" {
+  @anvil.on(provider => {
+    let raw = @types.Hex::from_string("0x02f8710182031184773594")
+    try @provider.send_raw_transaction(provider, raw) |> ignore catch {
+      @provider.ProviderError::Rpc(..) => ()
+      e => fail("expected an Rpc error, but \{e}")
+    } noraise {
+      _ => fail("expected an Rpc error, but the node accepted the payload")
+    }
+  })
+}
+
+///|
 /// Signing against a real node: the wire fact is the parameter order, which a
 /// node rejects rather than silently mis-signs — Anvil's dev accounts are
 /// unlocked, so it signs for them the way a wallet would. The signature itself

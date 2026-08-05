@@ -111,8 +111,15 @@ need it is EIP-1271, not this.
 
 ## Documents a standard already fixed
 
-The document above is written by hand because `Permit` is yours to define. When
-the standard defines it, the SDK builds it: `endor/eips/eip3009` assembles
-EIP-3009's three authorizations — the transfer a holder signs and somebody else
-submits — and answers with the same `@endor.TypedData` this page signs. The
-recipe is [Transfer without gas](../../cookbook/gasless-transfer/).
+The document above is written by hand, and its `Permit` is a made-up type that
+happens to share a name with a real one. When a standard fixes the document, the
+SDK builds it, and each answers with the same `@endor.TypedData` this page signs:
+
+| Package              | Document                                                | Recipe                                                      |
+| -------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
+| `endor/eips/eip3009` | the transfer a holder signs and somebody else submits    | [Transfer without gas](../../cookbook/gasless-transfer/)     |
+| `endor/eips/eip2612` | `Permit` — the real one: an ERC-20 approval, signed      | [Approve without a transaction](../../cookbook/permit/)      |
+
+Reach for one of those before writing the document by hand. A standard's
+document is fixed member for member, and a member misspelled or reordered
+produces a signature that verifies as nothing.

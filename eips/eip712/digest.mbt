@@ -45,7 +45,47 @@ pub fn TypedData::hash_struct(
 pub fn TypedData::domain_separator(
   self : TypedData,
 ) -> @types.Hex raise @types.CodecError {
-  @types.Hex::from_bytes(domain_separator_bytes(self.domain))
+  self.domain.separator()
+}
+
+///|
+/// The same `domainSeparator`, from a domain that is not yet part of a
+/// document.
+///
+/// It depends on nothing but the domain, and a contract that publishes its own
+/// — `DOMAIN_SEPARATOR()`, which every EIP-2612 token has — can therefore be
+/// checked against a domain before any message is built.
+pub fn TypedDataDomain::separator(
+  self : TypedDataDomain,
+) -> @types.Hex raise @types.CodecError {
+  @types.Hex::from_bytes(domain_separator_bytes(self))
+}
+
+///|
+/// Refuse a domain the verifying contract would not accept.
+///
+/// A contract that verifies EIP-712 signatures usually publishes the separator
+/// it verifies them under — `DOMAIN_SEPARATOR()`, which every EIP-2612 token
+/// has, and which `@erc20.Erc20::domain_separator` reads. Comparing it against
+/// the domain built here catches, at the moment the caller builds it and for
+/// free, the whole family of mistakes that are otherwise invisible until the
+/// chain rejects the transaction: the wrong `version`, a `name` that is not the
+/// contract's byte for byte, the wrong chain, a contract that binds a `salt`
+/// instead.
+///
+/// It says nothing about the *message*. A contract whose domain is ordinary and
+/// whose document is its own — DAI's permit, say — passes this check and still
+/// rejects the signature; what tells those apart is `type_hash`.
+pub fn TypedDataDomain::check_separator(
+  self : TypedDataDomain,
+  on_chain~ : @types.Hex,
+) -> Unit raise @types.CodecError {
+  let ours = self.separator()
+  guard ours == on_chain else {
+    raise @types.InvalidJson(
+      "the contract's DOMAIN_SEPARATOR() is \{on_chain}, but this domain hashes to \{ours} — its name, version, chain or shape is not what the contract verifies under",
+    )
+  }
 }
 
 ///|

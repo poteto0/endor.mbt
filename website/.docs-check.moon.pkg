@@ -11,6 +11,7 @@ import {
   "poteto0/endor/crypto",
   "poteto0/endor/eips/eip712",
   "poteto0/endor/eips/eip3009",
+  "poteto0/endor/eips/eip2612",
   "poteto0/endor/abi",
   "poteto0/endor/contract",
   "poteto0/endor/contract/erc20",

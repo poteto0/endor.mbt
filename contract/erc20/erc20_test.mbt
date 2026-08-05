@@ -252,6 +252,42 @@ test "decode_transfer refuses a log of another event" {
 }
 
 ///|
+/// EIP-2612's two getters. `nonces` is a counter rather than the balance-shaped
+/// number it looks like — reading it stale means signing a permit the token
+/// will refuse — and `DOMAIN_SEPARATOR()` comes back as a `bytes32`, so it is
+/// the one getter here whose answer is a hash rather than a quantity.
+async test "the permit getters read the token's nonce and domain" {
+  @async.with_task_group(_ => {
+    let wallet = answering(
+      "0x0000000000000000000000000000000000000000000000000000000000000003",
+    )
+    let token = @erc20.Erc20::new(token())
+    inspect(
+      token.nonces(wallet, holder()) catch {
+        e => fail("unexpected error: \{e}")
+      },
+      content="3",
+    )
+    inspect(
+      calldata(wallet),
+      content="0x7ecebe00" +
+        "000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+    )
+    let separator = answering(
+      "0x06c37168a7db5138defc7866392bb87a741f9b3d104deb5094588ce041cae335",
+    )
+    inspect(
+      token.domain_separator(separator) catch {
+        e => fail("unexpected error: \{e}")
+      },
+      content="0x06c37168a7db5138defc7866392bb87a741f9b3d104deb5094588ce041cae335",
+    )
+    // no arguments, so the calldata is the selector and nothing else
+    inspect(calldata(separator), content="0x3644e515")
+  })
+}
+
+///|
 /// The topic a receipt's logs are matched against to find the transfers.
 test "transfer_topic is the Transfer event's topic" {
   inspect(

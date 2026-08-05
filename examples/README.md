@@ -67,8 +67,9 @@ the transaction, and on any post-London chain that means EIP-1559.
 Both fields are parsed into domain types before the wallet is touched, so a
 typo costs no prompt: a bad address is rejected by `Address::from_string`
 (including its EIP-55 checksum), and an amount that is not a plain decimal, or
-is finer than a wei, never becomes a `Wei`. Units are a UI concern — the SDK
-deals in wei — so `wei_of_ether` in `main.mbt` does that conversion.
+is finer than a wei, never becomes a `Wei`. The conversion itself is the SDK's
+`Wei::from_ether`; what `wei_of_ether` in `main.mbt` adds is the option shape a
+form wants, since a half-typed amount is not an error worth a `try`.
 
 What comes back is a `TxHash`, which means **broadcast, not mined**. The card
 re-reads the balance right away and will usually still show the old one — the

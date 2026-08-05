@@ -16,10 +16,14 @@ applies.
 
 ### Changed
 
+- **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
+  string that is not a decimal amount the target can hold. A `catch` that
+  matched all four by name is no longer exhaustive; add the case, or a
+  catch-all. (#77)
 - **Breaking:** EIP-712 typed data moved out of `types` into its own package,
   `endor/eips/eip712`: `@types.TypedData` / `TypedDataDomain` / `TypedDataField`
   are now `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. It
-  sits under `eips/` because an EIP that is a *document to be signed* is now a
+  sits under `eips/` because an EIP that is a _document to be signed_ is now a
   family — EIP-3009 below is the second, and each states which document while
   `eip712` says how any of them is hashed. Every method
   is unchanged, as is `@endor.TypedData` — the root re-exports the three types
@@ -45,6 +49,7 @@ applies.
 
 ### Added
 
+<<<<<<< HEAD
 - Decoding a **log** into the arguments its event was emitted with, which was
   the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
   topics~, data~)` checks `topics[0]` against the event's own signature hash,
@@ -60,6 +65,59 @@ applies.
   value was never in the log — and an `anonymous` event is not decoded, because
   its log carries no `topics[0]` to say which event it is. (#79)
 - EIP-3009 *Transfer With Authorization*, as `@eip3009`: the holder signs a
+=======
+- `Wei::from_units(value, decimals~)` / `Wei::to_units(decimals~)`: the decimal
+  amount a person writes, and the whole smallest units the wire carries. The
+  scale is passed in because only the token says what it is — 18 for ether, 6
+  for USDC, whatever `Erc20::decimals` answers for anything else — and
+  `from_ether` / `to_ether` and `from_gwei` / `to_gwei` are the two the chain
+  itself fixes. The amount is a `String` and never a `Double`: `0.1` is not
+  representable in binary, so a `Double` has lost the value before the SDK could
+  see it. An amount **finer** than the scale raises the new
+  `CodecError::InvalidDecimal` rather than being truncated, because a digit of
+  somebody's money dropped silently is worse than a retype; `to_units` folds
+  trailing zeros (`"1.5"`, not `"1.500000000000000000"`) and formats nothing
+  else — no separators, no symbol, no fixed width. The decimal-string arithmetic
+  underneath is `@codec.decimal_parts` / `decimal_scale` / `decimal_unscale`.
+  (#77)
+- Four reads and one write that had no typed helper, each of them small enough
+  that `Provider::request` was the only reason not to have missed them: (#85)
+  - `storage_at(p, who, slot, block?)` — `eth_getStorageAt`, one raw 32-byte
+    slot. The only way to see state a contract does not expose, since no ABI
+    declares a storage layout; what the word means stays the caller's to know.
+    A slot nobody wrote reads as zeroes, not as an absence. The use that
+    motivates it is a proxy's implementation address at its fixed EIP-1967 slot
+  - `send_raw_transaction(p, raw)` — `eth_sendRawTransaction`. The SDK holds no
+    keys and so never _builds_ a signed transaction, but submitting one signed
+    elsewhere is exactly what a relayer does — an EIP-3009 authorization is
+    signed by a holder with no ether and paid for by somebody else
+  - `block_transaction_count_by_number(p, block?)` /
+    `block_transaction_count_by_hash(p, hash)` —
+    `eth_getBlockTransactionCountBy*`, the count without the hashes.
+    `UInt64?`, for the block a node does not have; a height past the head is
+    where nodes disagree, some answering `null` and Anvil raising, so `None` is
+    the answer to expect rather than to rely on
+- EIP-2612 _permit_, as `@eip2612`: the ERC-20 approval **signed instead of
+  sent**, so `approve` and the call that spends the allowance stop being two
+  transactions. `Permit::new` validates the five members and
+  `Permit::typed_data` becomes the document, and `domain` fixes the three
+  EIP-712 domain fields the standard fixes. A permit's nonce is the token's
+  counter, not random bytes, so it has to be read: `@erc20.Erc20` gained
+  `nonces` and `domain_separator`, the two EIP-2612 getters, and `eips/eip2612`
+  itself still calls no contract. DAI's non-standard permit is not built —
+  compare the token's `PERMIT_TYPEHASH` against `type_hash("Permit")` if you may
+  be handed either. (#86)
+- `@eip712.TypedDataDomain` gained three methods, all of them things a _token
+  extension_ EIP needs and none of them EIP-2612's alone, so EIP-3009 uses them
+  too: `separator` is the domain separator on its own, without a message;
+  `check_separator(on_chain~)` compares it against the `DOMAIN_SEPARATOR()` a
+  verifying contract publishes and refuses a domain it would not verify under —
+  the `version` that is `"2"` on USDC and `"1"` almost everywhere else is
+  otherwise invisible until the chain rejects the transaction; and `for_token`
+  builds the four-field domain a token binds to, which `@eip2612.domain` and
+  `@eip3009.domain` are now both named wrappers over. (#86)
+- EIP-3009 _Transfer With Authorization_, as `@eip3009`: the holder signs a
+>>>>>>> main
   transfer and **somebody else submits it**, so a wallet holding nothing but
   stablecoins can still move them. `Authorization::new` validates the six
   members and becomes either document —
@@ -69,7 +127,7 @@ applies.
   three EIP-712 domain fields the standard fixes, leaving only the token's
   `name()`. What comes back is an `@eip712.TypedData`, so `sign_typed_data`
   sends it and `digest()` says what was signed. Building documents is all it
-  does: the preset that *sends* `transferWithAuthorization` is #73, and it will
+  does: the preset that _sends_ `transferWithAuthorization` is #73, and it will
   read the authorization back through its accessors. (#74)
 - A logo: a round green planet with a small grey satellite off its lower right,
   as `website/public/logo.svg`. It is the mark beside the site title in the
@@ -83,7 +141,7 @@ applies.
   `endor-cli abi` reports it per file. The code is validated as hex while
   generating, so the generated `Hex::from_string` cannot fail; bytecode that
   cannot be deployed — unlinked libraries, the empty bytecode of an interface, a
-  constructor this generator cannot type — is *skipped* with its reason, like
+  constructor this generator cannot type — is _skipped_ with its reason, like
   any other member. An artifact holding several contracts is refused by name
   rather than resolved. `generate`'s second parameter is now `document` rather
   than `abi_json`. (#67)
@@ -104,7 +162,7 @@ applies.
   directory it names, so a fresh project reaches a working generator in one
   command. It generates only what it can type without guessing
   (`address`, `bool`, `string`, `uintN`, `intN`, single return values) and
-  *skips* every other member by name rather than approximating it. The CLI is a
+  _skips_ every other member by name rather than approximating it. The CLI is a
   separate module (`poteto0/endor-cli`, in `cmd/`), so `moonbitlang/x` and a
   `native` build stay out of the SDK's dependency graph. Not part of the stable
   surface: read what it produces before shipping it. (#48)

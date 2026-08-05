@@ -275,32 +275,22 @@ fn document(
 }
 
 ///|
-/// The domain every EIP-3009 signature is bound to: the token's own.
+/// The domain every EIP-3009 signature is bound to: the token's own —
+/// `@eip712.TypedDataDomain::for_token`, which EIP-2612 binds to as well, named
+/// here so a caller reaches for it without knowing that.
 ///
-/// It is spelled here rather than left to the caller because getting it wrong
-/// is silent — a document with a domain the token does not recognize signs
+/// It is spelled rather than left to the caller because getting it wrong is
+/// silent — a document with a domain the token does not recognize signs
 /// perfectly well, is displayed perfectly well, and is then rejected on chain.
-/// Three of the four fields are fixed by EIP-3009 being a token extension:
-/// `verifyingContract` is the token, `chainId` is where it lives, and `version`
-/// is almost always `"1"`. Only `name` has to be read off the token — it is
-/// `name()`, and it must match byte for byte.
-///
-/// A token whose domain is `salt`-based rather than `chainId`-based — the shape
-/// some deployments used where the chain id was out of reach — is not this
-/// helper's: build it with `@eip712.TypedDataDomain::new` directly, which takes
-/// all five fields and requires none.
+/// `version` is almost always `"1"` for an EIP-3009 token, and only `name` has
+/// to be read off the token: it is `name()`, and it must match byte for byte.
 pub fn domain(
   name~ : String,
   version? : String = "1",
   chain_id~ : @types.ChainId,
   token~ : @types.Address,
 ) -> @eip712.TypedDataDomain raise @types.CodecError {
-  @eip712.TypedDataDomain::new(
-    name~,
-    version~,
-    chain_id~,
-    verifying_contract=token,
-  )
+  @eip712.TypedDataDomain::for_token(name~, version~, chain_id~, token~)
 }
 
 ///|
