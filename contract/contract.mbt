@@ -24,12 +24,22 @@
 /// ```
 pub struct Contract {
   priv at : @types.Address
+  priv errors : Array[ErrorDef]
 } derive(Eq, @debug.Debug)
 
 ///|
 /// Point at a deployed contract.
-pub fn Contract::new(address : @types.Address) -> Contract {
-  Contract::{ at: address }
+///
+/// `errors` are the contract's own `error` declarations, and they are the one
+/// thing worth registering up front: a revert names an error by selector alone,
+/// so a call cannot be told what it might fail with the way it is told what it
+/// returns. Without them a custom error still comes back — as a `CustomError`
+/// holding its selector and raw data — but its arguments stay encoded.
+pub fn Contract::new(
+  address : @types.Address,
+  errors? : Array[ErrorDef] = [],
+) -> Contract {
+  Contract::{ at: address, errors }
 }
 
 ///|
@@ -58,7 +68,7 @@ pub async fn[P : @provider.Provider] Contract::call(
   let data = @abi.encode_call(name~, inputs~, args~) catch { e => raise Abi(e) }
   let request = @types.CallRequest::new(self.at, from?, data~)
   let answer = @provider.call(provider, request, block?) catch {
-    e => raise Rpc(e)
+    e => raise revert_error(e, errors=self.errors)
   }
   @abi.decode(outputs, answer) catch {
     e => raise Abi(e)
@@ -85,6 +95,6 @@ pub async fn[P : @provider.Provider] Contract::send(
   let data = @abi.encode_call(name~, inputs~, args~) catch { e => raise Abi(e) }
   let request = @types.TransactionRequest::new(from, to=self.at, data~, value?)
   @provider.send_transaction(provider, request) catch {
-    e => raise Rpc(e)
+    e => raise revert_error(e, errors=self.errors)
   }
 }

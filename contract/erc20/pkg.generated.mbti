@@ -10,6 +10,7 @@ import {
 }
 
 // Values
+pub fn standard_errors() -> Array[@contract.ErrorDef]
 
 // Errors
 

@@ -147,7 +147,10 @@ Layout:
   creation code as well and so also generates a `creation_code()` and a
   `deploy`. Bytecode is validated as hex while generating, which is what lets
   the generated `Hex::from_string` be infallible; bytecode that cannot be
-  deployed is skipped with its reason, never embedded. It emits text and nothing else,
+  deployed is skipped with its reason, never embedded. An `error` entry becomes
+  an entry of the generated `errors()`, which `new` hands to the `Contract` so
+  reverts come back decoded; those carry every ABI type rather than only the
+  ones a generated *signature* may name, since nothing is passed to an error. It emits text and nothing else,
   so it depends on `abi` (to resolve and validate the declared types) and on
   neither `contract` nor `provider`, whose names it only ever spells. It
   translates what it can type unambiguously and skips the rest by name rather
@@ -167,7 +170,15 @@ Layout:
   recipient: creation code with the constructor's arguments encoded behind it,
   and the address the receipt names. `ContractError` keeps the wallet's failures
   (`Rpc`) apart from the ABI's (`Abi`) and from a deployment that left no
-  contract behind (`Deployment`)
+  contract behind (`Deployment`), and apart again from **the contract refusing**:
+  `revert_error` reads the revert `@provider.ProviderError::Reverted` carries
+  into `Revert(reason)` (`Error(string)`), `Panic(code)` (the compiler's own
+  checks, `panic_reason`) or `CustomError(selector~, name~, args~, data~)`. A
+  custom error decodes down to its arguments only when the caller passed the
+  `ErrorDef`s — `Contract::new(address, errors~)`, which `abi/codegen`
+  generates — because a revert names its error by selector and nothing on the
+  wire says what it was called. Which key a node hides the revert under is not
+  standardized, so `ProviderError::from_code` reads the three that occur
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`;
@@ -178,8 +189,10 @@ Layout:
   before the SDK can reach a real node, and the shared skip/install/task-group
   protocol (`run`). Backend-agnostic, no FFI
 - `backend/anvil/` — the `Backend` implementation for a local Anvil node, its
-  dev accounts and test-contract helpers, and `js.mbt`, which injects a fake
-  EIP-1193 wallet at `globalThis.ethereum`
+  dev accounts and test-contract helpers (the answer contract, the selector
+  gate, and `deploy_reverter`, which reverts with whatever bytes it was given),
+  and `js.mbt`, which injects a fake EIP-1193 wallet at `globalThis.ethereum` —
+  including the `data` of an error, since that is where a revert travels
 - `e2e/` — the end-to-end test cases themselves, driven through
   `@anvil.on`; test files only, so the package exports nothing
 

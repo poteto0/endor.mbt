@@ -45,6 +45,10 @@ pub fn deployment_data(
 /// receipt, which is what `deploy` waits for. Use this one when the wait
 /// belongs to the caller — a UI that wants the hash to link to a block
 /// explorer while the transaction is still pending.
+///
+/// `errors` are the contract's `error` declarations, which a constructor can
+/// revert with as any other function can: a wallet that simulates before
+/// prompting refuses the deployment with that revert in hand.
 pub async fn[P : @provider.Provider] send_deployment(
   provider : P,
   from~ : @types.Address,
@@ -52,11 +56,12 @@ pub async fn[P : @provider.Provider] send_deployment(
   inputs? : Array[@abi.AbiType],
   args? : Array[@abi.AbiValue],
   value? : @types.Wei,
+  errors? : Array[ErrorDef] = [],
 ) -> @types.TxHash raise ContractError {
   let data = deployment_data(bytecode~, inputs?, args?)
   let request = @types.TransactionRequest::new(from, data~, value?)
   @provider.send_transaction(provider, request) catch {
-    e => raise Rpc(e)
+    e => raise revert_error(e, errors~)
   }
 }
 
@@ -92,11 +97,20 @@ pub async fn[P : @provider.Provider] deploy(
   inputs? : Array[@abi.AbiType],
   args? : Array[@abi.AbiValue],
   value? : @types.Wei,
+  errors? : Array[ErrorDef] = [],
   confirmations? : Int,
   timeout? : Int,
   poll_interval? : Int,
 ) -> Contract raise ContractError {
-  let hash = send_deployment(provider, from~, bytecode~, inputs?, args?, value?)
+  let hash = send_deployment(
+    provider,
+    from~,
+    bytecode~,
+    inputs?,
+    args?,
+    value?,
+    errors~,
+  )
   let receipt = @provider.wait_for_receipt(
     provider,
     hash,
@@ -112,5 +126,5 @@ pub async fn[P : @provider.Provider] deploy(
   guard receipt.contract_address is Some(at) else {
     raise Deployment("receipt of \{hash} carries no contractAddress")
   }
-  Contract::new(at)
+  Contract::new(at, errors~)
 }

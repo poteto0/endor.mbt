@@ -27,8 +27,47 @@ pub struct Erc20 {
 
 ///|
 /// Point at a deployed token.
+///
+/// The token is read against `standard_errors()`, so a modern implementation
+/// that refuses a transfer comes back saying which rule it broke.
 pub fn Erc20::new(address : @types.Address) -> Erc20 {
-  Erc20::{ contract: @contract.Contract::new(address) }
+  Erc20::{
+    contract: @contract.Contract::new(address, errors=standard_errors()),
+  }
+}
+
+///|
+/// The errors [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093) standardized
+/// for ERC-20, which is what OpenZeppelin's implementation reverts with since
+/// v5 — `transfer` beyond a balance is `ERC20InsufficientBalance(sender,
+/// balance, needed)` rather than a string.
+///
+/// They are declared here because a preset is where an interface is spelled
+/// once, and a token that reverts with none of them loses nothing: a
+/// declaration only ever *decodes* a revert, and one whose selector does not
+/// match is not tried.
+///
+/// ```mbt check
+/// test "doc: the errors an ERC-20 may revert with" {
+///   let names = @erc20.standard_errors().map(e => e.name)
+///   inspect(names.contains("ERC20InsufficientBalance"), content="true")
+/// }
+/// ```
+pub fn standard_errors() -> Array[@contract.ErrorDef] {
+  [
+    { name: "ERC20InvalidSender", inputs: [Address] },
+    { name: "ERC20InvalidReceiver", inputs: [Address] },
+    { name: "ERC20InvalidApprover", inputs: [Address] },
+    { name: "ERC20InvalidSpender", inputs: [Address] },
+    {
+      name: "ERC20InsufficientBalance",
+      inputs: [Address, Uint(256), Uint(256)],
+    },
+    {
+      name: "ERC20InsufficientAllowance",
+      inputs: [Address, Uint(256), Uint(256)],
+    },
+  ]
 }
 
 ///|

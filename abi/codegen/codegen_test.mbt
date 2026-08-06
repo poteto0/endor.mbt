@@ -1525,3 +1525,90 @@ test "read: a constructor declaring a type that cannot exist raises" {
     _ => fail("expected `uint7` in a constructor to raise")
   }
 }
+
+///|
+/// A contract's `error` declarations become the array `new` reads a revert
+/// against — the one part of an ABI nothing else in the generated file states,
+/// since a revert names its error by selector and no call declares what it may
+/// fail with.
+test "generate: the errors a contract declares are generated" {
+  let abi =
+    #|[
+    #|  { "type": "error", "name": "InsufficientBalance", "inputs": [
+    #|    { "name": "have", "type": "uint256" },
+    #|    { "name": "want", "type": "uint256" }] },
+    #|  { "type": "error", "name": "Unauthorized", "inputs": [] }
+    #|]
+  let out = @codegen.generate("Vault", abi)
+  assert_true(
+    out.code.contains(
+      "pub fn Vault::errors() -> Array[@contract.ErrorDef] {\n" +
+      "  [\n" +
+      "    { name: \"InsufficientBalance\", inputs: [Uint(256), Uint(256)] },\n" +
+      "    { name: \"Unauthorized\", inputs: [] },\n" +
+      "  ]\n" +
+      "}\n",
+    ),
+  )
+  // and `new` hands them over, which is what makes a revert decode itself
+  assert_true(
+    out.code.contains(
+      "@contract.Contract::new(address, errors=Vault::errors())",
+    ),
+  )
+  // an error is not a method: nothing dispatches to it, and nothing was left
+  // out of the file either
+  assert_eq(out.members, [])
+  assert_eq(out.skipped, [])
+}
+
+///|
+/// An error carries every type the ABI has, including the ones no generated
+/// *call* may name: nothing is passed to it and nothing is read back out of it
+/// as a MoonBit value, so the reason `scalar` draws its line does not apply.
+/// Leaving them out would drop exactly the errors that say most about what went
+/// wrong.
+test "generate: an error declares types no call would" {
+  let abi =
+    #|[
+    #|  { "type": "error", "name": "BadProof", "inputs": [
+    #|    { "name": "root", "type": "bytes32" },
+    #|    { "name": "proof", "type": "bytes" },
+    #|    { "name": "path", "type": "uint256[]" },
+    #|    { "name": "pair", "type": "address[2]" },
+    #|    { "name": "leaf", "type": "tuple", "components": [
+    #|      { "name": "at", "type": "uint64" },
+    #|      { "name": "who", "type": "address" }] }] }
+    #|]
+  let out = @codegen.generate("Merkle", abi)
+  assert_true(
+    out.code.contains(
+      "      inputs: [FixedBytes(32), Bytes, Array(Uint(256)), FixedArray(Address, 2), Tuple([Uint(64), Address])],\n",
+    ),
+  )
+}
+
+///|
+/// A document with no `error` in it generates no `errors()`, and its `new` is
+/// the one it always was.
+test "generate: a contract that declares no error says nothing about errors" {
+  let out = @codegen.generate("Erc20", erc20_abi)
+  assert_false(out.code.contains("errors"))
+  assert_true(out.code.contains("@contract.Contract::new(address)"))
+}
+
+///|
+/// `errors` is the template's name whether or not the document filled it in,
+/// for the reason `deploy` and `creation_code` are: the same ABI must generate
+/// the same members however it arrives.
+test "generate: a function cannot take the name errors" {
+  let abi =
+    #|[
+    #|  { "type": "function", "name": "errors", "stateMutability": "view",
+    #|    "inputs": [], "outputs": [{ "name": "", "type": "uint256" }] }
+    #|]
+  let out = @codegen.generate("Odd", abi)
+  assert_eq(out.members, [])
+  assert_eq(out.skipped.length(), 1)
+  assert_true(out.skipped[0].contains("`errors` is already taken"))
+}
