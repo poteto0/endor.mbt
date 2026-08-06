@@ -285,10 +285,22 @@ Layout:
   accepts) belongs there; anything only an extension can prove belongs in the
   manual checklist in `docs/e2e.md`.
 - Every check CI runs is a `just` recipe, so it reproduces locally with one
-  command. GitHub Actions gates on two: `just ci-check`, which is also what
-  `.githooks/pre-commit` runs and therefore must never need a node, and
-  `just e2e`, in its own job with an Anvil started by `just anvil`. Add a
-  check to the matching recipe, not only to the workflow.
+  command. GitHub Actions gates on two: `just ci-check`, which must never need
+  a node, and `just e2e`, in its own job with an Anvil started by `just anvil`.
+  Add a check to the matching recipe, not only to the workflow.
+- `.githooks/pre-commit` runs `just precommit`, which is `ci-check`'s checks
+  _selected by the staged diff_ — the whole set is a gate the PR already has,
+  and paying for it on every commit is #96. The selection is
+  `scripts/precommit.sh`, whose header states which staged path pulls in which
+  check; scoped `unit-test` follows the import graph out of `moon.pkg`, so a
+  change under `types/` still tests `abi/`. Add a check to `ci-check` and it
+  runs pre-commit too: the script reads that recipe's list rather than copying
+  it, and skips only what it is told to. Say when a new one may be skipped, or
+  leave it running always.
+- `scripts/` is repository tooling a recipe calls when the recipe would
+  otherwise be a shell program with a `just` header on it. It decides *which*
+  checks run; how a check runs stays in the `justfile`, so there is one place
+  to read a command out of. Excluded from the published archive, like `docs/`.
 - The MoonBit toolchain is pinned in `.github/actions/setup`, because it is
   released nightly and a release that changes generated output turns every open
   PR red at once. Bump it in its own PR, carrying whatever `just info`, `just

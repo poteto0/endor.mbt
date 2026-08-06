@@ -92,9 +92,11 @@ every island 404s with it: the site comes up in astra's default colours with no
 demos on it, which is a preview of nothing. The cost is a rebuild after each
 edit.
 
-`docs-check` runs as part of `just ci` and `just ci-check`, which is also the
-pre-commit hook — it needs only the MoonBit toolchain. `docs-smoke` needs Node and
-a browser, so it runs in its own CI job.
+`docs-check` runs as part of `just ci` and `just ci-check`, and out of
+`just precommit` — the pre-commit hook — whenever a `.md` or a `.mbti` is
+staged, those being the only two things that can move it. It needs only the
+MoonBit toolchain. `docs-smoke` needs Node and a browser, so it runs in its own
+CI job.
 
 ## Markup astra does not have
 
