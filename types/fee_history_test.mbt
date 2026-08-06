@@ -2,7 +2,7 @@
 /// What `eth_feeHistory` answers with over two blocks at one percentile. The
 /// third `baseFeePerGas` is the block *after* the newest one — the field is
 /// always one longer than the range, which is the whole point of the answer.
-fn a_fee_history() -> Json {
+fn a_fee_history() -> Map[String, Json] {
   {
     "oldestBlock": "0x10".to_json(),
     "baseFeePerGas": Json::array([
@@ -20,7 +20,7 @@ fn a_fee_history() -> Json {
 
 ///|
 test "a fee history decodes its three aligned arrays" {
-  let history = @types.FeeHistory::from_json(a_fee_history()) catch {
+  let history = @types.FeeHistory::from_json(Json::object(a_fee_history())) catch {
     e => fail("unexpected error \{e}")
   }
   inspect(history.oldest_block, content="16")
@@ -38,10 +38,9 @@ test "a fee history decodes its three aligned arrays" {
 /// it by leaving `reward` out entirely. `None` is that fact; an empty array
 /// would be the different claim that every block tipped nothing.
 test "a fee history asked for no percentile has no rewards" {
-  let answer = a_fee_history()
-  guard answer is Object(fields) else { fail("expected an object") }
+  let fields = a_fee_history()
   fields.remove("reward")
-  let history = @types.FeeHistory::from_json(answer) catch {
+  let history = @types.FeeHistory::from_json(Json::object(fields)) catch {
     e => fail("unexpected error \{e}")
   }
   assert_true(history.reward is None)
@@ -51,10 +50,9 @@ test "a fee history asked for no percentile has no rewards" {
 /// `gasUsedRatio` is the one number on this wire that is a JSON number rather
 /// than a hex quantity, so it is the one that can be handed the wrong shape.
 test "a ratio that is not a number is refused" {
-  let answer = a_fee_history()
-  guard answer is Object(fields) else { fail("expected an object") }
+  let fields = a_fee_history()
   fields["gasUsedRatio"] = Json::array(["0x1".to_json()])
-  try @types.FeeHistory::from_json(answer) catch {
+  try @types.FeeHistory::from_json(Json::object(fields)) catch {
     @types.CodecError::InvalidJson(msg) =>
       assert_true(msg.has_prefix("expected a number"))
     e => fail("expected InvalidJson, but not \{e}")
@@ -65,10 +63,9 @@ test "a ratio that is not a number is refused" {
 
 ///|
 test "a fee history without base fees is refused" {
-  let answer = a_fee_history()
-  guard answer is Object(fields) else { fail("expected an object") }
+  let fields = a_fee_history()
   fields.remove("baseFeePerGas")
-  try @types.FeeHistory::from_json(answer) catch {
+  try @types.FeeHistory::from_json(Json::object(fields)) catch {
     @types.CodecError::InvalidJson(msg) =>
       assert_true(msg == "fee history has no baseFeePerGas")
     e => fail("expected InvalidJson, but not \{e}")

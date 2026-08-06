@@ -1,19 +1,13 @@
 ///|
-/// JSON-RPC's "method not found". A node that never implemented a method
-/// answers with this; a *provider* that refuses to forward one answers with
-/// EIP-1193's `UnsupportedMethod` (4200) instead, so both spellings mean the
-/// same thing to `max_priority_fee_per_gas`.
-const METHOD_NOT_FOUND : Int = -32601
-
-///|
 /// Return the tip the node suggests paying the block proposer
 /// (`eth_maxPriorityFeePerGas`), or `None` when the node does not implement the
 /// method.
 ///
 /// `None` is not an error and not a zero tip: `eth_maxPriorityFeePerGas` is a
 /// geth extension rather than a standardized method, and a node that never
-/// implemented it says so with `-32601` (or a provider that will not forward it
-/// with EIP-1193's 4200). Every other failure raises as usual, so a `None` here
+/// implemented it says so in one of the two ways
+/// `ProviderError::is_method_not_found` knows about. Every other failure raises
+/// as usual, so a `None` here
 /// only ever means "ask somewhere else": `fee_history` with a percentile is one
 /// such place, and `estimate_fees` takes another (`eth_gasPrice` less the base
 /// fee) so that it always has an answer.
@@ -39,9 +33,7 @@ pub async fn[P : Provider] max_priority_fee_per_gas(
       decode=@types.Wei::from_json,
     ),
   ) catch {
-    UnsupportedMethod => None
-    Rpc(code~, ..) if code == METHOD_NOT_FOUND => None
-    e => raise e
+    e => if e.is_method_not_found() { None } else { raise e }
   }
 }
 
@@ -156,14 +148,16 @@ pub async fn[P : Provider] fee_history(
 pub async fn[P : Provider] estimate_fees(
   provider : P,
 ) -> @types.Fee raise ProviderError {
-  let base_fee = match block_by_number(provider) {
-    Some(block) => block.base_fee_per_gas
-    None => None
-  }
-  guard base_fee is Some(base_fee) && base_fee != @types.Wei::zero() else {
+  // the base fee is read off a block rather than out of `fee_history`, whose
+  // last `base_fee_per_gas` is the next block's and so the more direct source:
+  // a chain with no 1559 market is exactly the chain that may not implement
+  // `eth_feeHistory` either, and `eth_getBlockByNumber` is on every node
+  guard block_by_number(provider) is Some(block) &&
+    block.base_fee_per_gas is Some(base_fee) &&
+    base_fee.to_bigint() is base &&
+    base != 0N else {
     return Legacy(gas_price=gas_price(provider))
   }
-  let base = base_fee.to_bigint()
   let tip = match max_priority_fee_per_gas(provider) {
     Some(tip) => tip.to_bigint()
     None => {

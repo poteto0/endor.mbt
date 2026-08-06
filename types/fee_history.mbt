@@ -58,8 +58,8 @@ pub fn FeeHistory::from_json(j : Json) -> FeeHistory raise CodecError {
       json_double,
     ),
     reward: optional_map(fields, "reward", j => {
-      json_array_of(j, what="reward", j => {
-        json_array_of(j, what="reward", Wei::from_json)
+      json_array_of(j, what="reward", row => {
+        json_array_of(row, what="reward", Wei::from_json)
       })
     }),
   }

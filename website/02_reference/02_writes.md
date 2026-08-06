@@ -135,7 +135,7 @@ how the suggested price was built.)
 so `[50.0]` asks what the transaction paying for the median unit of gas tipped:
 
 ```moonbit
-async fn median_tip_last_ten(
+async fn median_tip_over_ten_blocks(
   wallet : @browser.BrowserProvider,
 ) -> @endor.Wei? raise {
   let history = @provider.fee_history(
@@ -143,9 +143,10 @@ async fn median_tip_last_ten(
     block_count=10,
     reward_percentiles=[50.0],
   )
-  // one row per block, one column per percentile asked for
+  // one row per block — oldest first, so the newest is the last — and one
+  // column per percentile asked for
   match history.reward {
-    Some([[newest, ..], ..]) => Some(newest)
+    Some([.., [newest_median, ..]]) => Some(newest_median)
     _ => None // no percentile was asked for, or the node kept no blocks
   }
 }

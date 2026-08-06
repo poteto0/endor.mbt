@@ -139,6 +139,14 @@ applies.
     normally sends — this is for bidding above the market, replacing a stuck
     transaction, or pricing one as a relayer with no wallet to ask
   - `Fee` now implements `Show`, so the answer can be printed
+  - `ProviderError::is_method_not_found()`: the two spellings of "this node does
+    not have that method" (`-32601` and 4200) as one predicate, which is what
+    `max_priority_fee_per_gas` turns into its `None`. It lives on the error
+    rather than in the caller because the next wrapper around an extension
+    method needs the same fact. `MockProvider` no longer answers an
+    *unregistered* method with `-32601` for the same reason — it answers
+    `-32603`, so a test that forgot to register a response fails loudly instead
+    of looking like a node without the extension
 - EIP-2612 _permit_, as `@eip2612`: the ERC-20 approval **signed instead of
   sent**, so `approve` and the call that spends the allowance stop being two
   transactions. `Permit::new` validates the five members and

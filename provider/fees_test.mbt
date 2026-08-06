@@ -1,21 +1,30 @@
 ///|
-/// A latest block, carrying only the field the fee helpers read out of it.
-/// Everything else is what `Block::from_json` insists on having.
+/// `a_block()` with its `baseFeePerGas` set to what the case under test needs,
+/// or removed for a chain that never had one. The rest of the header is the
+/// shared fixture's, so the required-field list lives in one place.
 fn a_block_with_base_fee(base_fee : String?) -> Json {
-  let block = {
-    "number": "0x1b4".to_json(),
-    "hash": A_BLOCK.to_json(),
-    "parentHash": A_BLOCK.to_json(),
-    "timestamp": "0x5".to_json(),
-    "miner": "0x52908400098527886e0f7030069857d2e4169ee7".to_json(),
-    "gasLimit": "0x1c9c380".to_json(),
-    "gasUsed": "0x5208".to_json(),
-    "transactions": Json::array([]),
+  guard a_block() is Object(fields) else { abort("a_block is an object") }
+  match base_fee {
+    Some(fee) => fields["baseFeePerGas"] = fee.to_json()
+    None => fields.remove("baseFeePerGas") |> ignore
   }
-  if base_fee is Some(fee) {
-    block["baseFeePerGas"] = fee.to_json()
+  Json::object(fields)
+}
+
+///|
+/// The estimate as its two hex quantities, for the cases that differ only in
+/// what the node was made to answer. Every one of them expects a 1559 fee, so
+/// "not one" is a failure of the case rather than something to assert.
+async fn[P : @provider.Provider] a_1559_estimate(
+  provider : P,
+) -> (String, String) {
+  let fee = @provider.estimate_fees(provider) catch {
+    e => fail("unexpected error \{e}")
   }
-  Json::object(block)
+  guard fee is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
+    fail("expected a 1559 fee, got \{fee}")
+  }
+  (cap.to_hex(), tip.to_hex())
 }
 
 ///|
@@ -154,14 +163,9 @@ async test "an estimate on a 1559 chain is the base fee doubled plus the tip" {
         response=a_block_with_base_fee(Some("0x64")),
       )
       .on(method_name="eth_maxPriorityFeePerGas", response="0xa".to_json())
-    let fee = @provider.estimate_fees(provider) catch {
-      e => fail("unexpected error \{e}")
-    }
-    guard fee is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
-      fail("expected a 1559 fee, got \{fee}")
-    }
-    inspect(cap.to_hex(), content="0xd2")
-    inspect(tip.to_hex(), content="0xa")
+    let (cap, tip) = a_1559_estimate(provider)
+    inspect(cap, content="0xd2")
+    inspect(tip, content="0xa")
   })
 }
 
@@ -180,15 +184,10 @@ async test "an estimate without the tip method takes the tip out of the price" {
         error=Rpc(code=-32601, message="method not found"),
       )
       .on(method_name="eth_gasPrice", response="0x6e".to_json())
-    let fee = @provider.estimate_fees(provider) catch {
-      e => fail("unexpected error \{e}")
-    }
-    guard fee is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
-      fail("expected a 1559 fee, got \{fee}")
-    }
+    let (cap, tip) = a_1559_estimate(provider)
     // 0x6e - 0x64 = 0xa, and the cap is 2 * 0x64 + 0xa
-    inspect(tip.to_hex(), content="0xa")
-    inspect(cap.to_hex(), content="0xd2")
+    inspect(tip, content="0xa")
+    inspect(cap, content="0xd2")
   })
 }
 
@@ -205,14 +204,9 @@ async test "a price below the base fee floors the tip at zero" {
       )
       .on_error(method_name="eth_maxPriorityFeePerGas", error=UnsupportedMethod)
       .on(method_name="eth_gasPrice", response="0xa".to_json())
-    let fee = @provider.estimate_fees(provider) catch {
-      e => fail("unexpected error \{e}")
-    }
-    guard fee is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
-      fail("expected a 1559 fee, got \{fee}")
-    }
-    inspect(tip.to_hex(), content="0x0")
-    inspect(cap.to_hex(), content="0xc8")
+    let (cap, tip) = a_1559_estimate(provider)
+    inspect(tip, content="0x0")
+    inspect(cap, content="0xc8")
   })
 }
 
