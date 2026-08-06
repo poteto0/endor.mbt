@@ -25,7 +25,11 @@ polls for one), `eth_getBlockByNumber` / `eth_getBlockByHash`
 (`block_by_number`, `block_by_hash`) and their cheap form
 `eth_getBlockTransactionCountBy*` (`block_transaction_count_by_number` /
 `_by_hash`) — all of them answer with an option, because a
-node answers `null` for a receipt or block it does not have.
+node answers `null` for a receipt or block it does not have. **Events already on
+the chain are searched for** with `eth_getLogs` (`logs`, over a `LogFilter`),
+which is the only way to a `Log` that is not in a receipt the caller just got;
+the node's own range and response limits apply and the SDK does not split a
+filter up to stay inside them.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
@@ -84,7 +88,8 @@ Layout:
   layer above states each rule once and raises whichever error is its own
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs. Also
+  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, `LogFilter`, `Topic`,
+  codecs. Also
   `AbiType` / `AbiValue` / `AbiError`, whose definitions belong with the domain
   types both `abi` and `eips/eip712` build on; the arithmetic their rules are stated
   in is `codec`'s

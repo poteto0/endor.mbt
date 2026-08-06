@@ -49,7 +49,6 @@ applies.
 
 ### Added
 
-<<<<<<< HEAD
 - Decoding a **log** into the arguments its event was emitted with, which was
   the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
   topics~, data~)` checks `topics[0]` against the event's own signature hash,
@@ -64,8 +63,6 @@ applies.
   array or struct comes back as the 32-byte `keccak256` the topic holds — the
   value was never in the log — and an `anonymous` event is not decoded, because
   its log carries no `topics[0]` to say which event it is. (#79)
-- EIP-3009 *Transfer With Authorization*, as `@eip3009`: the holder signs a
-=======
 - `Wei::from_units(value, decimals~)` / `Wei::to_units(decimals~)`: the decimal
   amount a person writes, and the whole smallest units the wire carries. The
   scale is passed in because only the token says what it is — 18 for ether, 6
@@ -97,6 +94,23 @@ applies.
     `UInt64?`, for the block a node does not have; a height past the head is
     where nodes disagree, some answering `null` and Anvil raising, so `None` is
     the answer to expect rather than to rely on
+- `@provider.logs(p, filter)` (`eth_getLogs`): the **past** events, which the
+  SDK had no route to at all — a `Log` could only be reached through the receipt
+  of a transaction the caller had just sent, so a history, an incoming transfer,
+  or a state rebuilt from events all needed `Provider::request` and hand-written
+  JSON. What to search for is a `@endor.LogFilter`, built by `range` (an
+  optional `from_block` / `to_block`, each a `BlockTag`) or by `at_block` (a
+  `BlockHash`) — two constructors rather than one, because the RPC refuses
+  `blockHash` together with a range and this way the refused filter cannot be
+  spelled. Both take `address=` (one contract or several) and `topics=`, an
+  `Array[@endor.Topic?]` whose three states are the point: `Topic::exactly(t)`,
+  `Topic::any_of([a, b])` — the OR a flat array of hashes could not express —
+  and `None`, which leaves a position unconstrained while still occupying it, so
+  a later constraint keeps its index. A node's own range and response limits
+  apply as the node's errors; the filter is sent as given and is never split up
+  to stay inside them. What comes back is decoded with `@abi.decode_log` (#79),
+  which pairs the indexed arguments up with the topics this filter matched on.
+  (#78)
 - EIP-2612 _permit_, as `@eip2612`: the ERC-20 approval **signed instead of
   sent**, so `approve` and the call that spends the allowance stop being two
   transactions. `Permit::new` validates the five members and
@@ -117,7 +131,6 @@ applies.
   builds the four-field domain a token binds to, which `@eip2612.domain` and
   `@eip3009.domain` are now both named wrappers over. (#86)
 - EIP-3009 _Transfer With Authorization_, as `@eip3009`: the holder signs a
->>>>>>> main
   transfer and **somebody else submits it**, so a wallet holding nothing but
   stablecoins can still move them. `Authorization::new` validates the six
   members and becomes either document —

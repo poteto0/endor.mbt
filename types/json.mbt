@@ -16,6 +16,36 @@ fn json_array(j : Json, what~ : String) -> Array[Json] raise CodecError {
 }
 
 ///|
+/// Every element of a JSON array, decoded. A list is the shape of most of what
+/// a node answers with — the accounts it lists, the logs it matched — and of
+/// several fields inside those answers, so the loop is written once here and
+/// each decoder names only what its elements are.
+fn[T] json_array_of(
+  j : Json,
+  what~ : String,
+  decode : (Json) -> T raise CodecError,
+) -> Array[T] raise CodecError {
+  let out = []
+  for item in json_array(j, what~) {
+    out.push(decode(item))
+  }
+  out
+}
+
+///|
+/// A required field holding an array, decoded element by element: a block's
+/// `transactions`, a receipt's `logs`, a log's `topics`. The field's name is
+/// what the array is called, so it names the error too.
+fn[T] array_field(
+  fields : Map[String, Json],
+  name : String,
+  what~ : String,
+  decode : (Json) -> T raise CodecError,
+) -> Array[T] raise CodecError {
+  json_array_of(required_field(fields, name, what~), what=name, decode)
+}
+
+///|
 /// A field the shape cannot do without. A field carrying `null` counts as
 /// absent: that is how a node spells "not applicable" (a receipt's `to` on a
 /// deployment), and a decoder asking for it wants the same answer either way.

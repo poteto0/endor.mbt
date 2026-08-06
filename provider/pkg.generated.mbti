@@ -36,6 +36,8 @@ pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
 
 pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockTag) -> Bool raise ProviderError
 
+pub async fn[P : Provider] logs(P, @types.LogFilter) -> Array[@types.Log] raise ProviderError
+
 pub fn[E : EventSource] on_accounts_changed(E, (Array[@types.Address]) -> Unit) -> Subscription
 
 pub fn[E : EventSource] on_chain_changed(E, (@types.ChainId) -> Unit) -> Subscription

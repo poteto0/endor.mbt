@@ -393,6 +393,45 @@ async test "deploying through the contract layer lands a callable contract" {
 }
 
 ///|
+/// A log filter is the one request whose *shape* varies most — `address` and
+/// each `topics` position are each either a value or an array of them, and
+/// `blockHash` is refused alongside a range. A mock proves the JSON the SDK
+/// built; only a node proves that JSON is one it will accept. Anvil emits no
+/// events of its own here, so what is asserted is that each filter came back as
+/// a list at all rather than as an error.
+async test "a log filter is a request the node accepts" {
+  @anvil.on(provider => {
+    let head = @provider.block_number(provider)
+    // the widest shape: two addresses, an OR at topic 0, a hole at topic 1 and
+    // a constraint at topic 2 that has to keep its index
+    let filter = @types.LogFilter::range(
+      from_block=Number(0),
+      to_block=Number(head),
+      address=[@anvil.dev_account(), @anvil.other_account()],
+      topics=[
+        Some(
+          @types.Topic::any_of([
+            @abi.event_topic("Approval(address,address,uint256)"),
+            @erc20.Erc20::transfer_topic(),
+          ]),
+        ),
+        None,
+        Some(@types.Topic::exactly(@erc20.Erc20::transfer_topic())),
+      ],
+    )
+    assert_true(@provider.logs(provider, filter).is_empty())
+    // and the block form, which may carry no range at all
+    guard @provider.block_by_number(provider) is Some(block) else {
+      fail("expected a latest block")
+    }
+    guard block.hash is Some(hash) else { fail("expected a sealed block") }
+    assert_true(
+      @provider.logs(provider, @types.LogFilter::at_block(hash)).is_empty(),
+    )
+  })
+}
+
+///|
 async test "a transaction the node never saw has no receipt" {
   @anvil.on(provider => {
     assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)
