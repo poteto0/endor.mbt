@@ -37,6 +37,8 @@ pub using @types {type CodecError}
 
 pub using @types {type Fee}
 
+pub using @types {type FeeHistory}
+
 pub using @types {type Hex}
 
 pub using @types {type Log}

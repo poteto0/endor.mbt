@@ -65,6 +65,38 @@ async test "gas price is reported" {
 }
 
 ///|
+/// The 1559 material, against a node that really answers it. A mock proves the
+/// params the SDK sends; only a node proves it accepts them — `eth_feeHistory`
+/// above all, whose three parameters are the least uniform request in the SDK
+/// (a count, a block and an array of *numbers* rather than quantities).
+async test "the 1559 fee material comes back from a node" {
+  @anvil.on(provider => {
+    // Anvil implements the tip method, so this is `Some` here; a node that does
+    // not is what the `None` case is for, and no node can prove that one
+    guard @provider.max_priority_fee_per_gas(provider) is Some(_) else {
+      fail("expected anvil to suggest a tip")
+    }
+    let history = @provider.fee_history(provider, block_count=1, reward_percentiles=[
+      20.0, 80.0,
+    ])
+    // one block asked for, so two base fees: the block's, and the next one's
+    inspect(history.base_fee_per_gas.length(), content="2")
+    inspect(history.gas_used_ratio.length(), content="1")
+    guard history.reward is Some(reward) else {
+      fail("expected the percentiles asked for to be answered")
+    }
+    inspect(reward[0].length(), content="2")
+    // and the whole thing composed: anvil is a London chain, so the estimate is
+    // a 1559 fee whose cap covers its own tip
+    guard @provider.estimate_fees(provider)
+      is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
+      fail("expected a 1559 fee from a London chain")
+    }
+    inspect(cap.to_bigint() >= tip.to_bigint(), content="true")
+  })
+}
+
+///|
 async test "code distinguishes an account from a contract" {
   @anvil.on(provider => {
     inspect(

@@ -30,6 +30,14 @@ the chain are searched for** with `eth_getLogs` (`logs`, over a `LogFilter`),
 which is the only way to a `Log` that is not in a receipt the caller just got;
 the node's own range and response limits apply and the SDK does not split a
 filter up to stay inside them.
+**An EIP-1559 fee is priced** with `eth_maxPriorityFeePerGas`
+(`max_priority_fee_per_gas`, answering `None` — not an error — where the node
+does not implement what is only a geth extension) and `eth_feeHistory`
+(`fee_history`, over a `FeeHistory`), and `estimate_fees` composes them into the
+`Fee` a wallet would have built: the latest base fee doubled plus the suggested
+tip, falling back to `Legacy(gas_price)` on a chain whose base fee is absent or
+zero. The doubling is geth's default and not EIP-1559's, which is why the
+comment says where it came from; `Auto` is still what a dapp normally sends.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
@@ -88,8 +96,8 @@ Layout:
   layer above states each rule once and raises whichever error is its own
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, `LogFilter`, `Topic`,
-  codecs. Also
+  `ChainParams`, `Block`, `TransactionReceipt`, `FeeHistory`, `Log`,
+  `LogFilter`, `Topic`, codecs. Also
   `AbiType` / `AbiValue` / `AbiError`, whose definitions belong with the domain
   types both `abi` and `eips/eip712` build on; the arithmetic their rules are stated
   in is `codec`'s

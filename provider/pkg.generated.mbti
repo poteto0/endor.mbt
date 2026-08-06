@@ -30,13 +30,19 @@ pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
 
 pub async fn[P : Provider] code(P, @types.Address, block? : @types.BlockTag) -> @types.Hex raise ProviderError
 
+pub async fn[P : Provider] estimate_fees(P) -> @types.Fee raise ProviderError
+
 pub async fn[P : Provider] estimate_gas(P, @types.CallRequest) -> @types.Quantity raise ProviderError
+
+pub async fn[P : Provider] fee_history(P, block_count~ : Int, newest_block? : @types.BlockTag, reward_percentiles? : Array[Double]) -> @types.FeeHistory raise ProviderError
 
 pub async fn[P : Provider] gas_price(P) -> @types.Wei raise ProviderError
 
 pub async fn[P : Provider] is_contract(P, @types.Address, block? : @types.BlockTag) -> Bool raise ProviderError
 
 pub async fn[P : Provider] logs(P, @types.LogFilter) -> Array[@types.Log] raise ProviderError
+
+pub async fn[P : Provider] max_priority_fee_per_gas(P) -> @types.Wei? raise ProviderError
 
 pub fn[E : EventSource] on_accounts_changed(E, (Array[@types.Address]) -> Unit) -> Subscription
 
