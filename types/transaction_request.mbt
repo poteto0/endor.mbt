@@ -23,6 +23,31 @@ pub(all) enum Fee {
 } derive(Eq, Debug)
 
 ///|
+/// Read a fee back off the wire, out of the fields of a transaction a node
+/// reported. The mirror of `TransactionRequest::to_json`'s fee arm, and here
+/// beside it so the two directions of the same rule stay together.
+///
+/// A dynamic-fee transaction is reported with `gasPrice` *as well* — the price
+/// it ended up paying — so the EIP-1559 pair is what decides, and `gasPrice`
+/// alone is what makes it legacy. A transaction of a type that prices gas some
+/// other way falls through to `Auto`, which reads here as "the node named no
+/// fee field this release knows": the point of the fall-through is that a
+/// future type still decodes.
+fn Fee::from_fields(fields : Map[String, Json]) -> Fee raise CodecError {
+  match
+    (
+      optional_map(fields, "maxFeePerGas", Wei::from_json),
+      optional_map(fields, "maxPriorityFeePerGas", Wei::from_json),
+      optional_map(fields, "gasPrice", Wei::from_json),
+    ) {
+    (Some(max_fee_per_gas), Some(max_priority_fee_per_gas), _) =>
+      Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)
+    (_, _, Some(gas_price)) => Legacy(gas_price~)
+    _ => Auto
+  }
+}
+
+///|
 /// A transaction to be signed and broadcast: what `eth_sendTransaction` takes.
 /// Unlike a `CallRequest`, this one costs the user money and prompts the
 /// wallet, so `from` — the account that will sign — is required and comes

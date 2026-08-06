@@ -62,6 +62,8 @@ pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise Provide
 
 pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit raise ProviderError
 
+pub async fn[P : Provider] transaction_by_hash(P, @types.TxHash) -> @types.Transaction? raise ProviderError
+
 pub async fn[P : Provider] transaction_count(P, @types.Address, block? : @types.BlockTag) -> UInt64 raise ProviderError
 
 pub async fn[P : Provider] transaction_receipt(P, @types.TxHash) -> @types.TransactionReceipt? raise ProviderError

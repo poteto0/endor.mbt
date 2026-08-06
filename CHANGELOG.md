@@ -49,6 +49,25 @@ applies.
 
 ### Added
 
+- **The transaction itself**, which `types` had no way to say until now: it had
+  `TransactionRequest` (what is about to be sent) and `TransactionReceipt` (what
+  mining it cost) and nothing for the state in between.
+  `@provider.transaction_by_hash(p, hash)` reads one back
+  (`eth_getTransactionByHash`, answering with a `@endor.Transaction?` because a
+  hash the node has never seen is `null`). A transaction is readable from the
+  moment it reaches the mempool, so this is where the fields the *wallet* chose
+  become visible — the `fee` it priced the transaction at, the `gas` it
+  estimated, and the `nonce` it took, which is the one a speed-up or a cancel
+  has to re-use. `send_transaction` answers with a hash and nothing else, so
+  there was no way to see any of them before a receipt existed.
+  `@endor.Inclusion` is where the transaction is: `Pending`, or
+  `Mined(block_hash, block_number, transaction_index)`. One field rather than
+  three optional ones, because a node reports those three together or not at
+  all — and it makes `None` and `Pending` the different facts they are. Fees are
+  read into the same `Fee` a request is built with, and a transaction of an
+  EIP-2718 type this release does not know still decodes: unmodelled fields (the
+  signature, an access list, blob fees) are dropped rather than rejected, and a
+  fee that names none of the known keys reads as `Auto`. (#83)
 - Decoding a **log** into the arguments its event was emitted with, which was
   the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
   topics~, data~)` checks `topics[0]` against the event's own signature hash,

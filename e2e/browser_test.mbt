@@ -205,19 +205,16 @@ fn recipient(id : Int) -> @types.Address {
 
 ///|
 /// The transaction `hash` identifies, once anvil has mined it. Anvil automines,
-/// so by the time `eth_sendTransaction` answers the transaction is on chain.
-async fn[P : @provider.Provider] transaction_by_hash(
+/// so by the time `eth_sendTransaction` answers the transaction is on chain and
+/// the node cannot answer `null`.
+async fn[P : @provider.Provider] a_sent_transaction(
   provider : P,
   hash : @types.TxHash,
-) -> Map[String, Json] raise @provider.ProviderError {
-  let tx = provider.request(
-    method_name="eth_getTransactionByHash",
-    params=Json::array([hash.to_json()]),
-  )
-  guard tx is Object(fields) else {
+) -> @types.Transaction raise @provider.ProviderError {
+  guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
     raise @provider.ProviderError::internal("no transaction for \{hash}")
   }
-  fields
+  tx
 }
 
 ///|
@@ -235,9 +232,9 @@ async test "sending value moves it to the recipient" {
     let after = @provider.balance(provider, recipient(1))
     assert_eq(after.to_bigint(), before.to_bigint() + 1000N)
     // the hash the wallet answered with identifies that very transaction
-    let tx = transaction_by_hash(provider, hash)
-    assert_eq(tx.get("from"), Some(@anvil.dev_account().to_json()))
-    assert_eq(tx.get("to"), Some(recipient(1).to_json()))
+    let tx = a_sent_transaction(provider, hash)
+    assert_eq(tx.from, @anvil.dev_account())
+    assert_eq(tx.to, Some(recipient(1)))
   })
 }
 
@@ -248,7 +245,7 @@ async test "sending value moves it to the recipient" {
 /// rather than against the docs.
 async test "fee mode decides the transaction type on chain" {
   @anvil.on(provider => {
-    debug_inspect(tx_type(provider, Auto), content="Some(String(\"0x2\"))")
+    debug_inspect(tx_type(provider, Auto), content="Some(2)")
     debug_inspect(
       tx_type(
         provider,
@@ -257,14 +254,14 @@ async test "fee mode decides the transaction type on chain" {
           max_priority_fee_per_gas=@types.Wei::from_bigint(1_000_000_000N),
         ),
       ),
-      content="Some(String(\"0x2\"))",
+      content="Some(2)",
     )
     debug_inspect(
       tx_type(
         provider,
         Legacy(gas_price=@types.Wei::from_bigint(20_000_000_000N)),
       ),
-      content="Some(String(\"0x0\"))",
+      content="Some(0)",
     )
   })
 }
@@ -275,7 +272,7 @@ async test "fee mode decides the transaction type on chain" {
 async fn[P : @provider.Provider] tx_type(
   provider : P,
   fee : @types.Fee,
-) -> Json? raise @provider.ProviderError {
+) -> UInt64? raise @provider.ProviderError {
   let hash = @provider.send_transaction(
     provider,
     @types.TransactionRequest::new(
@@ -285,7 +282,7 @@ async fn[P : @provider.Provider] tx_type(
       fee~,
     ),
   )
-  transaction_by_hash(provider, hash).get("type")
+  a_sent_transaction(provider, hash).transaction_type
 }
 
 ///|
@@ -432,9 +429,54 @@ async test "a log filter is a request the node accepts" {
 }
 
 ///|
+/// The other half of a hash, against a real node: what was actually sent. The
+/// request named no nonce, no gas and no fee, so every one of those is what the
+/// node chose — and this is the only way to read them back.
+///
+/// Anvil mines on receipt, so what comes back here is already `Mined`; the
+/// pending case is a race no test can hold open and is covered against the
+/// mock instead.
+async test "a sent transaction is read back by its hash" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(9),
+        value=@types.Wei::from_int(3),
+      ),
+    )
+    guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
+      fail("expected the node to know the transaction it just took")
+    }
+    // that it is the transaction that was sent is settled by "sending value
+    // moves it to the recipient" above; what is new here is everything the
+    // request did not say
+    assert_eq(tx.hash, hash)
+    // the request named neither, so both are the node's own answer. The nonce
+    // it chose is not asserted on: the dev account is shared by every test in
+    // this file and they run concurrently, so no value is predictable
+    inspect(tx.gas, content="Quantity(21000)")
+    // the wallet priced it, since the request did not
+    assert_true(tx.fee is Eip1559(_))
+    guard tx.inclusion is Mined(block_number~, ..) else {
+      fail("expected an auto-mined transaction")
+    }
+    guard @provider.block_by_number(provider, block=Number(block_number))
+      is Some(block) else {
+      fail("expected the block it names")
+    }
+    assert_true(block.transactions.contains(hash))
+  })
+}
+
+///|
 async test "a transaction the node never saw has no receipt" {
   @anvil.on(provider => {
     assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)
+    // nor is it a transaction the node is holding: an unknown hash is `null`
+    // from both reads
+    assert_true(@provider.transaction_by_hash(provider, unknown_hash()) is None)
     // and waiting for one runs out of time rather than answering
     try
       @provider.wait_for_receipt(
