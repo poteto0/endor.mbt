@@ -26,9 +26,12 @@ extern "js" fn install_wallet(rpc_url : String, reject_from : String) -> Unit =
   #|     if (!res.ok) throw { code: -32603, message: `HTTP ${res.status} from ${rpcUrl}` }
   #|     const body = await res.json()
   #|     if (body.error) {
+  #|       // `data` is forwarded because the revert a contract raised is in it,
+  #|       // and a wallet that dropped it would leave the SDK nothing to decode
   #|       throw {
   #|         code: typeof body.error.code === 'number' ? body.error.code : -32603,
   #|         message: String(body.error.message ?? 'rpc error'),
+  #|         data: body.error.data,
   #|       }
   #|     }
   #|     return body.result === undefined ? null : body.result

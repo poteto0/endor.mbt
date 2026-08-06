@@ -40,7 +40,12 @@ pub fn is_metamask(eth : Ethereum) -> Bool {
 /// string envelope so structured error codes survive the boundary:
 ///
 /// - success: `{"ok": <result>}`
-/// - failure: `{"err": {"code": <int>, "message": <string>}}`
+/// - failure: `{"err": {"code": <int>, "message": <string>, "data": <any>}}`
+///
+/// `data` is whatever the wallet hung off the error and is carried across
+/// untouched: a reverting `eth_call` puts the ABI-encoded revert there, and
+/// where exactly it sits inside it differs per node, so the shape is not
+/// decided here (see `ProviderError::from_code`).
 extern "js" fn _request(
   eth : Ethereum,
   payload_json : String,
@@ -51,7 +56,8 @@ extern "js" fn _request(
   #|      .catch(e => JSON.stringify({
   #|        err: {
   #|          code: (e && typeof e.code === 'number') ? e.code : -32603,
-  #|          message: String((e && e.message) ? e.message : e)
+  #|          message: String((e && e.message) ? e.message : e),
+  #|          data: (e && e.data !== undefined) ? e.data : null
   #|        }
   #|      }))
 
@@ -74,7 +80,10 @@ pub fn spawn(task : async () -> Unit) -> Unit {
 /// The envelope format is:
 ///
 /// - success: `{"ok": <result>}`
-/// - failure: `{"err": {"code": <int>, "message": <string>}}`
+/// - failure: `{"err": {"code": <int>, "message": <string>, "data": <any>}}`
+///
+/// `data` is optional and passed on as the `Json` it arrived as — `Null` when
+/// the wallet attached none.
 pub fn decode_envelope(result_json : String) -> Json raise JsError {
   let parsed = @json.parse(result_json) catch {
     e => raise InvalidEnvelope("malformed FFI envelope: \{e}")
@@ -95,7 +104,8 @@ pub fn decode_envelope(result_json : String) -> Json raise JsError {
       _ => ""
     }
 
-    raise RemoteError(code, message)
+    let data = err_obj.get("data").unwrap_or(Json::null())
+    raise RemoteError(code, message, data)
   }
 
   guard obj.get("ok") is Some(v) else {

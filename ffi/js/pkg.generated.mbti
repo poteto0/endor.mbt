@@ -27,7 +27,7 @@ pub fn spawn(async () -> Unit) -> Unit
 // Errors
 pub(all) suberror JsError {
   InvalidEnvelope(String)
-  RemoteError(Int, String)
+  RemoteError(Int, String, Json)
 } derive(Eq)
 
 // Types and methods

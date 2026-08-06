@@ -16,6 +16,28 @@ applies.
 
 ### Changed
 
+- **Breaking:** a call a contract **reverts** now comes back as what the
+  contract said, not as the node's `"execution reverted"` string.
+  `ContractError` gained three variants — `Revert(reason)` for
+  `Error(string)`, `Panic(code)` for the checks the Solidity compiler inserts
+  (`@contract.panic_reason` says what a code means), and
+  `CustomError(selector~, name~, args~, data~)` for a contract's own
+  `error` — and `ProviderError` gained `Reverted(code~, message~, data~)`,
+  which carries the ABI-encoded revert as it came off the wire. A `catch` that
+  matched every variant by name is no longer exhaustive; add the cases, or a
+  catch-all. Nothing that is *not* a revert changed shape: `Rpc` and `Abi` mean
+  exactly what they meant.
+  Where the revert data sits in a JSON-RPC error differs per node, so all three
+  places are read (`error.data`, `error.data.data`,
+  `error.data.originalError.data`). A custom error decodes down to its arguments
+  when the contract was given its own declarations —
+  `Contract::new(address, errors~)`, taking `@contract.ErrorDef` values, which
+  `endor-cli abi` now generates as a `<Name>::errors()` from the `error` entries
+  of an ABI document. Without them a custom error still arrives, holding its
+  selector and raw data. The `Erc20` preset declares its own —
+  `@erc20.standard_errors()`, the six [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093)
+  errors an OpenZeppelin v5 token reverts with — so a transfer beyond a balance
+  reads back as `ERC20InsufficientBalance(sender, balance, needed)`. (#80)
 - **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
   string that is not a decimal amount the target can hold. A `catch` that
   matched all four by name is no longer exhaustive; add the case, or a

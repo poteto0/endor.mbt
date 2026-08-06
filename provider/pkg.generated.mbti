@@ -77,10 +77,11 @@ pub(all) suberror ProviderError {
   ChainDisconnected
   UnrecognizedChain
   Rpc(code~ : Int, message~ : String)
+  Reverted(code~ : Int, message~ : String, data~ : @types.Hex)
   NotInstalled
   Timeout(String)
 } derive(Eq, @debug.Debug)
-pub fn ProviderError::from_code(Int, String) -> Self
+pub fn ProviderError::from_code(Int, String, data? : Json) -> Self
 pub fn ProviderError::internal(String) -> Self
 pub impl Show for ProviderError
 

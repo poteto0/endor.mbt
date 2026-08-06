@@ -80,7 +80,7 @@ unset** — that is why `just ut` needs no node. Two things keep a skip from
 passing for a pass: `run` says so once on stdout, and `just e2e` refuses to run
 until something answers on the port.
 
-Two contracts are deployed, both hand-written EVM of a few dozen bytes.
+Three contracts are deployed, all hand-written EVM of a few dozen bytes.
 Deployment is in each case a `send_transaction` with no `to` followed by a
 `wait_for_receipt`, with the address read off the receipt's `contract_address`.
 
@@ -99,6 +99,14 @@ a test in that file deploys a gate for the wrong selector to prove the check has
 teeth. The fixture it reads, `fixtures/abi/erc20.abi`, is the same file
 `just codegen-check` runs the CLI against, so a change to one is caught by the
 other.
+
+`@anvil.deploy_reverter(provider, revert_data~)` reverts every call with exactly
+the bytes it was given — an `Error(string)`, a `Panic(uint256)`, a custom error.
+The gate above reverts with nothing, so it cannot answer the question
+`e2e/revert_test.mbt` asks: whether a node hands the revert *data* back at all,
+and under which key of its JSON-RPC error. Everything after that key is decoding
+and is unit-tested; the key itself is only true on the wire, and the wallet shim
+in `backend/anvil/js.mbt` has to forward it the way a real wallet does.
 
 `fixtures/abi/answer.json` is the second half of the same arrangement: a
 compiler *artifact*, so the generator emits a `deploy` from it, and the file
