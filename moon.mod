@@ -53,6 +53,7 @@ options(
     "backend",
     "moon.work",
     "justfile",
+    "scripts",
     "AGENTS.md",
     "docs",
     "fixtures",
