@@ -27,6 +27,10 @@
 #   `cmd/`          `cli-check` and `cli-test`, and `codegen-check`, whose
 #                   generator that is.
 #   `fixtures/abi/` `codegen-check`, whose inputs those are.
+#   `flake.nix` &c. nothing extra. The only check that reads them is
+#                   `nix-pin-check`, which no arm below skips and which
+#                   therefore runs on every commit — it is two `sed`s. Building
+#                   the flake is CI's `nix` job; a commit must not need nix.
 #   `moon.mod` &c.  everything — `moon.work`, the `justfile`, the hook, this
 #                   script and the toolchain pin as well. They decide what the
 #                   checks are and what they reach, so the only honest answer
@@ -49,7 +53,10 @@ cd "$(dirname "$0")/.."
 # unstaged diff rather than passing having checked nothing.
 changed=$(git diff --cached --name-only --diff-filter=d)
 [ -n "$changed" ] || changed=$(git diff --name-only --diff-filter=d)
-[ -n "$changed" ] || { echo "precommit: nothing changed"; exit 0; }
+[ -n "$changed" ] || {
+  echo "precommit: nothing changed"
+  exit 0
+}
 
 # the package a file belongs to: the nearest directory above it holding a
 # `moon.pkg`. The root is one, so this always lands on a real package.
@@ -66,17 +73,28 @@ for f in $changed; do
   # wins, which is why the modules that have their own recipes are named before
   # the extensions that would otherwise claim them.
   case "$f" in
-    moon.mod|moon.work|justfile|.githooks/*|scripts/*|.github/actions/*) full=1 ;;
-    cmd/*)                        cli=1; native=1; codegen=1 ;;
-    fixtures/abi/*)               codegen=1 ;;
-    examples/*|website/islands/*) ;;
-    *.md)                         docs=1 ;;
-    *.mbti)                       docs=1; codegen=1 ;;
-    *.mbt)                        info=1; native=1; pkgs="$pkgs $(pkg_of "$f")" ;;
-    moon.pkg|*/moon.pkg)          pkgs="$pkgs $(pkg_of "$f")" ;;
+    moon.mod | moon.work | justfile | .githooks/* | scripts/* | .github/actions/*) full=1 ;;
+    cmd/*)
+      cli=1
+      native=1
+      codegen=1
+      ;;
+    fixtures/abi/*) codegen=1 ;;
+    examples/* | website/islands/*) ;;
+    *.md) docs=1 ;;
+    *.mbti)
+      docs=1
+      codegen=1
+      ;;
+    *.mbt)
+      info=1
+      native=1
+      pkgs="$pkgs $(pkg_of "$f")"
+      ;;
+    moon.pkg | */moon.pkg) pkgs="$pkgs $(pkg_of "$f")" ;;
     # a workflow, an editor's settings, a fixture that is not an ABI: no recipe
     # reads it, so the unconditional three are the whole answer
-    *)                            ;;
+    *) ;;
   esac
 done
 
@@ -89,21 +107,24 @@ if [ -n "$full" ]; then exec just ci-check; fi
 # one.
 for c in $(just --dump | sed -n 's/^ci-check: //p'); do
   case "$c" in
-    build)         continue ;;
+    build) continue ;;
     # run last instead, scoped to the packages the diff reaches
-    unit-test)     continue ;;
-    info-check)    [ -n "$info" ] || continue ;;
+    unit-test) continue ;;
+    info-check) [ -n "$info" ] || continue ;;
     # the only thing that compiles anything for `native`, so it is owed both to
     # a CLI that changed and to an SDK the CLI links
-    cli-check)     [ -n "$native" ] || continue ;;
-    cli-test)      [ -n "$cli" ] || continue ;;
-    docs-check)    [ -n "$docs" ] || continue ;;
+    cli-check) [ -n "$native" ] || continue ;;
+    cli-test) [ -n "$cli" ] || continue ;;
+    docs-check) [ -n "$docs" ] || continue ;;
     codegen-check) [ -n "$codegen" ] || continue ;;
   esac
   just "$c"
 done
 
-[ -n "$pkgs" ] || { echo "precommit: no package changed"; exit 0; }
+[ -n "$pkgs" ] || {
+  echo "precommit: no package changed"
+  exit 0
+}
 
 # every `moon.pkg` of this module, to ask which of them import what changed. The
 # excluded three are the other members `moon.work` lists — their own modules,
