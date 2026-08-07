@@ -39,6 +39,8 @@ pub using @types {type Fee}
 
 pub using @types {type Hex}
 
+pub using @types {type Inclusion}
+
 pub using @types {type Log}
 
 pub using @types {type LogFilter}
@@ -50,6 +52,8 @@ pub using @types {type Quantity}
 pub using @types {type ReceiptStatus}
 
 pub using @types {type Topic}
+
+pub using @types {type Transaction}
 
 pub using @types {type TransactionReceipt}
 

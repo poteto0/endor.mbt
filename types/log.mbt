@@ -64,15 +64,3 @@ pub fn Log::from_json(j : Json) -> Log raise CodecError {
 pub fn Log::array_from_json(j : Json) -> Array[Log] raise CodecError {
   json_array_of(j, what="logs", Log::from_json)
 }
-
-///|
-/// A required hex-quantity field, decoded to the number it denotes. Block
-/// numbers and indices are all this shape, so the receipt and block decoders
-/// read them through here rather than spelling out the two steps each time.
-fn quantity_field(
-  fields : Map[String, Json],
-  name : String,
-  what~ : String,
-) -> UInt64 raise CodecError {
-  Quantity::from_json(required_field(fields, name, what~)).to_uint64()
-}

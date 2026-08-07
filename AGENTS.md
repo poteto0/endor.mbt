@@ -25,7 +25,15 @@ polls for one), `eth_getBlockByNumber` / `eth_getBlockByHash`
 (`block_by_number`, `block_by_hash`) and their cheap form
 `eth_getBlockTransactionCountBy*` (`block_transaction_count_by_number` /
 `_by_hash`) — all of them answer with an option, because a
-node answers `null` for a receipt or block it does not have. **Events already on
+node answers `null` for a receipt or block it does not have.
+**A transaction is read back before that too**, through
+`eth_getTransactionByHash` (`transaction_by_hash`, answering with a
+`Transaction?`) — the state between a request and a receipt, readable from the
+moment it reaches the mempool, and the only way to see the `nonce`, `gas` and
+`fee` the wallet chose. Its `inclusion` is `Pending` or `Mined(block_hash,
+block_number, transaction_index)`, so a hash the node never saw (`None`) and one
+it is holding (`Pending`) stay different answers.
+**Events already on
 the chain are searched for** with `eth_getLogs` (`logs`, over a `LogFilter`),
 which is the only way to a `Log` that is not in a receipt the caller just got;
 the node's own range and response limits apply and the SDK does not split a

@@ -1510,6 +1510,82 @@ fn a_receipt() -> Json {
 }
 
 ///|
+/// The same transaction as `a_receipt()`, as `eth_getTransactionByHash`
+/// reports it: still pending, so the three fields that would place it in a
+/// block are `null`.
+fn a_pending_transaction() -> Json {
+  {
+    "hash": TX_HASH.to_json(),
+    "blockHash": Json::null(),
+    "blockNumber": Json::null(),
+    "transactionIndex": Json::null(),
+    "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".to_json(),
+    "to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".to_json(),
+    "nonce": "0x7".to_json(),
+    "value": "0xde0b6b3a7640000".to_json(),
+    "input": "0x".to_json(),
+    "gas": "0x5208".to_json(),
+    "maxFeePerGas": "0x77359400".to_json(),
+    "maxPriorityFeePerGas": "0x3b9aca00".to_json(),
+  }
+}
+
+///|
+/// The state `transaction_receipt` cannot report at all. Which fields decode
+/// into what is `types`' business; what this asserts is that the read reaches
+/// the right method and that a pending transaction comes back as one.
+async test "a transaction is readable while it is still pending" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=a_pending_transaction(),
+    )
+    let tx = @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      e => fail("unexpected error \{e}")
+    }
+    guard tx is Some(tx) else { fail("expected a transaction") }
+    inspect(tx.inclusion, content="Pending")
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_getTransactionByHash")
+    inspect(params.stringify(), content="[\"\{TX_HASH}\"]")
+  })
+}
+
+///|
+/// A hash the node has never seen is `null`, and that is not the same fact as
+/// a transaction it is holding in its mempool.
+async test "an unknown hash reads as no transaction at all" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=Json::null(),
+    )
+    let tx = @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_true(tx is None)
+  })
+}
+
+///|
+async test "a malformed transaction is the SDK's own error" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=Json::array([]),
+    )
+    try @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
+      e => fail("expected an internal error, but not \{e}")
+    } noraise {
+      _ => fail("expected a malformed transaction to be rejected")
+    }
+  })
+}
+
+///|
 async test "a mined transaction has a receipt, asked for by hash" {
   @async.with_task_group(_ => {
     let provider = @provider.MockProvider::new().on(

@@ -164,6 +164,12 @@ pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
 
+pub(all) enum Inclusion {
+  Pending
+  Mined(block_hash~ : BlockHash, block_number~ : UInt64, transaction_index~ : UInt64)
+} derive(Eq, @debug.Debug)
+pub impl Show for Inclusion
+
 pub(all) struct Log {
   address : Address
   topics : Array[Hex]
@@ -215,6 +221,22 @@ pub struct Topic {
 pub fn Topic::any_of(Array[Hex]) -> Self raise CodecError
 pub fn Topic::exactly(Hex) -> Self raise CodecError
 pub fn Topic::to_json(Self) -> Json
+
+pub(all) struct Transaction {
+  hash : TxHash
+  inclusion : Inclusion
+  from : Address
+  to : Address?
+  nonce : Quantity
+  value : Wei
+  input : Hex
+  gas : Quantity
+  fee : Fee
+  chain_id : ChainId?
+  transaction_type : UInt64?
+} derive(Eq, @debug.Debug)
+pub fn Transaction::from_json(Json) -> Self raise CodecError
+pub impl Show for Transaction
 
 pub(all) struct TransactionReceipt {
   transaction_hash : TxHash

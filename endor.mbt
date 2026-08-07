@@ -14,6 +14,8 @@ pub using @types {
   type TxHash,
   type BlockHash,
   type Block,
+  type Transaction,
+  type Inclusion,
   type TransactionReceipt,
   type ReceiptStatus,
   type Log,

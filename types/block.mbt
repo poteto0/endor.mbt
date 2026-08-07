@@ -46,9 +46,7 @@ pub fn Block::from_json(j : Json) -> Block raise CodecError {
     TxHash::from_json,
   )
   Block::{
-    number: optional_map(fields, "number", j => {
-      Quantity::from_json(j).to_uint64()
-    }),
+    number: optional_quantity_field(fields, "number"),
     hash: optional_map(fields, "hash", BlockHash::from_json),
     parent_hash: BlockHash::from_json(
       required_field(fields, "parentHash", what="block"),

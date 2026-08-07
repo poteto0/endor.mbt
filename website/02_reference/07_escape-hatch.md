@@ -10,14 +10,16 @@ typed surface, so prefer the helpers wherever they exist — but nothing in the 
 is a ceiling.
 
 ```moonbit
-async fn transaction(
+async fn transaction_at(
   wallet : @browser.BrowserProvider,
-  hash : @endor.TxHash,
+  block : @endor.BlockTag,
+  index : @endor.Quantity,
 ) -> Json raise @provider.ProviderError {
-  // eth_getTransactionByHash is not wrapped; its receipt is
+  // a transaction is wrapped when it is asked for by hash
+  // (`transaction_by_hash`); by position in a block it is not
   wallet.request(
-    method_name="eth_getTransactionByHash",
-    params=Json::array([hash.to_json()]),
+    method_name="eth_getTransactionByBlockNumberAndIndex",
+    params=Json::array([block.to_json(), index.to_json()]),
   )
 }
 ```
