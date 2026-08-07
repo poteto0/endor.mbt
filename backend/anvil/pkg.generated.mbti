@@ -16,6 +16,8 @@ pub fn chain_id() -> @types.ChainId
 
 pub async fn[P : @provider.Provider] deploy_answer_contract(P) -> @types.Address raise @provider.ProviderError
 
+pub async fn[P : @provider.Provider] deploy_reverter(P, revert_data~ : @types.Hex) -> @types.Address raise @provider.ProviderError
+
 pub async fn[P : @provider.Provider] deploy_selector_gate(P, @types.Hex) -> @types.Address raise @provider.ProviderError
 
 pub fn dev_account() -> @types.Address
@@ -33,4 +35,3 @@ pub fn reject_account() -> @types.Address
 // Type aliases
 
 // Traits
-

@@ -205,19 +205,16 @@ fn recipient(id : Int) -> @types.Address {
 
 ///|
 /// The transaction `hash` identifies, once anvil has mined it. Anvil automines,
-/// so by the time `eth_sendTransaction` answers the transaction is on chain.
-async fn[P : @provider.Provider] transaction_by_hash(
+/// so by the time `eth_sendTransaction` answers the transaction is on chain and
+/// the node cannot answer `null`.
+async fn[P : @provider.Provider] a_sent_transaction(
   provider : P,
   hash : @types.TxHash,
-) -> Map[String, Json] raise @provider.ProviderError {
-  let tx = provider.request(
-    method_name="eth_getTransactionByHash",
-    params=Json::array([hash.to_json()]),
-  )
-  guard tx is Object(fields) else {
+) -> @types.Transaction raise @provider.ProviderError {
+  guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
     raise @provider.ProviderError::internal("no transaction for \{hash}")
   }
-  fields
+  tx
 }
 
 ///|
@@ -235,9 +232,9 @@ async test "sending value moves it to the recipient" {
     let after = @provider.balance(provider, recipient(1))
     assert_eq(after.to_bigint(), before.to_bigint() + 1000N)
     // the hash the wallet answered with identifies that very transaction
-    let tx = transaction_by_hash(provider, hash)
-    assert_eq(tx.get("from"), Some(@anvil.dev_account().to_json()))
-    assert_eq(tx.get("to"), Some(recipient(1).to_json()))
+    let tx = a_sent_transaction(provider, hash)
+    assert_eq(tx.from, @anvil.dev_account())
+    assert_eq(tx.to, Some(recipient(1)))
   })
 }
 
@@ -248,7 +245,7 @@ async test "sending value moves it to the recipient" {
 /// rather than against the docs.
 async test "fee mode decides the transaction type on chain" {
   @anvil.on(provider => {
-    debug_inspect(tx_type(provider, Auto), content="Some(String(\"0x2\"))")
+    debug_inspect(tx_type(provider, Auto), content="Some(2)")
     debug_inspect(
       tx_type(
         provider,
@@ -257,14 +254,14 @@ async test "fee mode decides the transaction type on chain" {
           max_priority_fee_per_gas=@types.Wei::from_bigint(1_000_000_000N),
         ),
       ),
-      content="Some(String(\"0x2\"))",
+      content="Some(2)",
     )
     debug_inspect(
       tx_type(
         provider,
         Legacy(gas_price=@types.Wei::from_bigint(20_000_000_000N)),
       ),
-      content="Some(String(\"0x0\"))",
+      content="Some(0)",
     )
   })
 }
@@ -275,7 +272,7 @@ async test "fee mode decides the transaction type on chain" {
 async fn[P : @provider.Provider] tx_type(
   provider : P,
   fee : @types.Fee,
-) -> Json? raise @provider.ProviderError {
+) -> UInt64? raise @provider.ProviderError {
   let hash = @provider.send_transaction(
     provider,
     @types.TransactionRequest::new(
@@ -285,7 +282,7 @@ async fn[P : @provider.Provider] tx_type(
       fee~,
     ),
   )
-  transaction_by_hash(provider, hash).get("type")
+  a_sent_transaction(provider, hash).transaction_type
 }
 
 ///|
@@ -393,9 +390,93 @@ async test "deploying through the contract layer lands a callable contract" {
 }
 
 ///|
+/// A log filter is the one request whose *shape* varies most — `address` and
+/// each `topics` position are each either a value or an array of them, and
+/// `blockHash` is refused alongside a range. A mock proves the JSON the SDK
+/// built; only a node proves that JSON is one it will accept. Anvil emits no
+/// events of its own here, so what is asserted is that each filter came back as
+/// a list at all rather than as an error.
+async test "a log filter is a request the node accepts" {
+  @anvil.on(provider => {
+    let head = @provider.block_number(provider)
+    // the widest shape: two addresses, an OR at topic 0, a hole at topic 1 and
+    // a constraint at topic 2 that has to keep its index
+    let filter = @types.LogFilter::range(
+      from_block=Number(0),
+      to_block=Number(head),
+      address=[@anvil.dev_account(), @anvil.other_account()],
+      topics=[
+        Some(
+          @types.Topic::any_of([
+            @abi.event_topic("Approval(address,address,uint256)"),
+            @erc20.Erc20::transfer_topic(),
+          ]),
+        ),
+        None,
+        Some(@types.Topic::exactly(@erc20.Erc20::transfer_topic())),
+      ],
+    )
+    assert_true(@provider.logs(provider, filter).is_empty())
+    // and the block form, which may carry no range at all
+    guard @provider.block_by_number(provider) is Some(block) else {
+      fail("expected a latest block")
+    }
+    guard block.hash is Some(hash) else { fail("expected a sealed block") }
+    assert_true(
+      @provider.logs(provider, @types.LogFilter::at_block(hash)).is_empty(),
+    )
+  })
+}
+
+///|
+/// The other half of a hash, against a real node: what was actually sent. The
+/// request named no nonce, no gas and no fee, so every one of those is what the
+/// node chose — and this is the only way to read them back.
+///
+/// Anvil mines on receipt, so what comes back here is already `Mined`; the
+/// pending case is a race no test can hold open and is covered against the
+/// mock instead.
+async test "a sent transaction is read back by its hash" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(9),
+        value=@types.Wei::from_int(3),
+      ),
+    )
+    guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
+      fail("expected the node to know the transaction it just took")
+    }
+    // that it is the transaction that was sent is settled by "sending value
+    // moves it to the recipient" above; what is new here is everything the
+    // request did not say
+    assert_eq(tx.hash, hash)
+    // the request named neither, so both are the node's own answer. The nonce
+    // it chose is not asserted on: the dev account is shared by every test in
+    // this file and they run concurrently, so no value is predictable
+    inspect(tx.gas, content="Quantity(21000)")
+    // the wallet priced it, since the request did not
+    assert_true(tx.fee is Eip1559(_))
+    guard tx.inclusion is Mined(block_number~, ..) else {
+      fail("expected an auto-mined transaction")
+    }
+    guard @provider.block_by_number(provider, block=Number(block_number))
+      is Some(block) else {
+      fail("expected the block it names")
+    }
+    assert_true(block.transactions.contains(hash))
+  })
+}
+
+///|
 async test "a transaction the node never saw has no receipt" {
   @anvil.on(provider => {
     assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)
+    // nor is it a transaction the node is holding: an unknown hash is `null`
+    // from both reads
+    assert_true(@provider.transaction_by_hash(provider, unknown_hash()) is None)
     // and waiting for one runs out of time rather than answering
     try
       @provider.wait_for_receipt(
@@ -464,6 +545,99 @@ async test "a block past the head reads as none" {
     assert_true(
       @provider.block_by_number(provider, block=Number(999_999_999)) is None,
     )
+  })
+}
+
+///|
+/// The count agrees with the block it counts, which is the only thing the two
+/// methods have to agree on — asked of the receipt's own block rather than of
+/// the head, since the tests share one chain and mine into it concurrently.
+async test "a block's transaction count agrees with its transactions" {
+  @anvil.on(provider => {
+    let hash = @provider.send_transaction(
+      provider,
+      @types.TransactionRequest::new(
+        @anvil.dev_account(),
+        to=recipient(6),
+        value=@types.Wei::from_int(1),
+      ),
+    )
+    let receipt = @provider.wait_for_receipt(
+      provider,
+      hash,
+      timeout=5_000,
+      poll_interval=100,
+    )
+    guard @provider.block_by_hash(provider, receipt.block_hash) is Some(block) else {
+      fail("the block the receipt names is not there")
+    }
+    let counted = block.transactions.length().to_uint64()
+    assert_eq(
+      @provider.block_transaction_count_by_hash(provider, receipt.block_hash),
+      Some(counted),
+    )
+    assert_eq(
+      @provider.block_transaction_count_by_number(
+        provider,
+        block=Number(receipt.block_number),
+      ),
+      Some(counted),
+    )
+    // a block the node does not have is `null` rather than an error — for a
+    // hash, at least: Anvil answers a height past its head with an error
+    // instead, which is why `None` is the weaker claim of the two
+    let unknown = @types.BlockHash::from_string(
+      "0xe2e0000000000000000000000000000000000000000000000000000000000000",
+    )
+    assert_true(
+      @provider.block_transaction_count_by_hash(provider, unknown) is None,
+    )
+  })
+}
+
+///|
+/// Storage against a real node. Anvil can write a slot directly, so the read
+/// can be checked against a value that was put there rather than only against
+/// the zeroes an untouched slot answers with — and the word comes back padded
+/// to 32 bytes whatever was written into it.
+async test "storage reads back the word written into a slot" {
+  @anvil.on(provider => {
+    let who = recipient(7)
+    let slot = @types.Hex::from_string(
+      "0x0000000000000000000000000000000000000000000000000000000000000001",
+    )
+    let word = @types.Hex::from_string(
+      "0x000000000000000000000000000000000000000000000000000000000000002a",
+    )
+    let _ = provider.request(
+      method_name="anvil_setStorageAt",
+      params=Json::array([who.to_json(), slot.to_json(), word.to_json()]),
+    )
+    assert_eq(@provider.storage_at(provider, who, slot), word)
+    // a slot nobody wrote is zeroes, not an absence
+    let untouched = @types.Hex::from_string(
+      "0x0000000000000000000000000000000000000000000000000000000000000002",
+    )
+    inspect(
+      @provider.storage_at(provider, who, untouched),
+      content="0x0000000000000000000000000000000000000000000000000000000000000000",
+    )
+  })
+}
+
+///|
+/// The SDK holds no keys, so it can build nothing to broadcast here: what a node
+/// can still prove is that the call reaches it and that a payload it refuses
+/// comes back as the node's own error rather than as a decode failure.
+async test "a raw transaction the node cannot parse is an rpc error" {
+  @anvil.on(provider => {
+    let raw = @types.Hex::from_string("0x02f8710182031184773594")
+    try @provider.send_raw_transaction(provider, raw) |> ignore catch {
+      @provider.ProviderError::Rpc(..) => ()
+      e => fail("expected an Rpc error, but \{e}")
+    } noraise {
+      _ => fail("expected an Rpc error, but the node accepted the payload")
+    }
   })
 }
 

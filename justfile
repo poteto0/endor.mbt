@@ -11,8 +11,9 @@ unit-test opts="":
   @moon test --target {{target}} {{opts}}
 
 # end-to-end tests against a local Anvil node (`just anvil` first) — what they
-# do and do not prove is in docs/e2e.md. They are not part of `ci-check`: that
-# recipe is also the pre-commit hook, and committing must not need a node.
+# do and do not prove is in docs/e2e.md. They are not part of `ci-check`, which
+# `precommit` selects from — committing must not need a node. `e2e` is still a
+# package that selection can land on, and it skips itself when there is none.
 [group("ci")]
 e2e-test port="8545": (require-node port)
   @ENDOR_E2E_RPC_URL=http://127.0.0.1:{{port}} moon test --target {{target}} -p poteto0/endor/e2e
@@ -76,10 +77,12 @@ info-check: info
 archive-check:
   #!/usr/bin/env bash
   set -euo pipefail
-  ships=$'CHANGELOG.md\nLICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\ncodec\neip712\nabi\ncontract\nprovider\nffi'
-  # the file list goes to stderr, interleaved with progress lines that all
-  # contain spaces, unlike archive paths
-  extra=$(moon package --list 2>&1 | grep -v ' ' | cut -d/ -f1 | sort -u \
+  ships=$'CHANGELOG.md\nLICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\ncodec\neips\nabi\ncontract\nprovider\nffi'
+  # the file list goes to stderr, interleaved with progress and diagnostic
+  # lines. Keep only what can be an archive path — a warning's box-drawing
+  # gutter has no spaces either, and once read as a path it fails the check
+  # with a filename nobody can act on
+  extra=$(moon package --list 2>&1 | grep -E '^[A-Za-z0-9._-]+(/|$)' | cut -d/ -f1 | sort -u \
     | grep -vxF "$ships" || true)
   [ -z "$extra" ] || {
     echo "error: the published archive would ship, beyond the SDK itself:"
@@ -285,13 +288,22 @@ codegen-check:
   moon fmt --check _codegen_check
   echo "ok: the generated code compiles and is already formatted"
 
-# what the pre-commit hook runs: formats and regenerates in place
+# every check, formatting and regenerating in place rather than failing
 [group("ci")]
 ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
 ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check
+
+# what `.githooks/pre-commit` runs (#96): the part of `ci-check` the staged diff
+# can actually break, rather than the whole gate the PR already runs. Which
+# staged path pulls in which check — and why that is safe to get wrong — is
+# `scripts/precommit.sh`, which is where the selection lives; every check it
+# picks it runs as a recipe from this file.
+[group("ci")]
+precommit:
+  @scripts/precommit.sh
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release

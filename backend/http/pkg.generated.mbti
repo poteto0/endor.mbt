@@ -15,4 +15,3 @@ pub async fn on(async (@poteto0/endor/provider/http.HttpProvider[@endpoint.Endpo
 // Type aliases
 
 // Traits
-

@@ -6,6 +6,9 @@ priv struct Param {
   name : String
   /// The declared type, resolved into the `AbiType` the SDK encodes with.
   ty : @abi.AbiType
+  /// `indexed` — an event parameter that went into the log's `topics` instead
+  /// of its `data`. Always false for anything but an event.
+  indexed : Bool
 }
 
 ///|
@@ -22,9 +25,23 @@ priv struct AbiFunction {
 }
 
 ///|
-/// An event of the ABI. Only its signature matters here: what is generated is
-/// the topic it is logged under.
+/// An event of the ABI: the topic its logs carry, and how to read one back.
 priv struct AbiEvent {
+  name : String
+  inputs : Array[Param]
+  /// `anonymous` — the log carries no signature hash in `topics[0]`, so
+  /// nothing generated from this entry could match a log or decode one.
+  anonymous : Bool
+}
+
+///|
+/// An `error` of the ABI: what a `revert` can name, and the arguments it
+/// carries with it.
+///
+/// Unlike a function or an event, nothing is *called* through this — it is a
+/// declaration the SDK reads a failed call against, so every declared type can
+/// be carried whether or not this generator would put it in a signature.
+priv struct AbiErrorDecl {
   name : String
   inputs : Array[Param]
 }
@@ -66,12 +83,13 @@ priv enum CreationCode {
 ///|
 /// Everything in a document this generator has anything to say about.
 ///
-/// `receive`, `fallback` and `error` entries are dropped while reading rather
-/// than reported as skipped: there is nothing to generate from them, and
-/// listing them as casualties would be noise.
+/// `receive` and `fallback` entries are dropped while reading rather than
+/// reported as skipped: there is nothing to generate from them, and listing
+/// them as casualties would be noise.
 priv struct Document {
   functions : Array[AbiFunction]
   events : Array[AbiEvent]
+  errors : Array[AbiErrorDecl]
   ctor : AbiConstructor
   creation_code : CreationCode
 }
@@ -106,6 +124,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
   }
   let functions = []
   let events = []
+  let errors = []
   // a contract that declares no constructor deploys with no arguments
   let mut ctor : AbiConstructor = { inputs: [], payable: false }
   let mut declared_ctor = false
@@ -122,6 +141,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
     match kind {
       "function" => functions.push(read_function(fields, at=i))
       "event" => events.push(read_event(fields, at=i))
+      "error" => errors.push(read_error(fields, at=i))
       "constructor" => {
         // a contract has one constructor, so a document with two is not a
         // document a compiler wrote — and letting the last one win would
@@ -135,7 +155,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
       _ => ()
     }
   }
-  { functions, events, ctor, creation_code }
+  { functions, events, errors, ctor, creation_code }
 }
 
 ///|
@@ -395,16 +415,32 @@ fn read_function(
 }
 
 ///|
-/// One `"type": "event"` entry. Only the name and the parameter types are
-/// read: an event's `indexed` flags decide which arguments land in `topics`
-/// rather than in `data`, and nothing generated from this ABI decodes a log
-/// yet, so nothing here would use them.
+/// One `"type": "event"` entry: its name, its parameters with the `indexed`
+/// flags that say which half of the log each one is in, and whether it is
+/// anonymous — which is what decides whether anything can be generated from it
+/// at all.
 fn read_event(
   fields : Map[String, Json],
   at~ : Int,
 ) -> AbiEvent raise CodegenError {
   let name = read_name(fields, at~, kind="event")
-  { name, inputs: read_params(fields, "inputs", of="event `\{name}`") }
+  {
+    name,
+    inputs: read_params(fields, "inputs", of="event `\{name}`"),
+    anonymous: fields.get("anonymous") is Some(True),
+  }
+}
+
+///|
+/// One `"type": "error"` entry: the name a revert carries and what rides with
+/// it. `indexed` has no meaning here and is read as false, as it is everywhere
+/// but an event.
+fn read_error(
+  fields : Map[String, Json],
+  at~ : Int,
+) -> AbiErrorDecl raise CodegenError {
+  let name = read_name(fields, at~, kind="error")
+  { name, inputs: read_params(fields, "inputs", of="error `\{name}`") }
 }
 
 ///|
@@ -474,7 +510,15 @@ fn read_params(
       Some(_) =>
         raise InvalidAbi("\{of} has a parameter with a non-string name")
     }
-    params.push({ name, ty: read_type(param, of~) })
+    params.push({
+      name,
+      ty: read_type(param, of~),
+      // only an event's parameters carry it, and a document that puts it on a
+      // function's is answered the same way as one that leaves it off an
+      // event's: not indexed. `indexed` means "went into `topics`", and
+      // nothing but an event has topics
+      indexed: param.get("indexed") is Some(True),
+    })
   }
   params
 }

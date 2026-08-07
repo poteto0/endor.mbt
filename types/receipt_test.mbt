@@ -164,9 +164,11 @@ test "logs must be an array of log objects" {
   } noraise {
     _ => fail("expected a non-array `logs` to be rejected")
   }
+  // an empty object is missing every field; the one named is the first the
+  // decoder asks for, which is the first the struct declares
   try receipt_with({ "logs": Json::array([Json::empty_object()]) }) catch {
     @types.CodecError::InvalidJson(msg) =>
-      inspect(msg, content="log has no topics")
+      inspect(msg, content="log has no address")
     e => fail("expected InvalidJson, but not \{e}")
   } noraise {
     _ => fail("expected an empty log object to be rejected")

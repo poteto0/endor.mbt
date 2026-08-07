@@ -84,14 +84,7 @@ pub fn Address::from_json(j : Json) -> Address raise CodecError {
 /// Decode a JSON array of address strings, as the account-listing RPCs
 /// (`eth_accounts`, `eth_requestAccounts`) answer with.
 pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
-  guard j is Array(items) else {
-    raise InvalidJson("expected an array of addresses")
-  }
-  let out = []
-  for it in items {
-    out.push(Address::from_json(it))
-  }
-  out
+  json_array_of(j, what="address", Address::from_json)
 }
 
 ///|

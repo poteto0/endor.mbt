@@ -2,7 +2,7 @@
 package "poteto0/endor"
 
 import {
-  "poteto0/endor/eip712",
+  "poteto0/endor/eips/eip712",
   "poteto0/endor/types",
 }
 
@@ -39,13 +39,21 @@ pub using @types {type Fee}
 
 pub using @types {type Hex}
 
+pub using @types {type Inclusion}
+
 pub using @types {type Log}
+
+pub using @types {type LogFilter}
 
 pub using @types {type NativeCurrency}
 
 pub using @types {type Quantity}
 
 pub using @types {type ReceiptStatus}
+
+pub using @types {type Topic}
+
+pub using @types {type Transaction}
 
 pub using @types {type TransactionReceipt}
 
@@ -62,4 +70,3 @@ pub using @eip712 {type TypedDataField}
 pub using @types {type Wei}
 
 // Traits
-

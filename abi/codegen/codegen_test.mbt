@@ -256,6 +256,128 @@ test "generate: an event becomes its topic" {
 }
 
 ///|
+/// The decoder is the topic's other half: one matches a log, the other reads
+/// it. The `indexed` flags out of the ABI are what put `from` and `to` in
+/// `topics` and `value` in `data`, and they have to survive into the generated
+/// `params`.
+test "generate: an event becomes a decoder as well" {
+  let out = @codegen.generate("Erc20", erc20_abi)
+  assert_true(
+    out.code.contains(
+      (
+        #|pub fn Erc20::decode_transfer(
+        #|  log : @types.Log,
+        #|) -> (@types.Address, @types.Address, BigInt) raise @contract.ContractError {
+        #|  let values = @abi.decode_log(
+        #|    name="Transfer",
+        #|    params=[
+        #|      { ty: Address, indexed: true },
+        #|      { ty: Address, indexed: true },
+        #|      { ty: Uint(256), indexed: false },
+        #|    ],
+        #|    topics=log.topics,
+        #|    data=log.data,
+        #|  ) catch {
+        #|    e => raise @contract.Abi(e)
+        #|  }
+      ),
+    ),
+  )
+  assert_true(
+    out.code.contains(
+      (
+        #|  guard values is [Address(from), Address(to), Uint(value)] else {
+      ),
+    ),
+  )
+  assert_true(out.code.contains("  (from, to, value)\n"))
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// A single parameter is answered on its own: MoonBit has no one-element
+/// tuple, and `(x)` is `x` rather than a tuple holding it.
+test "generate: an event of one parameter answers with that parameter" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Paused", "inputs": [
+      #|   { "name": "by", "type": "address", "indexed": true }] }]
+    ),
+  )
+  assert_true(
+    out.code.contains(
+      (
+        #|) -> @types.Address raise @contract.ContractError {
+      ),
+    ),
+  )
+  assert_true(out.code.contains("  guard values is [Address(by)] else {"))
+  assert_true(out.code.contains("  by\n}"))
+}
+
+///|
+/// An event with nothing to decode keeps its topic and costs no comment: the
+/// topic already says everything one of its logs carries.
+test "generate: an event with no parameters gets no decoder" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Sealed", "inputs": [] }]
+    ),
+  )
+  assert_true(out.code.contains("pub fn Vault::sealed_topic()"))
+  assert_false(out.code.contains("decode_sealed"))
+  assert_eq(out.skipped.join("\n"), "")
+}
+
+///|
+/// The event equivalent of a function's unsupported parameter — except that
+/// the event keeps its topic, which is what a caller filters logs with before
+/// decoding them by hand.
+test "generate: an event whose arguments cannot be typed keeps its topic" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Blobbed", "inputs": [
+      #|   { "name": "blob", "type": "bytes" }] },
+      #| { "type": "event", "name": "Named", "inputs": [
+      #|   { "name": "what", "type": "string", "indexed": true }] }]
+    ),
+  )
+  assert_true(out.code.contains("pub fn Vault::blobbed_topic()"))
+  assert_true(out.code.contains("pub fn Vault::named_topic()"))
+  assert_false(out.code.contains("decode_blobbed"))
+  assert_false(out.code.contains("decode_named"))
+  assert_eq(
+    out.skipped.join("\n"),
+    (
+      #|`Blobbed(bytes)`: parameter 0 is `bytes`, which is not generated
+      #|event `Named(string)`: parameter 0 is an indexed `string`, which a log holds only as its hash
+    ),
+  )
+}
+
+///|
+/// An anonymous event has no `topics[0]` at all, so neither half of what this
+/// generator makes of an event means anything for one.
+test "generate: an anonymous event is skipped entirely" {
+  let out = @codegen.generate(
+    "Vault",
+    (
+      #|[{ "type": "event", "name": "Quiet", "anonymous": true, "inputs": [
+      #|   { "name": "who", "type": "address", "indexed": true }] }]
+    ),
+  )
+  assert_false(out.code.contains("quiet_topic"))
+  assert_false(out.code.contains("decode_quiet"))
+  assert_eq(
+    out.skipped.join("\n"),
+    "event `Quiet(address)`: it is `anonymous`, so its logs carry no `topics[0]` to match or decode",
+  )
+}
+
+///|
 test "generate: nothing comes of a constructor" {
   let out = @codegen.generate("Erc20", erc20_abi)
   // it is dropped while reading, so it is not reported as a casualty either
@@ -1402,4 +1524,91 @@ test "read: a constructor declaring a type that cannot exist raises" {
   } noraise {
     _ => fail("expected `uint7` in a constructor to raise")
   }
+}
+
+///|
+/// A contract's `error` declarations become the array `new` reads a revert
+/// against — the one part of an ABI nothing else in the generated file states,
+/// since a revert names its error by selector and no call declares what it may
+/// fail with.
+test "generate: the errors a contract declares are generated" {
+  let abi =
+    #|[
+    #|  { "type": "error", "name": "InsufficientBalance", "inputs": [
+    #|    { "name": "have", "type": "uint256" },
+    #|    { "name": "want", "type": "uint256" }] },
+    #|  { "type": "error", "name": "Unauthorized", "inputs": [] }
+    #|]
+  let out = @codegen.generate("Vault", abi)
+  assert_true(
+    out.code.contains(
+      "pub fn Vault::errors() -> Array[@contract.ErrorDef] {\n" +
+      "  [\n" +
+      "    { name: \"InsufficientBalance\", inputs: [Uint(256), Uint(256)] },\n" +
+      "    { name: \"Unauthorized\", inputs: [] },\n" +
+      "  ]\n" +
+      "}\n",
+    ),
+  )
+  // and `new` hands them over, which is what makes a revert decode itself
+  assert_true(
+    out.code.contains(
+      "@contract.Contract::new(address, errors=Vault::errors())",
+    ),
+  )
+  // an error is not a method: nothing dispatches to it, and nothing was left
+  // out of the file either
+  assert_eq(out.members, [])
+  assert_eq(out.skipped, [])
+}
+
+///|
+/// An error carries every type the ABI has, including the ones no generated
+/// *call* may name: nothing is passed to it and nothing is read back out of it
+/// as a MoonBit value, so the reason `scalar` draws its line does not apply.
+/// Leaving them out would drop exactly the errors that say most about what went
+/// wrong.
+test "generate: an error declares types no call would" {
+  let abi =
+    #|[
+    #|  { "type": "error", "name": "BadProof", "inputs": [
+    #|    { "name": "root", "type": "bytes32" },
+    #|    { "name": "proof", "type": "bytes" },
+    #|    { "name": "path", "type": "uint256[]" },
+    #|    { "name": "pair", "type": "address[2]" },
+    #|    { "name": "leaf", "type": "tuple", "components": [
+    #|      { "name": "at", "type": "uint64" },
+    #|      { "name": "who", "type": "address" }] }] }
+    #|]
+  let out = @codegen.generate("Merkle", abi)
+  assert_true(
+    out.code.contains(
+      "      inputs: [FixedBytes(32), Bytes, Array(Uint(256)), FixedArray(Address, 2), Tuple([Uint(64), Address])],\n",
+    ),
+  )
+}
+
+///|
+/// A document with no `error` in it generates no `errors()`, and its `new` is
+/// the one it always was.
+test "generate: a contract that declares no error says nothing about errors" {
+  let out = @codegen.generate("Erc20", erc20_abi)
+  assert_false(out.code.contains("errors"))
+  assert_true(out.code.contains("@contract.Contract::new(address)"))
+}
+
+///|
+/// `errors` is the template's name whether or not the document filled it in,
+/// for the reason `deploy` and `creation_code` are: the same ABI must generate
+/// the same members however it arrives.
+test "generate: a function cannot take the name errors" {
+  let abi =
+    #|[
+    #|  { "type": "function", "name": "errors", "stateMutability": "view",
+    #|    "inputs": [], "outputs": [{ "name": "", "type": "uint256" }] }
+    #|]
+  let out = @codegen.generate("Odd", abi)
+  assert_eq(out.members, [])
+  assert_eq(out.skipped.length(), 1)
+  assert_true(out.skipped[0].contains("`errors` is already taken"))
 }

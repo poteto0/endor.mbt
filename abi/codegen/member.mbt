@@ -6,8 +6,9 @@
 /// in the signature, `Address` in `inputs`, `Address(x)` in `args`, and read
 /// back by `@contract.address_answer`.
 priv struct Scalar {
-  /// The `AbiType` as MoonBit source — what goes in `inputs` / `outputs`.
-  literal : String
+  /// The type itself, which `type_literal` spells as the MoonBit source that
+  /// goes in `inputs` / `outputs`.
+  ty : @abi.AbiType
   /// The MoonBit type the caller passes or gets back.
   mbt : String
   /// The `AbiValue` constructor wrapping an argument.
@@ -24,46 +25,46 @@ priv struct Scalar {
 /// `bytes` and `bytesN` are left out deliberately even though `Bytes` exists:
 /// the ABI's `bytesN` is fixed-width and MoonBit's `Bytes` is not, so a
 /// generated signature would promise a length it cannot enforce.
-///
-/// `literal` is spelled out here even though `AbiType` derives `Debug` and
-/// currently renders identically. Taking `"\{ty}"` instead would make the
-/// derived debug format load-bearing for source that has to compile — a
-/// formatting change nothing pins would silently emit uncompilable files. The
-/// copy is deliberate, and `codegen_test.mbt` asserts the two agree so that
-/// "currently renders identically" stays a fact rather than an assumption.
 fn scalar(ty : @abi.AbiType) -> Scalar? {
+  let (mbt, ctor, answer) = match ty {
+    Address => ("@types.Address", "Address", "address_answer")
+    Bool => ("Bool", "Bool", "bool_answer")
+    String => ("String", "String", "string_answer")
+    Uint(_) => ("BigInt", "Uint", "uint_answer")
+    Int(_) => ("BigInt", "Int", "int_answer")
+    _ => return None
+  }
+  Some({ ty, mbt, ctor, answer })
+}
+
+///|
+/// One `AbiType` as MoonBit source, for every type the ABI has rather than only
+/// the ones a generated *signature* can name.
+///
+/// The two are different questions: what a call can promise a caller in MoonBit
+/// types is `scalar`'s judgement, while a declaration the SDK only ever reads
+/// data against — a contract's `error`s — carries whatever the ABI said, and
+/// leaving those out would drop exactly the errors that say most about what
+/// went wrong.
+///
+/// It is spelled out here rather than taken from `AbiType`'s derived `Debug`,
+/// which currently renders identically: `"\{ty}"` would make the derived debug
+/// format load-bearing for source that has to compile, so a formatting change
+/// nothing pins would silently emit uncompilable files. `codegen_test.mbt`
+/// asserts the two agree, so "currently renders identically" stays a fact
+/// rather than an assumption.
+fn type_literal(ty : @abi.AbiType) -> String {
   match ty {
-    Address =>
-      Some({
-        literal: "Address",
-        mbt: "@types.Address",
-        ctor: "Address",
-        answer: "address_answer",
-      })
-    Bool =>
-      Some({ literal: "Bool", mbt: "Bool", ctor: "Bool", answer: "bool_answer" })
-    String =>
-      Some({
-        literal: "String",
-        mbt: "String",
-        ctor: "String",
-        answer: "string_answer",
-      })
-    Uint(bits) =>
-      Some({
-        literal: "Uint(\{bits})",
-        mbt: "BigInt",
-        ctor: "Uint",
-        answer: "uint_answer",
-      })
-    Int(bits) =>
-      Some({
-        literal: "Int(\{bits})",
-        mbt: "BigInt",
-        ctor: "Int",
-        answer: "int_answer",
-      })
-    _ => None
+    Address => "Address"
+    Bool => "Bool"
+    String => "String"
+    Bytes => "Bytes"
+    Uint(bits) => "Uint(\{bits})"
+    Int(bits) => "Int(\{bits})"
+    FixedBytes(size) => "FixedBytes(\{size})"
+    Array(inner) => "Array(\{type_literal(inner)})"
+    FixedArray(inner, length) => "FixedArray(\{type_literal(inner)}, \{length})"
+    Tuple(fields) => "Tuple([\{fields.map(type_literal).join(", ")}])"
   }
 }
 
@@ -229,7 +230,7 @@ fn reading_block(
   )
   let call = ["provider", "name=\"\{f.name}\""]
   call.append(abi_args(params))
-  call.push("outputs=[\{out.literal}]")
+  call.push("outputs=[\{type_literal(out.ty)}]")
   head.write_string(
     ") -> \{out.mbt} raise @contract.ContractError {\n" +
     "  @contract.\{out.answer}(\n" +
@@ -376,6 +377,43 @@ fn creation_code_block(struct_name : String, code : String) -> String {
 }
 
 ///|
+/// The contract's `error` declarations, as the array `new` hands to
+/// `@contract.Contract`.
+///
+/// This is the one part of an ABI that has nowhere else to be stated: a call
+/// says what it takes and what it returns, but nothing says what it may revert
+/// with, and a revert names its error by a selector alone. With the array in
+/// the file, a failed call comes back as `CustomError` carrying the name and
+/// the decoded arguments; without it, as four bytes.
+fn errors_block(struct_name : String, errors : Array[AbiErrorDecl]) -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      $|///|
+      $|/// The errors this contract declares, in the order its ABI declares them.
+      $|///
+      $|/// `\{struct_name}::new` reads a reverting call against these, so
+      $|/// `@contract.ContractError::CustomError` comes back named and decoded.
+      $|pub fn \{struct_name}::errors() -> Array[@contract.ErrorDef] {
+      $|  [
+      $|
+    ),
+  )
+  for e in errors {
+    let inputs = e.inputs.map(p => type_literal(p.ty)).join(", ")
+    out.write_string(
+      record_expr(
+        ["name: \"\{e.name}\"", "inputs: [\{inputs}]"],
+        indent=4,
+        suffix=",",
+      ),
+    )
+  }
+  out.write_string("  ]\n}\n")
+  out.to_string()
+}
+
+///|
 /// A call, laid out the way `moon fmt` would lay it out: on one line while it
 /// fits inside the 80th column, and one argument per line with a trailing
 /// comma once it does not.
@@ -404,11 +442,40 @@ fn call_expr(
 }
 
 ///|
+/// A record literal, wrapped by the rule `call_expr` states: one line while it
+/// fits, one field per line with a trailing comma once it does not.
+///
+/// `head` is what stands in front of the brace — a struct name and its `::`, or
+/// nothing at all for a literal whose type is inferred.
+fn record_expr(
+  fields : Array[String],
+  indent~ : Int,
+  suffix~ : String,
+  head? : String = "",
+) -> String {
+  let pad = " ".repeat(indent)
+  let one_line = "\{pad}\{head}{ \{fields.join(", ")} }\{suffix}"
+  if one_line.length() <= 80 {
+    return one_line + "\n"
+  }
+  let out = StringBuilder::new()
+  out.write_string("\{pad}\{head}{\n")
+  for field in fields {
+    out.write_string("\{pad}  \{field},\n")
+  }
+  out.write_string("\{pad}}\{suffix}\n")
+  out.to_string()
+}
+
+///|
 /// The topic an event's logs carry in `topics[0]`.
 ///
 /// Events survive types that functions do not: what is generated is the
 /// signature's hash, and every ABI type has a canonical name whether or not
-/// this generator can pass one as an argument.
+/// this generator can pass one as an argument. Reading one of those logs back
+/// is `decoder_block`, a separate answer about the same member: an event whose
+/// arguments cannot be named keeps its topic, which is what a caller filters a
+/// receipt's logs with before decoding them by hand.
 fn event_block(
   struct_name : String,
   e : AbiEvent,
@@ -417,6 +484,14 @@ fn event_block(
   // as in `function_block`: unreachable, and declined rather than aborted
   let signature = @abi.signature(name=e.name, inputs=e.inputs.map(p => p.ty)) catch {
     err => return Err("event `\{e.name}`: \{err}")
+  }
+  // an anonymous event writes no signature hash, so there is no topic to
+  // generate and nothing that could match one of its logs: its first topic is
+  // already an argument, and nothing in the log says which event it belongs to
+  guard !e.anonymous else {
+    return Err(
+      "event `\{signature}`: it is `anonymous`, so its logs carry no `topics[0]` to match or decode",
+    )
   }
   let fn_name = snake_case(e.name) + "_topic"
   // unreachable as things stand — `read_name` has already proved the name is a
@@ -451,6 +526,124 @@ fn event_block(
 }
 
 ///|
+/// The parts as a tuple — the types a decoder answers with, or the names it
+/// binds. MoonBit has no one-element tuple, so a single part is itself: `(x)`
+/// is `x`, and a decoder for a one-parameter event answers with that parameter
+/// rather than with a tuple holding it.
+fn tuple_of(parts : Array[String]) -> String {
+  if parts.length() == 1 {
+    parts[0]
+  } else {
+    "(" + parts.join(", ") + ")"
+  }
+}
+
+///|
+/// The method that reads one of this event's logs back as the arguments it was
+/// emitted with, or the reason there is none.
+///
+/// It answers with a tuple of MoonBit values rather than with the
+/// `Array[@abi.AbiValue]` `@abi.decode_log` hands back, which is the whole
+/// difference between the generated decoder and calling that by hand — and the
+/// reason it runs into the same limit every other generated method does: a
+/// parameter this generator cannot name costs the decoder, and the event keeps
+/// its topic regardless.
+fn decoder_block(
+  struct_name : String,
+  e : AbiEvent,
+  signature~ : String,
+  taken : Set[String],
+) -> Result[String, String] {
+  let fn_name = "decode_" + snake_case(e.name)
+  // spellable by construction, for `event_block`'s reason: a name that survived
+  // `read_name` survives a prefix too. Taken, though, it can be — a contract
+  // with a `decodeTransfer()` function is generated before any event is
+  guard !taken.contains(fn_name) else {
+    return Err("event `\{signature}`: `\{fn_name}` is already taken")
+  }
+  // an indexed `string` is the one type this generator can name and still must
+  // not: what the topic holds is the `keccak256` of the value, so a generated
+  // `String` would be a promise the log cannot keep
+  for i, p in e.inputs {
+    if p.indexed && p.ty is String {
+      return Err(
+        "event `\{signature}`: parameter \{i} is an indexed `string`, which a log holds only as its hash",
+      )
+    }
+  }
+  let params = match
+    scalar_params(e.inputs, Set::Set(["log", "values"][:]), signature~) {
+    Ok(params) => params
+    Err(reason) => return Err(reason)
+  }
+  taken.add(fn_name)
+  let answer = tuple_of(params.map(p => p.1.mbt))
+  let bound = tuple_of(params.map(p => p.0))
+  let out = StringBuilder::new()
+  out.write_string(
+    (
+      $|///|
+      $|/// One log of `\{signature}`,
+      $|/// read back as the arguments it was emitted with: the indexed ones out
+      $|/// of `topics`, the rest out of `data`, in the order the event declares
+      $|/// them.
+      $|///
+      $|/// A log of another event raises rather than decoding — `topics[0]` is
+      $|/// what tells them apart, and a receipt holds the logs of every contract
+      $|/// the transaction touched.
+      $|pub fn \{struct_name}::\{fn_name}(
+      $|  log : @types.Log,
+      $|) -> \{answer} raise @contract.ContractError {
+      $|  let values = @abi.decode_log(
+      $|    name="\{e.name}",
+      $|    params=[
+      $|
+    ),
+  )
+  for i, p in params {
+    out.write_string(
+      "      { ty: \{type_literal(p.1.ty)}, indexed: \{e.inputs[i].indexed} },\n",
+    )
+  }
+  let pattern = params.map(p => "\{p.1.ctor}(\{p.0})").join(", ")
+  out.write_string(
+    (
+      $|    ],
+      $|    topics=log.topics,
+      $|    data=log.data,
+      $|  ) catch {
+      $|    e => raise @contract.Abi(e)
+      $|  }
+      $|  // unreachable: `decode_log` answers with the types named just above,
+      $|  // or raises
+      $|  guard values is [\{pattern}] else {
+      $|    raise @contract.Abi(
+      $|
+    ),
+  )
+  // the message carries the signature, which can be any length, so whether it
+  // fits on the line is not something this template can decide by looking
+  out.write_string(
+    call_expr(
+      "@types.InvalidData",
+      ["\"\{signature} did not decode as its own types\""],
+      indent=6,
+      suffix=",",
+    ),
+  )
+  out.write_string(
+    (
+      $|    )
+      $|  }
+      $|  \{bound}
+      $|}
+      $|
+    ),
+  )
+  Ok(out.to_string())
+}
+
+///|
 /// The `inputs` and `args` arguments, or neither for a function that takes no
 /// parameters — `Contract::call` and `send` both default them to empty, so a
 /// generated method says nothing rather than saying `inputs=[], args=[]`.
@@ -471,7 +664,7 @@ fn abi_args(params : Array[(String, Scalar)]) -> Array[String] {
     return []
   }
   [
-    "inputs=[\{params.map(p => p.1.literal).join(", ")}]",
+    "inputs=[\{params.map(p => type_literal(p.1.ty)).join(", ")}]",
     "args=[\{params.map(p => "\{p.1.ctor}(\{p.0})").join(", ")}]",
   ]
 }

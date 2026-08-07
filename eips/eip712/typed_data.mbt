@@ -99,6 +99,30 @@ pub fn TypedDataDomain::new(
 }
 
 ///|
+/// The domain a **token extension** binds to, which is the same four fields
+/// every time: `verifyingContract` is the token, `chainId` is where it lives,
+/// `version` is a string the token chose, and only `name` has to be read off
+/// the token — it is `name()`, and it must match byte for byte.
+///
+/// EIP-2612 and EIP-3009 are both this shape, which is why it is spelled once
+/// here rather than in each of them. Getting it wrong is silent: a document
+/// with a domain the token does not recognize signs perfectly well, is
+/// displayed perfectly well, and is then rejected on chain. `check_separator`
+/// is how that is caught before the user is asked to sign.
+///
+/// A token whose domain is `salt`-based rather than `chainId`-based is not this
+/// helper's: build it with `TypedDataDomain::new`, which takes all five fields
+/// and requires none.
+pub fn TypedDataDomain::for_token(
+  name~ : String,
+  version? : String = "1",
+  chain_id~ : @types.ChainId,
+  token~ : @types.Address,
+) -> TypedDataDomain raise @types.CodecError {
+  TypedDataDomain::new(name~, version~, chain_id~, verifying_contract=token)
+}
+
+///|
 /// The `EIP712Domain` type entry: the fields that are there, in the order
 /// EIP-712 fixed for them. Order is part of the hash, so it is fixed here and
 /// not left to the order a caller happened to pass them in.
@@ -166,10 +190,10 @@ pub fn TypedDataDomain::to_json(self : TypedDataDomain) -> Json {
 /// against each other is what this does, and a second typed value tree would
 /// only restate it.
 ///
-/// Nothing here is hashed. The wallet computes the digest, so the domain
-/// separator and `hashStruct` are not needed to send a document — computing
-/// them locally is
-/// [#45](https://github.com/poteto0/endor.mbt/issues/45).
+/// Sending a document hashes nothing: the wallet computes the digest, so
+/// neither the domain separator nor `hashStruct` is needed to sign. They are
+/// computed here anyway — `digest.mbt`, #45 — for the callers that need the
+/// hash itself rather than a signature over it, EIP-1271 being the first.
 ///
 /// ```mbt check
 /// test "doc: typed data" {

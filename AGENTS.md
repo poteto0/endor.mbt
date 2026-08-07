@@ -9,16 +9,35 @@ typed, async MoonBit API.
 
 **The API reads chain state, evaluates calls, and switches chains**:
 `eth_requestAccounts`, `eth_accounts`, `eth_chainId`, `eth_getBalance`,
-`eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice` and `eth_getCode`
+`eth_blockNumber`, `eth_getTransactionCount`, `eth_gasPrice`, `eth_getCode` and
+`eth_getStorageAt` (`storage_at`, one raw 32-byte slot — the only way to see
+state no ABI declares, a proxy's EIP-1967 implementation address above all)
 are wrapped in typed helpers, as are `eth_call` / `eth_estimateGas` (`call`,
 `estimate_gas`, over a `CallRequest`), `eth_sendTransaction` (`send_transaction`,
-over a `TransactionRequest`, answering with a `TxHash`) and
+over a `TransactionRequest`, answering with a `TxHash`),
+`eth_sendRawTransaction` (`send_raw_transaction` — a transaction signed
+somewhere else, since the SDK holds no keys and so never builds one; this is the
+entrance a relayer submits through) and
 `wallet_switchEthereumChain` / `wallet_addEthereumChain` (`switch_chain`,
 `add_chain`, `switch_or_add_chain`). **What was mined is read back** through
 `eth_getTransactionReceipt` (`transaction_receipt`, and `wait_for_receipt`, which
-polls for one) and `eth_getBlockByNumber` / `eth_getBlockByHash`
-(`block_by_number`, `block_by_hash`) — all three answer with an option, because a
+polls for one), `eth_getBlockByNumber` / `eth_getBlockByHash`
+(`block_by_number`, `block_by_hash`) and their cheap form
+`eth_getBlockTransactionCountBy*` (`block_transaction_count_by_number` /
+`_by_hash`) — all of them answer with an option, because a
 node answers `null` for a receipt or block it does not have.
+**A transaction is read back before that too**, through
+`eth_getTransactionByHash` (`transaction_by_hash`, answering with a
+`Transaction?`) — the state between a request and a receipt, readable from the
+moment it reaches the mempool, and the only way to see the `nonce`, `gas` and
+`fee` the wallet chose. Its `inclusion` is `Pending` or `Mined(block_hash,
+block_number, transaction_index)`, so a hash the node never saw (`None`) and one
+it is holding (`Pending`) stay different answers.
+**Events already on
+the chain are searched for** with `eth_getLogs` (`logs`, over a `LogFilter`),
+which is the only way to a `Log` that is not in a receipt the caller just got;
+the node's own range and response limits apply and the SDK does not split a
+filter up to stay inside them.
 **Provider events are subscribed to** through
 a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 `on_disconnect` take a plain callback and answer with a `Subscription` handle.
@@ -26,22 +45,25 @@ a separate `EventSource` trait: `on_accounts_changed`, `on_chain_changed` and
 values (`encode`, `decode`, `encode_call`, `selector`, `event_topic`), and
 `contract/` puts `Contract::call` / `Contract::send` and an `Erc20` preset on
 top of `eth_call` / `eth_sendTransaction`, and `deploy` on top of a transaction
-with no recipient. Message signing is planned but not
-implemented — do not describe it as available. Neither is decoding a _log_ into
-an event's arguments: a `Log`'s `topics` are still raw `Hex`, though
-`@abi.decode` reads its `data` and `@abi.event_topic` computes the topic to
-match `topics[0]` against. Callers reach unwrapped methods through the generic
-`Provider::request` escape hatch.
+with no recipient. **A log is read back** through `@abi.decode_log`
+(`EventParam`, #79): it checks `topics[0]`, reads the `indexed` arguments out of
+the remaining topics and the rest out of `data`, and answers in declaration
+order — `@erc20.Erc20::decode_transfer` is that for `Transfer`. Two things it
+deliberately does not do, both documented where they bite: an indexed `string` /
+`bytes` / array / struct comes back as the `keccak256` the topic holds, because
+that is all the log ever carried, and an `anonymous` event is not decoded at all,
+because its log has no `topics[0]` to match. Callers reach unwrapped methods
+through the generic `Provider::request` escape hatch.
 **Messages are signed by the wallet** through `personal_sign` (`sign_message`,
 over a `String` the SDK hands over as UTF-8 bytes in hex) and
 `eth_signTypedData_v4` (`sign_typed_data`, over a `TypedData` — the EIP-712
 document as a validated value, serialized on the wire) — both answer with the
-signature as `Hex`. Neither hashes anything: the wallet computes the digest, so
-`TypedData` validates a document but does not encode one. Computing the digest
-locally is #45, and EIP-1271 is what will need it. There is no
-ABI layer yet either, so a call's `data`, its answer and a log's `topics` /
-`data` are raw `Hex`. Callers
-reach unwrapped methods through the generic `Provider::request` escape hatch.
+signature as `Hex`. Neither call hashes anything — the wallet computes the
+digest — but `TypedData` can now compute it too (`digest`, #45), which is what
+EIP-1271 will need. **Which** document to sign is `eips/`: EIP-3009's three
+authorizations are built there, so a stablecoin can be moved by a holder with no
+ether. Submitting one is #73 and is not implemented — do not describe it as
+available.
 
 **The SDK is stateless.** It caches no current account and no current chain:
 events are delivered to callbacks and nowhere else, and every read goes to the
@@ -67,20 +89,57 @@ Layout:
 - `codec/` — the wire's own arithmetic, and nothing else: hex digits (`nibble`,
   `bytes_of_digits`, `digits_of_bytes`, `hex_body`), the 32-byte word
   (`WORD_BYTES` / `WORD_DIGITS` / `WORD_BITS`, two's complement, padding in
-  either unit), and the ABI's width and size rules as predicates. A leaf
+  either unit), the decimal point's arithmetic (`decimal_parts` /
+  `decimal_scale` / `decimal_unscale`, what `Wei::from_units` is built from),
+  and the ABI's width and size rules as predicates. A leaf
   package: it names no domain type and has no error type of its own, so every
   layer above states each rule once and raises whichever error is its own
 - `types/` — `Address`, `Hex`, `TxHash`, `BlockHash`, `ChainId`, `Wei`,
   `Quantity`, `BlockTag`, `CallRequest`, `TransactionRequest`, `Fee`,
-  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, codecs. Also
+  `ChainParams`, `Block`, `TransactionReceipt`, `Log`, `LogFilter`, `Topic`,
+  codecs. Also
   `AbiType` / `AbiValue` / `AbiError`, whose definitions belong with the domain
-  types both `abi` and `eip712` build on; the arithmetic their rules are stated
+  types both `abi` and `eips/eip712` build on; the arithmetic their rules are stated
   in is `codec`'s
-- `eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
+- `eips/` — one package per EIP that is a _document to be signed_ rather than a
+  transport or a type. They stack: `eips/eip712` says how any document is
+  hashed, and everything else under `eips/` states which document. Nothing here
+  reaches a node — an EIP-3009 authorization is signed by a wallet and submitted
+  by somebody else entirely, so the layer that submits it (`contract/erc20/`) is
+  the _caller_ of these packages and never the other way round
+- `eips/eip712/` — `TypedData` / `TypedDataDomain` / `TypedDataField`: the document, the
   validation it does when it is built, and the digest a wallet signs
   (`encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator` /
   `digest`). Depends on `types`, `codec` and `crypto`; only `sign_typed_data`
-  needs it, and the root re-exports the three types as `@endor.TypedData` &c
+  needs it, and the root re-exports the three types as `@endor.TypedData` &c.
+  What every _token extension_ EIP needs of a domain lives here rather than in
+  each of them: `TypedDataDomain::for_token` builds the four-field domain both
+  EIP-2612 and EIP-3009 bind to, and `check_separator` compares it against the
+  `DOMAIN_SEPARATOR()` the verifying contract publishes
+- `eips/eip3009/` — EIP-3009 _Transfer With Authorization_: `Authorization` and
+  `CancelAuthorization`, and the `@eip712.TypedData` each becomes
+  (`TransferWithAuthorization` / `ReceiveWithAuthorization` /
+  `CancelAuthorization`), plus `domain`, which fixes the three domain fields the
+  standard fixes. This is how a stablecoin moves for a holder with no ether: the
+  holder signs, anybody submits. It builds documents and **calls no contract** —
+  the ERC-20 preset that sends `transferWithAuthorization` is
+  [#73](https://github.com/poteto0/endor.mbt/issues/73) and will read the
+  authorization back through its accessors. The nonce is 32 random bytes drawn
+  by the caller, because this package owns no randomness. Its type hashes are
+  checked against the constants USDC's own `EIP3009.sol` declares
+- `eips/eip2612/` — EIP-2612 _permit_: `Permit` and the `@eip712.TypedData` it
+  becomes, plus `domain`. The ERC-20 approval signed instead of sent, so the
+  spender submits `permit` alongside its own call. It **calls no contract**
+  either, but unlike EIP-3009 it cannot: a permit's nonce is the token's counter
+  (`nonces(owner)`) and its domain is checkable against the token's
+  `DOMAIN_SEPARATOR()`, so both are read by `contract/erc20/` — which is where
+  every contract call in this repository lives — and passed _in_. That is the
+  layer split to keep: `eips/` decides what a document says, `contract/` asks
+  the chain. The comparison itself is `@eip712.TypedDataDomain::check_separator`
+  rather than anything here, since nothing about it is EIP-2612's; it cannot
+  catch DAI's non-standard permit, whose domain is ordinary and whose _message_
+  is not, and building that document is out of scope. Its type hash is checked
+  against the `PERMIT_TYPEHASH` constant every EIP-2612 token declares
 - `crypto/` — `keccak256`, the hash every Ethereum identifier is built from
   (function selectors, event topics, EIP-55 checksums, EIP-712 hashing). A leaf
   package depending on nothing else in the module, so the layers above can use
@@ -96,7 +155,10 @@ Layout:
   creation code as well and so also generates a `creation_code()` and a
   `deploy`. Bytecode is validated as hex while generating, which is what lets
   the generated `Hex::from_string` be infallible; bytecode that cannot be
-  deployed is skipped with its reason, never embedded. It emits text and nothing else,
+  deployed is skipped with its reason, never embedded. An `error` entry becomes
+  an entry of the generated `errors()`, which `new` hands to the `Contract` so
+  reverts come back decoded; those carry every ABI type rather than only the
+  ones a generated _signature_ may name, since nothing is passed to an error. It emits text and nothing else,
   so it depends on `abi` (to resolve and validate the declared types) and on
   neither `contract` nor `provider`, whose names it only ever spells. It
   translates what it can type unambiguously and skips the rest by name rather
@@ -106,12 +168,25 @@ Layout:
   it is read, because the name is the one thing out of the document that
   reaches the generated source verbatim
 - `contract/` — `Contract`, which is `call` / `send` with the arguments encoded
-  and the answer decoded, plus the `Erc20` preset and `deploy` /
+  and the answer decoded, plus the `Erc20` preset — the standard interface **and
+  its common extensions**, which is why `nonces` and `DOMAIN_SEPARATOR()` are on
+  it and why `transferWithAuthorization`
+  ([#73](https://github.com/poteto0/endor.mbt/issues/73)) will be; a token
+  without the extension fails at call time, as any missing function does — and
+  `deploy` /
   `send_deployment`, which are the same thing for a transaction with no
   recipient: creation code with the constructor's arguments encoded behind it,
   and the address the receipt names. `ContractError` keeps the wallet's failures
   (`Rpc`) apart from the ABI's (`Abi`) and from a deployment that left no
-  contract behind (`Deployment`)
+  contract behind (`Deployment`), and apart again from **the contract refusing**:
+  `revert_error` reads the revert `@provider.ProviderError::Reverted` carries
+  into `Revert(reason)` (`Error(string)`), `Panic(code)` (the compiler's own
+  checks, `panic_reason`) or `CustomError(selector~, name~, args~, data~)`. A
+  custom error decodes down to its arguments only when the caller passed the
+  `ErrorDef`s — `Contract::new(address, errors~)`, which `abi/codegen`
+  generates — because a revert names its error by selector and nothing on the
+  wire says what it was called. Which key a node hides the revert under is not
+  standardized, so `ProviderError::from_code` reads the three that occur
 - `provider/` — public SDK surface: `Provider` trait, `ProviderError`, typed RPC
   helpers, `MockProvider`; backend-agnostic
 - `provider/browser/` — `BrowserProvider`, the injected `globalThis.ethereum`
@@ -135,7 +210,7 @@ Layout:
   before the SDK can reach a real node, and the shared skip/install/task-group
   protocol (`run`). Backend-agnostic, no FFI
 - `backend/env/` — where `ENDOR_E2E_RPC_URL` is read, and nothing else. Its own
-  package because the URL is the *suite's* configuration rather than any one
+  package because the URL is the _suite's_ configuration rather than any one
   backend's: `backend/http` needs it and must not import `backend/anvil`, which
   installs a fake wallet, merely to learn it. Pure MoonBit over
   `moonbitlang/core/env`, so it pins no backend — an environment variable is
@@ -264,10 +339,29 @@ Layout:
   accepts) belongs there; anything only an extension can prove belongs in the
   manual checklist in `docs/e2e.md`.
 - Every check CI runs is a `just` recipe, so it reproduces locally with one
-  command. GitHub Actions gates on two: `just ci-check`, which is also what
-  `.githooks/pre-commit` runs and therefore must never need a node, and
-  `just e2e`, in its own job with an Anvil started by `just anvil`. Add a
-  check to the matching recipe, not only to the workflow.
+  command. GitHub Actions gates on two: `just ci-check`, which must never need
+  a node, and `just e2e`, in its own job with an Anvil started by `just anvil`.
+  Add a check to the matching recipe, not only to the workflow.
+- `.githooks/pre-commit` runs `just precommit`, which is `ci-check`'s checks
+  _selected by the staged diff_ — the whole set is a gate the PR already has,
+  and paying for it on every commit is #96. The selection is
+  `scripts/precommit.sh`, whose header states which staged path pulls in which
+  check; scoped `unit-test` follows the import graph out of `moon.pkg`, so a
+  change under `types/` still tests `abi/`. Add a check to `ci-check` and it
+  runs pre-commit too: the script reads that recipe's list rather than copying
+  it, and skips only what it is told to. Say when a new one may be skipped, or
+  leave it running always.
+- `scripts/` is repository tooling a recipe calls when the recipe would
+  otherwise be a shell program with a `just` header on it. It decides _which_
+  checks run; how a check runs stays in the `justfile`, so there is one place
+  to read a command out of. Excluded from the published archive, like `docs/`.
+- The MoonBit toolchain is pinned in `.github/actions/setup`, because it is
+  released nightly and a release that changes generated output turns every open
+  PR red at once. Bump it in its own PR, carrying whatever `just info`, `just
+fmt` and the dependency bumps that version wants, and install the same version
+  locally (`MOONBIT_INSTALL_VERSION=… curl -fsSL
+https://cli.moonbitlang.com/install/unix.sh | bash`) so `just ci-check` still
+  answers what CI will.
 
 ## Releasing
 

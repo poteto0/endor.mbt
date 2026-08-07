@@ -38,7 +38,9 @@ Errors are documented once, in the guide: [Errors](/guide/errors/).
 | `endor` (root)           | re-exports the domain types, so they can be spelled `@endor.Address`                                        |
 | `endor/types`            | `Address`, `Hex`, `ChainId`, `Wei`, `Quantity`, `BlockTag`, `CallRequest`, `ChainParams` and their codecs   |
 | `endor/codec`            | the wire's arithmetic: hex digits, the 32-byte word, two's complement, the ABI's width rules                |
-| `endor/eip712`           | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                            |
+| `endor/eips/eip712`      | `TypedData` — the EIP-712 document, its validation and the digest a wallet signs                            |
+| `endor/eips/eip3009`     | `Authorization` — the EIP-3009 transfer a holder signs and somebody else submits                            |
+| `endor/eips/eip2612`     | `Permit` — the ERC-20 approval, signed instead of sent                                                      |
 | `endor/crypto`           | `keccak256` — the hash Ethereum builds its identifiers from; a leaf package, depending on nothing else here |
 | `endor/abi`              | ABI encode / decode, function selectors and event topics — `AbiType`, `AbiValue`, `AbiError`                |
 | `endor/contract`         | `Contract` — typed calls over the ABI layer — and `deploy`                                                  |
@@ -49,8 +51,10 @@ Errors are documented once, in the guide: [Errors](/guide/errors/).
 
 ## Backends
 
-`endor`, `endor/crypto`, `endor/codec`, `endor/types`, `endor/eip712`,
-`endor/abi`, `endor/contract` and `endor/provider` are backend-agnostic;
+`endor`, `endor/crypto`, `endor/codec`, `endor/types`, `endor/eips/eip712`,
+`endor/eips/eip3009`, `endor/eips/eip2612`, `endor/abi`, `endor/contract` and
+`endor/provider` are
+backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
 whole point there is a browser-injected object.
 

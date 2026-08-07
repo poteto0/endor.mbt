@@ -21,6 +21,7 @@ pub(all) suberror CodecError {
   InvalidLength(String)
   InvalidJson(String)
   InvalidChecksum(String)
+  InvalidDecimal(String)
 } derive(Eq)
 pub impl Show for CodecError
 
@@ -163,6 +164,12 @@ pub fn Hex::to_json(Self) -> Json
 pub fn Hex::to_string(Self) -> String
 pub impl Show for Hex
 
+pub(all) enum Inclusion {
+  Pending
+  Mined(block_hash~ : BlockHash, block_number~ : UInt64, transaction_index~ : UInt64)
+} derive(Eq, @debug.Debug)
+pub impl Show for Inclusion
+
 pub(all) struct Log {
   address : Address
   topics : Array[Hex]
@@ -174,8 +181,16 @@ pub(all) struct Log {
   log_index : UInt64
   removed : Bool
 } derive(Eq, @debug.Debug)
+pub fn Log::array_from_json(Json) -> Array[Self] raise CodecError
 pub fn Log::from_json(Json) -> Self raise CodecError
 pub impl Show for Log
+
+pub struct LogFilter {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn LogFilter::at_block(BlockHash, address? : Array[Address], topics? : Array[Topic?]) -> Self
+pub fn LogFilter::range(from_block? : BlockTag, to_block? : BlockTag, address? : Array[Address], topics? : Array[Topic?]) -> Self
+pub fn LogFilter::to_json(Self) -> Json
 
 pub struct NativeCurrency {
   // private fields
@@ -199,6 +214,29 @@ pub(all) enum ReceiptStatus {
   Reverted
 } derive(Eq, @debug.Debug)
 pub impl Show for ReceiptStatus
+
+pub struct Topic {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Topic::any_of(Array[Hex]) -> Self raise CodecError
+pub fn Topic::exactly(Hex) -> Self raise CodecError
+pub fn Topic::to_json(Self) -> Json
+
+pub(all) struct Transaction {
+  hash : TxHash
+  inclusion : Inclusion
+  from : Address
+  to : Address?
+  nonce : Quantity
+  value : Wei
+  input : Hex
+  gas : Quantity
+  fee : Fee
+  chain_id : ChainId?
+  transaction_type : UInt64?
+} derive(Eq, @debug.Debug)
+pub fn Transaction::from_json(Json) -> Self raise CodecError
+pub impl Show for Transaction
 
 pub(all) struct TransactionReceipt {
   transaction_hash : TxHash
@@ -236,16 +274,21 @@ pub struct Wei {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Wei::from_bigint(@bigint.BigInt) -> Self
+pub fn Wei::from_ether(String) -> Self raise CodecError
+pub fn Wei::from_gwei(String) -> Self raise CodecError
 pub fn Wei::from_hex(String) -> Self raise CodecError
 pub fn Wei::from_int(Int) -> Self
 pub fn Wei::from_json(Json) -> Self raise CodecError
+pub fn Wei::from_units(String, decimals~ : Int) -> Self raise CodecError
 pub fn Wei::to_bigint(Self) -> @bigint.BigInt
+pub fn Wei::to_ether(Self) -> String
+pub fn Wei::to_gwei(Self) -> String
 pub fn Wei::to_hex(Self) -> String
 pub fn Wei::to_json(Self) -> Json
+pub fn Wei::to_units(Self, decimals~ : Int) -> String
 pub fn Wei::zero() -> Self
 pub impl Show for Wei
 
 // Type aliases
 
 // Traits
-

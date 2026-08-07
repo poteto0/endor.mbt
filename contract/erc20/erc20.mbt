@@ -6,6 +6,9 @@
 /// in the token's own smallest unit — `decimals` says where the point goes, and
 /// dividing by it is a presentation concern the SDK stays out of, exactly as it
 /// does for `Wei`.
+/// This includes the EIP-2612 permit extension, which is not part of ERC-20 but is
+/// ERC20Permit.
+/// refs: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts%2Ftoken%2FERC20%2Fextensions%2FIERC20Permit.sol
 ///
 /// ```
 /// async fn[P : @provider.Provider] holdings(
@@ -24,8 +27,47 @@ pub struct Erc20 {
 
 ///|
 /// Point at a deployed token.
+///
+/// The token is read against `standard_errors()`, so a modern implementation
+/// that refuses a transfer comes back saying which rule it broke.
 pub fn Erc20::new(address : @types.Address) -> Erc20 {
-  Erc20::{ contract: @contract.Contract::new(address) }
+  Erc20::{
+    contract: @contract.Contract::new(address, errors=standard_errors()),
+  }
+}
+
+///|
+/// The errors [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093) standardized
+/// for ERC-20, which is what OpenZeppelin's implementation reverts with since
+/// v5 — `transfer` beyond a balance is `ERC20InsufficientBalance(sender,
+/// balance, needed)` rather than a string.
+///
+/// They are declared here because a preset is where an interface is spelled
+/// once, and a token that reverts with none of them loses nothing: a
+/// declaration only ever *decodes* a revert, and one whose selector does not
+/// match is not tried.
+///
+/// ```mbt check
+/// test "doc: the errors an ERC-20 may revert with" {
+///   let names = @erc20.standard_errors().map(e => e.name)
+///   inspect(names.contains("ERC20InsufficientBalance"), content="true")
+/// }
+/// ```
+pub fn standard_errors() -> Array[@contract.ErrorDef] {
+  [
+    { name: "ERC20InvalidSender", inputs: [Address] },
+    { name: "ERC20InvalidReceiver", inputs: [Address] },
+    { name: "ERC20InvalidApprover", inputs: [Address] },
+    { name: "ERC20InvalidSpender", inputs: [Address] },
+    {
+      name: "ERC20InsufficientBalance",
+      inputs: [Address, Uint(256), Uint(256)],
+    },
+    {
+      name: "ERC20InsufficientAllowance",
+      inputs: [Address, Uint(256), Uint(256)],
+    },
+  ]
 }
 
 ///|
@@ -166,8 +208,114 @@ pub async fn[P : @provider.Provider] Erc20::approve(
 }
 
 ///|
+/// `owner`'s permit counter — `nonces(address)`.
+///
+/// Part of [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612) rather than of
+/// ERC-20, so a token without permit support has no such getter and this fails
+/// as any other call to a function an address does not have. It is what a
+/// `@eip2612.Permit` is signed against: it goes up by one each time a permit is
+/// used, so it has to be read afresh for each signature, and two permits signed
+/// against the same nonce are one permit of which only the first submitted
+/// takes effect.
+pub async fn[P : @provider.Provider] Erc20::nonces(
+  self : Erc20,
+  provider : P,
+  owner : @types.Address,
+) -> BigInt raise @contract.ContractError {
+  @contract.uint_answer(
+    self.contract.call(
+      provider,
+      name="nonces",
+      inputs=[Address],
+      args=[Address(owner)],
+      outputs=[Uint(256)],
+    ),
+    what="nonces",
+  )
+}
+
+///|
+/// The EIP-712 domain the token verifies signatures under —
+/// `DOMAIN_SEPARATOR()`.
+///
+/// Also EIP-2612's rather than ERC-20's. It is a hash, so it cannot be read
+/// back into a domain — what it is for is the other direction: hand it to
+/// `@eip712.TypedDataDomain::check_separator` on the domain you built, and a
+/// `name`, `version`
+/// or chain that is not the token's own is caught before the user is asked to
+/// sign something the token will reject.
+pub async fn[P : @provider.Provider] Erc20::domain_separator(
+  self : Erc20,
+  provider : P,
+) -> @types.Hex raise @contract.ContractError {
+  @types.Hex::from_bytes(
+    @contract.bytes_answer(
+      self.contract.call(provider, name="DOMAIN_SEPARATOR", outputs=[
+        FixedBytes(32),
+      ]),
+      what="DOMAIN_SEPARATOR",
+    ),
+  )
+}
+
+///|
 /// `topics[0]` of the log a transfer writes — `Transfer(address,address,uint256)`.
 /// What a receipt's logs are matched against to find the transfers in it.
 pub fn Erc20::transfer_topic() -> @types.Hex {
   @abi.event_topic("Transfer(address,address,uint256)")
+}
+
+///|
+/// One `Transfer` log, read back as `(from, to, value)`.
+///
+/// The other half of `transfer_topic`: that one finds a transfer among a
+/// receipt's logs, this one says who sent what to whom. `from` and `to` are
+/// `indexed`, so they were topics rather than data — which is exactly the
+/// reassembly a caller should not be doing by hand.
+///
+/// A log of another event raises `Abi`: a receipt holds the logs of every
+/// contract the transaction touched, so filtering by `topics[0]` is not
+/// optional.
+///
+/// ```
+/// fn transfers(
+///   receipt : @endor.TransactionReceipt,
+///   token : @endor.Address,
+/// ) -> Array[(@endor.Address, @endor.Address, BigInt)] raise @contract.ContractError {
+///   // one hash, not one per log
+///   let topic = @erc20.Erc20::transfer_topic()
+///   let out = []
+///   for log in receipt.logs {
+///     if log.address == token && log.topics.get(0) is Some(t) && t == topic {
+///       out.push(@erc20.Erc20::decode_transfer(log))
+///     }
+///   }
+///   out
+/// }
+/// ```
+pub fn Erc20::decode_transfer(
+  log : @types.Log,
+) -> (@types.Address, @types.Address, BigInt) raise @contract.ContractError {
+  let values = @abi.decode_log(
+    name="Transfer",
+    params=[
+      { ty: Address, indexed: true },
+      { ty: Address, indexed: true },
+      { ty: Uint(256), indexed: false },
+    ],
+    topics=log.topics,
+    data=log.data,
+  ) catch {
+    e => raise @contract.Abi(e)
+  }
+  // unreachable: `decode_log` answers with the types named just above, or
+  // raises
+  guard values is [Address(from), Address(to), Uint(value)] else {
+    raise @contract.Abi(
+      @types.InvalidData(
+        "Transfer(address,address,uint256) did not decode as its own types",
+      ),
+    )
+  }
+  (from, to, value)
 }

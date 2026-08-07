@@ -22,4 +22,3 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T]
 pub(open) trait HttpTransport {
   async fn post(Self, String) -> String raise @provider.ProviderError
 }
-

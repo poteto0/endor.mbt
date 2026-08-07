@@ -2,10 +2,11 @@
 /// One event a transaction emitted, as a receipt carries it.
 ///
 /// `topics` is the indexed part — the first is the event signature hash for
-/// anything but an anonymous event — and `data` the ABI-encoded rest. There is
-/// no ABI layer yet, so both arrive as raw `Hex` for the caller to decode; the
-/// fields around them are what a caller needs in order to know *where* the
-/// event happened without decoding anything.
+/// anything but an anonymous event — and `data` the ABI-encoded rest. Both
+/// arrive as raw `Hex`, because what they mean is the event's declaration and
+/// not this type's business: `@abi.decode_log` takes the two together and
+/// answers with the arguments. The fields around them are what a caller needs
+/// in order to know *where* the event happened without decoding anything.
 ///
 /// `removed` is `true` when the log belonged to a block a reorg dropped, which
 /// is the one case where an already-observed event stops being true.
@@ -39,17 +40,9 @@ pub impl Show for Log with fn output(self, logger) {
 /// Decode the JSON object a node answers with inside a receipt's `logs`.
 pub fn Log::from_json(j : Json) -> Log raise CodecError {
   let fields = json_object(j, what="log")
-  let topics = []
-  for
-    topic in json_array(
-      required_field(fields, "topics", what="log"),
-      what="topics",
-    ) {
-    topics.push(Hex::from_json(topic))
-  }
   Log::{
     address: Address::from_json(required_field(fields, "address", what="log")),
-    topics,
+    topics: array_field(fields, "topics", what="log", Hex::from_json),
     data: Hex::from_json(required_field(fields, "data", what="log")),
     block_number: quantity_field(fields, "blockNumber", what="log"),
     block_hash: BlockHash::from_json(
@@ -66,13 +59,8 @@ pub fn Log::from_json(j : Json) -> Log raise CodecError {
 }
 
 ///|
-/// A required hex-quantity field, decoded to the number it denotes. Block
-/// numbers and indices are all this shape, so the receipt and block decoders
-/// read them through here rather than spelling out the two steps each time.
-fn quantity_field(
-  fields : Map[String, Json],
-  name : String,
-  what~ : String,
-) -> UInt64 raise CodecError {
-  Quantity::from_json(required_field(fields, name, what~)).to_uint64()
+/// Decode the JSON array of logs `eth_getLogs` answers with. A node that
+/// matched nothing answers with an empty array, not with `null`.
+pub fn Log::array_from_json(j : Json) -> Array[Log] raise CodecError {
+  json_array_of(j, what="logs", Log::from_json)
 }

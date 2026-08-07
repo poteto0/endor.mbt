@@ -1,5 +1,5 @@
 import {
   "poteto0/endor/types",
-  "poteto0/endor/eip712",
+  "poteto0/endor/eips/eip712",
   "moonbitlang/core/debug",
 }

@@ -68,14 +68,7 @@ pub fn TransactionReceipt::from_json(
   j : Json,
 ) -> TransactionReceipt raise CodecError {
   let fields = json_object(j, what="receipt")
-  let logs = []
-  for
-    log in json_array(
-      required_field(fields, "logs", what="receipt"),
-      what="logs",
-    ) {
-    logs.push(Log::from_json(log))
-  }
+  let logs = array_field(fields, "logs", what="receipt", Log::from_json)
   TransactionReceipt::{
     transaction_hash: TxHash::from_json(
       required_field(fields, "transactionHash", what="receipt"),

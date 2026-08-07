@@ -103,8 +103,23 @@ each other is what `TypedData::new` does.
 Nothing is hashed locally: the **wallet** computes the digest, which is why
 signing needs no keccak256 here even though `crypto/` has it.
 
-`endor/eip712` does implement the EIP-712 hashing — `encodeType`, `typeHash`,
+`endor/eips/eip712` does implement the EIP-712 hashing — `encodeType`, `typeHash`,
 `encodeData`, `hashStruct`, `domainSeparator`, `digest` — for the callers that
 need the digest itself. Wiring it into signing is
 [#45](https://github.com/poteto0/endor.mbt/issues/45), and the thing that will
 need it is EIP-1271, not this.
+
+## Documents a standard already fixed
+
+The document above is written by hand, and its `Permit` is a made-up type that
+happens to share a name with a real one. When a standard fixes the document, the
+SDK builds it, and each answers with the same `@endor.TypedData` this page signs:
+
+| Package              | Document                                                | Recipe                                                      |
+| -------------------- | ------------------------------------------------------- | ----------------------------------------------------------- |
+| `endor/eips/eip3009` | the transfer a holder signs and somebody else submits    | [Transfer without gas](../../cookbook/gasless-transfer/)     |
+| `endor/eips/eip2612` | `Permit` — the real one: an ERC-20 approval, signed      | [Approve without a transaction](../../cookbook/permit/)      |
+
+Reach for one of those before writing the document by hand. A standard's
+document is fixed member for member, and a member misspelled or reordered
+produces a signature that verifies as nothing.

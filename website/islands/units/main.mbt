@@ -1,10 +1,10 @@
 ///|
-/// Where the decimal point goes, and why the SDK will not move it for you.
+/// Where the decimal point goes: `Wei::from_units` and `Wei::to_units`, driven
+/// from a text box.
 ///
-/// The SDK deals in whole smallest units — `Wei` for the chain's own currency,
-/// a `BigInt` for a token — because only `decimals` says where the point
-/// belongs, and it is read from the token. Scaling is therefore a job for the
-/// layer with the text input in it, which is exactly what this widget is.
+/// The scale is not the SDK's to guess — only `decimals` says where the point
+/// belongs, and it is read from the token — so it is passed in, which is what
+/// the second box is.
 ///
 /// Type more decimals than the currency has and it refuses rather than rounds.
 using @element {div, type DomNode}
@@ -44,7 +44,7 @@ fn View::units(self : View) -> BigInt? {
 
 ///|
 fn View::render(self : View) -> DomNode {
-  @ui.panel("Scaling an amount — the SDK does none of this for you", [
+  @ui.panel("Scaling an amount — Wei::from_units, and back", [
     @ui.row([
       @ui.text_input(placeholder="0.015", self.amount),
       @ui.text_input(placeholder="18", self.decimals),
