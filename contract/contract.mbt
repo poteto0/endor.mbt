@@ -55,6 +55,11 @@ pub fn Contract::address(self : Contract) -> @types.Address {
 /// It prompts no one and costs nothing, so `from` is only worth setting for a
 /// contract that reads `msg.sender`. `block` reads at some other point in the
 /// chain's history, exactly as it does for the plain RPC helpers.
+///
+/// The three steps are `prepare`, `@provider.call` and `PreparedCall::decode`,
+/// spelled out rather than inlined: this is the one call path, and a batched
+/// read (`@multicall.Multicall3`) is the same encode and the same decode with
+/// somebody else's request in the middle.
 pub async fn[P : @provider.Provider] Contract::call(
   self : Contract,
   provider : P,
@@ -65,14 +70,16 @@ pub async fn[P : @provider.Provider] Contract::call(
   from? : @types.Address,
   block? : @types.BlockTag,
 ) -> Array[@abi.AbiValue] raise ContractError {
-  let data = @abi.encode_call(name~, inputs~, args~) catch { e => raise Abi(e) }
-  let request = @types.CallRequest::new(self.at, from?, data~)
+  let prepared = self.prepare(name~, inputs~, args~, outputs~)
+  let request = @types.CallRequest::new(
+    prepared.target(),
+    from?,
+    data=prepared.data(),
+  )
   let answer = @provider.call(provider, request, block?) catch {
     e => raise revert_error(e, errors=self.errors)
   }
-  @abi.decode(outputs, answer) catch {
-    e => raise Abi(e)
-  }
+  prepared.decode(answer)
 }
 
 ///|
