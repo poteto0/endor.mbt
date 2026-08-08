@@ -6,7 +6,6 @@
 // adding a snippet never means editing this file.
 
 import {
-  "moonbitlang/core/env",
   "poteto0/endor",
   "poteto0/endor/codec",
   "poteto0/endor/crypto",

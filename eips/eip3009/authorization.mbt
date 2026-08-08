@@ -16,18 +16,12 @@
 ///
 /// ```mbt check
 /// test "doc: sign a transfer authorization" {
-///   // the nonce is 32 bytes off the platform's own CSPRNG — never a counter,
-///   // never a clock. `@env.rand` is `moonbitlang/core`'s, and reaches
-///   // `crypto.getRandomValues` on js and `random_get` on wasm
-///   guard @env.rand(32) is Some(entropy) else {
-///     fail("this platform has no entropy source")
-///   }
 ///   let auth = Authorization::new(
 ///     from=@types.Address::from_string("0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"),
 ///     to=@types.Address::from_string("0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
 ///     value=1000000,
 ///     valid_before=2000000000,
-///     nonce=@types.Hex::from_bytes(entropy),
+///     nonce=draw_nonce(),
 ///   )
 ///   let document = auth.transfer_typed_data(
 ///     domain(
@@ -74,20 +68,11 @@ pub struct Authorization {
 ///
 /// The `nonce` is 32 random bytes and **not** a counter: it is what the token
 /// marks as used, so two authorizations signed with the same one are the same
-/// authorization, and only the first to be submitted takes effect. Drawing it
-/// is the caller's, because randomness is not this package's to own — and it
-/// has to be *drawn*: a nonce a third party can predict is an authorization
-/// that party can burn before the intended submitter gets to it. Two lines,
-/// against `moonbitlang/core`'s entropy source rather than anything of ours:
-///
-/// ```mbt nocheck
-/// guard @env.rand(32) is Some(entropy) else { ... }
-/// let nonce = @types.Hex::from_bytes(entropy)
-/// ```
-///
-/// `None` means the platform has no CSPRNG, which today is only `wasm-gc`.
-/// There is nothing to fall back to — a clock or a counter is exactly the
-/// predictable nonce above — so it is a failure, not a degraded mode.
+/// authorization, and only the first to be submitted takes effect. It has to
+/// be *drawn*: a nonce a third party can predict is an authorization that
+/// party can burn before the intended submitter gets to it. `draw_nonce()` is
+/// that draw, and passing anything else — a counter, a timestamp — is the
+/// caller saying they meant to.
 ///
 /// The widths are checked here as well as by `@eip712.TypedData::new`, which
 /// checks every message against the type it declares. That is deliberate: an

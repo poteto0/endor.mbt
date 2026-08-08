@@ -27,9 +27,9 @@ fn bob() -> @types.Address raise @types.CodecError {
 }
 
 ///|
-/// The nonce every fixture is signed against. A real one is 32 random bytes,
-/// drawn the way "a drawn nonce" below draws one; this one is fixed so the
-/// hashes checked against `cast` are fixed too.
+/// The nonce every fixture is signed against. A real one comes off
+/// `draw_nonce`; this one is fixed so the hashes checked against `cast` are
+/// fixed too.
 fn nonce() -> @types.Hex raise @types.CodecError {
   @types.Hex::from_string(
     "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -155,26 +155,6 @@ test "authorization reads back" {
     auth.nonce().to_string(),
     content="0x0000000000000000000000000000000000000000000000000000000000000001",
   )
-}
-
-///|
-test "a drawn nonce" {
-  guard @env.rand(32) is Some(entropy) else {
-    fail("this target has no entropy source")
-  }
-  let nonce = @types.Hex::from_bytes(entropy)
-  let auth = @eip3009.Authorization::new(
-    from=alice(),
-    to=bob(),
-    value=1000000,
-    valid_before=2000000000,
-    nonce~,
-  )
-  inspect(auth.nonce().byte_length(), content="32")
-  guard @env.rand(32) is Some(again) else {
-    fail("this target has no entropy source")
-  }
-  assert_not_eq(@types.Hex::from_bytes(again), nonce)
 }
 
 ///|
