@@ -1,11 +1,8 @@
 import {
   "moonbitlang/core/bigint",
   "moonbitlang/core/debug",
+  "moonbitlang/core/env",
   "poteto0/endor/types",
-  // an EIP-3009 authorization is an EIP-712 document and nothing else: this
-  // package decides what the document *says*, and `eip712` hashes it
   "poteto0/endor/eips/eip712",
-  // for `fits_uint`, so "this is a uint256" is stated where every other layer
-  // states it
   "poteto0/endor/codec",
 }
