@@ -141,8 +141,12 @@ while :; do
   pat=$(printf '%s\n' $want |
     sed 's#^#"poteto0/endor/#; s#^"poteto0/endor/\.$#"poteto0/endor#; s#$#"#' |
     paste -sd'|' -)
-  more=$(grep -lE "$pat" $pkgfiles | sed 's#/*moon\.pkg$##; s#^$#.#')
-  next=$(printf '%s\n%s\n' "$want" "$more" | sort -u)
+  # nothing importing the set is the answer for a package nobody imports yet —
+  # a new leaf. `grep -l` calls that exit 1, which `set -e` would read as the
+  # script having failed, so it is caught here and the blank line it leaves is
+  # dropped rather than growing the set by an empty package name.
+  more=$(grep -lE "$pat" $pkgfiles | sed 's#/*moon\.pkg$##; s#^$#.#' || true)
+  next=$(printf '%s\n%s\n' "$want" "$more" | grep -v '^$' | sort -u)
   [ "$next" != "$want" ] || break
   want=$next
 done
