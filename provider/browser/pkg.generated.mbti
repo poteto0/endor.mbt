@@ -33,6 +33,7 @@ pub(all) struct ProviderInfo {
   icon : String
   rdns : String
 }
+pub fn ProviderInfo::from_json(Json) -> Self?
 
 // Type aliases
 

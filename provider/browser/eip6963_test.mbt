@@ -73,10 +73,10 @@ test "on_announce delivers every announcement and unsubscribe stops it" {
 
   // asking again re-announces: enumeration has no end, and nothing is deduped
   // at this level
-  @browser.BrowserProvider::on_announce((_, _) => ()).unsubscribe()
+  @js.dispatch_window_event(event="eip6963:requestProvider")
   inspect(seen.length(), content="4")
   sub.unsubscribe()
-  @browser.BrowserProvider::on_announce((_, _) => ()).unsubscribe()
+  @js.dispatch_window_event(event="eip6963:requestProvider")
   inspect(seen.length(), content="4")
   uninstall_window_events()
 }
@@ -97,18 +97,26 @@ test "an announcement missing a required field is dropped" {
 }
 
 ///|
-async test "discover collects the announced wallets, deduped by rdns" {
+/// Run `setup` and `discover` with no await between them: `globalThis` is
+/// shared with every other test in this package, and only a stretch with no
+/// suspension point in it belongs to one test alone.
+async fn discovered(setup : () -> Unit) -> Array[@browser.DiscoveredWallet] {
   let mut found = []
-  // the whole setup sits inside the group and before the first suspension:
-  // `globalThis` is shared with every other test, and only a stretch with no
-  // await in it is this test's alone
   @async.with_task_group(_ => {
+    setup()
+    found = @browser.BrowserProvider::discover(timeout_ms=1)
+  })
+  found
+}
+
+///|
+async test "discover collects the announced wallets, deduped by rdns" {
+  let found = discovered(() => {
     install_window_events()
     install_announcing_wallets(two_wallets)
     // two rounds of announcements reach the same collector; `discover` asks
-    // once itself, and this second ask makes every wallet announce twice
-    @js.request_providers()
-    found = @browser.BrowserProvider::discover(timeout_ms=1)
+    // once itself, and this ask makes every wallet announce twice
+    @js.dispatch_window_event(event="eip6963:requestProvider")
   })
   inspect(found.length(), content="2")
   inspect(
@@ -133,11 +141,9 @@ async test "discover collects the announced wallets, deduped by rdns" {
 
 ///|
 async test "discover falls back to the injected wallet when nothing announces" {
-  let mut found = []
-  @async.with_task_group(_ => {
+  let found = discovered(() => {
     install_window_events()
     install_mock_ethereum()
-    found = @browser.BrowserProvider::discover(timeout_ms=1)
   })
   inspect(found.length(), content="1")
   inspect(found[0].info is None, content="true")
@@ -148,11 +154,9 @@ async test "discover falls back to the injected wallet when nothing announces" {
 
 ///|
 async test "discover answers empty when there is no wallet at all" {
-  let mut found = []
-  @async.with_task_group(_ => {
+  let found = discovered(() => {
     install_window_events()
     uninstall_mock_ethereum()
-    found = @browser.BrowserProvider::discover(timeout_ms=1)
   })
   inspect(found.is_empty(), content="true")
   uninstall_window_events()
@@ -162,11 +166,9 @@ async test "discover answers empty when there is no wallet at all" {
 /// A host with no `window` — a node runtime, a worker — must not take the page
 /// down: nothing registers, nothing announces, and unsubscribing is still safe.
 async test "discover on a host with no window falls back and does not raise" {
-  let mut found = []
-  @async.with_task_group(_ => {
+  let found = discovered(() => {
     uninstall_window_events()
     install_mock_ethereum()
-    found = @browser.BrowserProvider::discover(timeout_ms=1)
   })
   inspect(found.length(), content="1")
   inspect(found[0].info is None, content="true")

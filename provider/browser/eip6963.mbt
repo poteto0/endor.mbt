@@ -1,4 +1,13 @@
 ///|
+/// The two halves of the EIP-6963 handshake. The names live here rather than in
+/// `ffi/js`, which binds `window` and decides nothing about what is said over
+/// it.
+let announce_event : String = "eip6963:announceProvider"
+
+///|
+let request_event : String = "eip6963:requestProvider"
+
+///|
 /// What a wallet says about itself when it announces over
 /// [EIP-6963](https://eips.ethereum.org/EIPS/eip-6963).
 ///
@@ -18,7 +27,10 @@ pub(all) struct ProviderInfo {
 /// Decode an announcement's `info`. All four fields are required by EIP-6963,
 /// so an object missing any of them is not an announcement this SDK can key on
 /// and is answered with `None` — the caller drops it.
-fn ProviderInfo::from_json(json : Json) -> ProviderInfo? {
+///
+/// Public for the page that already has its own `eip6963:announceProvider`
+/// listener and wants the same reading of it.
+pub fn ProviderInfo::from_json(json : Json) -> ProviderInfo? {
   guard json is Object(obj) else { return None }
   fn field(name : String) -> String? {
     guard obj.get(name) is Some(String(s)) && s != "" else { return None }
@@ -69,15 +81,21 @@ pub(all) struct DiscoveredWallet {
 pub fn BrowserProvider::on_announce(
   handler : (ProviderInfo, BrowserProvider) -> Unit,
 ) -> @provider.Subscription {
-  let listener = @js.on_announce(handler=(info_json, eth) => {
+  let listener = @js.on_window_event(event=announce_event, handler=(detail, eth) => {
     // an announcement that does not carry the four required fields is dropped:
     // an event has nowhere to raise to
-    guard ProviderInfo::from_json(info_json) is Some(info) else { return }
+    guard detail is Object(obj) &&
+      obj.get("info") is Some(info_json) &&
+      ProviderInfo::from_json(info_json) is Some(info) else {
+      return
+    }
     handler(info, BrowserProvider::{ eth, })
   })
   // register first, then ask — a wallet answers synchronously
-  @js.request_providers()
-  @provider.Subscription::new(() => @js.remove_announce_listener(listener))
+  @js.dispatch_window_event(event=request_event)
+  @provider.Subscription::new(() => {
+    @js.remove_window_listener(event=announce_event, listener~)
+  })
 }
 
 ///|
@@ -96,6 +114,9 @@ pub fn BrowserProvider::on_announce(
 /// is not injected when discovery begins is not going to appear because we
 /// waited. The array is empty only when there is no wallet at all.
 ///
+/// A host with no `window` — a bare node runtime, a worker — skips the wait
+/// entirely: nobody there can answer.
+///
 /// ```
 /// async fn pick() -> Array[@browser.DiscoveredWallet] {
 ///   @browser.BrowserProvider::discover()
@@ -112,9 +133,13 @@ pub async fn BrowserProvider::discover(
     }
   })
   let injected = BrowserProvider::detect()
-  // a cancelled wait is still an answer: report the wallets already announced
-  @async.sleep(timeout_ms) catch {
-    _ => ()
+  // a host with no `window` has nobody to answer with: waiting out the deadline
+  // there would only delay the fallback
+  if @js.has_window_events() {
+    // a cancelled wait is still an answer: report the wallets already announced
+    @async.sleep(timeout_ms) catch {
+      _ => ()
+    }
   }
   sub.unsubscribe()
   if found.is_empty() && injected is Some(provider) {
