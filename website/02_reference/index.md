@@ -94,6 +94,12 @@ worked page.
 | `@browser.BrowserProvider::require()`   | `p`, or raises `NotInstalled`                        |
 | `@browser.BrowserProvider::is_metamask()` | whether the injected object identifies as MetaMask |
 | `@browser.BrowserProvider::has_events()`  | whether it exposes `on` / `removeListener`         |
+| `@browser.BrowserProvider::discover()`  | every wallet that announced itself (EIP-6963) within the deadline, falling back to the injected one |
+| `@browser.BrowserProvider::on_announce()` | a `Subscription` fed by EIP-6963 announcements as they arrive |
+
+`discover` is the one to draw a picker from; `on_announce` is the honest shape of
+EIP-6963, where enumeration never finishes. [Connect a
+wallet](/cookbook/connect/#two-wallets-installed) is the worked page.
 
 ## Testing without a wallet
 

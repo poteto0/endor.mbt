@@ -2,11 +2,11 @@ import {
   "poteto0/endor/provider",
   "poteto0/endor/ffi/js",
   "moonbitlang/core/debug",
-}
-
-import {
+  // shipped, not test-only: `discover` puts a deadline on EIP-6963 enumeration,
+  // which never ends on its own. `on_announce`, the primitive under it, is
+  // synchronous and needs none of this.
   "moonbitlang/async",
-} for "test"
+}
 
 // Inherited from `ffi/js`: `BrowserProvider` wraps the injected JS object.
 

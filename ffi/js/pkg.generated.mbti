@@ -9,17 +9,25 @@ import {
 // Values
 pub fn decode_envelope(String) -> Json raise JsError
 
+pub fn dispatch_window_event(event~ : String) -> Unit
+
 pub fn get_ethereum() -> Ethereum
 
 pub fn has_ethereum() -> Bool
 
 pub fn has_events(Ethereum) -> Bool
 
+pub fn has_window_events() -> Bool
+
 pub fn is_metamask(Ethereum) -> Bool
 
 pub fn on(Ethereum, event~ : String, handler~ : (Json) -> Unit) -> Listener
 
+pub fn on_window_event(event~ : String, handler~ : (Json, Ethereum) -> Unit) -> WindowListener
+
 pub fn remove_listener(Ethereum, event~ : String, listener~ : Listener) -> Unit
+
+pub fn remove_window_listener(event~ : String, listener~ : WindowListener) -> Unit
 
 pub fn request(Ethereum, String) -> @js_async.Promise[String]
 
@@ -38,6 +46,9 @@ pub type Ethereum
 
 #external
 pub type Listener
+
+#external
+pub type WindowListener
 
 // Type aliases
 
