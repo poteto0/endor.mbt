@@ -6,6 +6,13 @@ target
 .moonagent/
 _coverage/
 
+# nix (docs/nix.md): `result` is what `nix build` symlinks its output to, and
+# `.direnv/` is where nix-direnv caches the dev shell. `flake.lock` is *not*
+# here — it is the pin, and it is committed.
+result
+result-*
+.direnv/
+
 # build artifact copied next to the example's index.html by `just example`
 examples/demo/main.js
 # where `just codegen-check` puts the generated package it compiles. Its `trap`

@@ -81,7 +81,9 @@ const server = http.createServer((req, res) => {
     res.end('not found')
     return
   }
-  res.writeHead(200, { 'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream' })
+  res.writeHead(200, {
+    'content-type': TYPES[path.extname(file)] ?? 'application/octet-stream',
+  })
   res.end(fs.readFileSync(file))
 })
 await new Promise((done) => server.listen(PORT, done))
@@ -97,10 +99,16 @@ page.on('response', (r) => {
 let failed = 0
 for (const [url, island, marker] of CASES) {
   problems.length = 0
-  await page.goto(`http://localhost:${PORT}${url}`, { waitUntil: 'networkidle' })
+  await page.goto(`http://localhost:${PORT}${url}`, {
+    waitUntil: 'networkidle',
+  })
   // half the demos hydrate on `visible`, and a headless viewport shows only the
   // top of the page — scroll the island into view before waiting for it
-  await page.locator(island).first().scrollIntoViewIfNeeded().catch(() => {})
+  await page
+    .locator(island)
+    .first()
+    .scrollIntoViewIfNeeded()
+    .catch(() => {})
 
   const reasons = []
   try {
@@ -131,7 +139,9 @@ for (const [url, island, marker] of CASES) {
 }
 
 for (const [url, island, typed, expected] of INTERACTIONS) {
-  await page.goto(`http://localhost:${PORT}${url}`, { waitUntil: 'networkidle' })
+  await page.goto(`http://localhost:${PORT}${url}`, {
+    waitUntil: 'networkidle',
+  })
   const root = page.locator(island).first()
   await root.scrollIntoViewIfNeeded()
   await page.waitForSelector(`${island} .endor-demo`, { timeout: 15_000 })

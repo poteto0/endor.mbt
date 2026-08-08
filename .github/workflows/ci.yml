@@ -51,6 +51,13 @@ jobs:
       - name: Documentation examples check
         run: just docs-check
 
+      # the toolchain is pinned here *and* in `flake.nix`; this is the step
+      # that keeps them the same version. Pure text, so it belongs in this job
+      # rather than in the `nix` one below — a wrong pin should fail even when
+      # nothing nix ran.
+      - name: Toolchain pin agreement
+        run: just nix-pin-check
+
   # separate job: it is the only one that needs Node, and a broken site build
   # should read as "the docs broke", not as an SDK regression. Builds on every
   # PR; `deploy-docs.yml` is what publishes it.
@@ -74,6 +81,38 @@ jobs:
       # hydrated. The demos are MoonBit, so this fails when either half breaks.
       - name: Build the documentation site and hydrate its demos
         run: just docs-smoke
+
+  # separate job: the only one that needs nix, and the only one whose failure
+  # says nothing about the SDK — a red `nix` job means the *development
+  # environment* broke, which is exactly the thing a flake nobody checks stops
+  # being able to tell you. It repeats work the `ci` job does (`fmt-check`,
+  # `check`) on purpose: what is under test here is the shell those commands
+  # run in, not the commands.
+  nix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+
+      # `treefmt --ci` over the tree, plus the dev shell's tools, built and run
+      - name: Flake check
+        run: nix flake check -L
+
+      # that the shell is one this repository can actually be developed in: the
+      # MoonBit toolchain out of the flake, the dependencies it resolves, and
+      # two of the checks CI runs above — this time with nothing on PATH but
+      # what `nix develop` put there.
+      - name: Develop in it
+        run: |
+          nix develop --command bash -euo pipefail -c '
+            just nix-pin-check
+            moon update
+            just fmt-check
+            just check
+          '
 
   # separate job: the only one that needs a node, and its failures should read
   # as "the wire format broke", not as a unit-test regression
