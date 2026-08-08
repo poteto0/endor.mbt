@@ -221,8 +221,7 @@ async fn WalletView::connect(self : WalletView) -> Unit {
       if wallet.has_events() {
         "Connected. Watching the wallet for changes."
       } else {
-        // subscribing to such a wallet is inert, not fatal — say why nothing
-        // will update on its own
+        // subscribing to such a wallet is inert, not fatal
         "Connected. This wallet pushes no events, so the fields only update on a click."
       },
     )
@@ -243,8 +242,7 @@ async fn WalletView::connect(self : WalletView) -> Unit {
 async fn WalletView::switch_to(self : WalletView, chain : Chain) -> Unit {
   try {
     let wallet = @browser.BrowserProvider::require()
-    // `accounts` never prompts, so it tells us whether connecting already
-    // happened without opening a second wallet popup.
+    // `accounts` never prompts, so this costs no popup
     guard @provider.accounts(wallet).get(0) is Some(addr) else {
       self.status.set("Connect the wallet first.")
       return
@@ -321,9 +319,8 @@ async fn WalletView::send(self : WalletView) -> Unit {
     )
     self.tx.set(hash.to_string())
     self.status.set("Broadcast. It still has to be mined.")
-    // the sender is poorer by the value plus the fee, once mined — re-reading
-    // right away usually still shows the old balance, which is the honest
-    // picture until the receipt layer lands
+    // re-reading right away usually still shows the old balance: the sender is
+    // poorer by the value plus the fee only once mined
     self.show(wallet, from)
   } catch {
     NotInstalled =>
@@ -516,8 +513,8 @@ fn wallet_card() -> DomNode {
     field("Balance", view.balance),
     field("Chain id", view.chain),
     field("Last tx", view.tx),
-    // Wallets gate `eth_requestAccounts` behind a user gesture, so the flow is
-    // started from the click rather than on load.
+    // wallets gate `eth_requestAccounts` behind a user gesture, so this starts
+    // from the click rather than on load
     button(
       class="connect",
       on=events().click(_ => @js.spawn(() => view.connect())),

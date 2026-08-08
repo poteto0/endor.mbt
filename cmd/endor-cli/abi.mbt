@@ -122,8 +122,7 @@ fn generate_all(config : Config) -> Int {
     }
   }
   // a run where every document failed wrote no source, and a `moon.pkg` on its
-  // own is a package with nothing in it — worse, one that then sits in the
-  // output directory looking like the last run half worked
+  // own is a package with nothing in it
   if failed < inputs.length() {
     write_package_config(config.abi_out)
   }
@@ -177,9 +176,8 @@ fn generate_one(input : String, config : Config) -> Result[Int, String] {
   @fs.write_string_to_file(out, generated.code) catch {
     e => return Err("cannot write \{out}: \{@debug.to_string(e)}")
   }
-  // whether the document carried creation code is the one thing about the
-  // output a caller cannot tell from the input's name: the same contract's ABI
-  // and its artifact are both JSON and both generate a file
+  // whether the document carried creation code is the one thing a caller
+  // cannot tell from the input's name
   let deploys = if generated.deploys { ", deployable" } else { "" }
   println(
     "\{input} -> \{out}  (\{name}, \{generated.members.length()} members\{deploys})",

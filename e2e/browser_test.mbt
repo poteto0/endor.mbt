@@ -47,8 +47,7 @@ async test "nonce grows with each transaction from the account" {
   @anvil.on(provider => {
     let before = @provider.transaction_count(provider, @anvil.dev_account())
     let _ = @anvil.deploy_answer_contract(provider)
-    // strictly greater, not `before + 1`: the tests share one chain and run
-    // concurrently, so another test's transaction may land in between
+    // strictly greater, not `before + 1`: the tests share one chain
     inspect(
       @provider.transaction_count(provider, @anvil.dev_account()) > before,
       content="true",
@@ -71,8 +70,8 @@ async test "gas price is reported" {
 /// (a count, a block and an array of *numbers* rather than quantities).
 async test "the 1559 fee material comes back from a node" {
   @anvil.on(provider => {
-    // Anvil implements the tip method, so this is `Some` here; a node that does
-    // not is what the `None` case is for, and no node can prove that one
+    // Anvil implements the tip method, so this is `Some`; no node can prove the
+    // `None` case
     guard @provider.max_priority_fee_per_gas(provider) is Some(_) else {
       fail("expected anvil to suggest a tip")
     }
@@ -86,8 +85,7 @@ async test "the 1559 fee material comes back from a node" {
       fail("expected the percentiles asked for to be answered")
     }
     inspect(reward[0].length(), content="2")
-    // and the whole thing composed: anvil is a London chain, so the estimate is
-    // a 1559 fee whose cap covers its own tip
+    // composed: anvil is a London chain, so the estimate is a 1559 fee
     guard @provider.estimate_fees(provider)
       is Eip1559(max_fee_per_gas=cap, max_priority_fee_per_gas=tip) else {
       fail("expected a 1559 fee from a London chain")
@@ -431,8 +429,7 @@ async test "deploying through the contract layer lands a callable contract" {
 async test "a log filter is a request the node accepts" {
   @anvil.on(provider => {
     let head = @provider.block_number(provider)
-    // the widest shape: two addresses, an OR at topic 0, a hole at topic 1 and
-    // a constraint at topic 2 that has to keep its index
+    // the widest shape: an OR at topic 0, a hole at topic 1, a constraint at 2
     let filter = @types.LogFilter::range(
       from_block=Number(0),
       to_block=Number(head),
@@ -481,13 +478,10 @@ async test "a sent transaction is read back by its hash" {
     guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
       fail("expected the node to know the transaction it just took")
     }
-    // that it is the transaction that was sent is settled by "sending value
-    // moves it to the recipient" above; what is new here is everything the
-    // request did not say
+    // what is new here is everything the request did not say
     assert_eq(tx.hash, hash)
     // the request named neither, so both are the node's own answer. The nonce
-    // it chose is not asserted on: the dev account is shared by every test in
-    // this file and they run concurrently, so no value is predictable
+    // is not asserted on: the dev account is shared, so nothing is predictable
     inspect(tx.gas, content="Quantity(21000)")
     // the wallet priced it, since the request did not
     assert_true(tx.fee is Eip1559(_))
@@ -506,8 +500,7 @@ async test "a sent transaction is read back by its hash" {
 async test "a transaction the node never saw has no receipt" {
   @anvil.on(provider => {
     assert_true(@provider.transaction_receipt(provider, unknown_hash()) is None)
-    // nor is it a transaction the node is holding: an unknown hash is `null`
-    // from both reads
+    // nor a transaction the node is holding: an unknown hash is `null` for both
     assert_true(@provider.transaction_by_hash(provider, unknown_hash()) is None)
     // and waiting for one runs out of time rather than answering
     try
@@ -616,8 +609,7 @@ async test "a block's transaction count agrees with its transactions" {
       Some(counted),
     )
     // a block the node does not have is `null` rather than an error — for a
-    // hash, at least: Anvil answers a height past its head with an error
-    // instead, which is why `None` is the weaker claim of the two
+    // hash, at least; Anvil answers a height past its head with an error
     let unknown = @types.BlockHash::from_string(
       "0xe2e0000000000000000000000000000000000000000000000000000000000000",
     )
@@ -686,8 +678,7 @@ async test "a message is signed by the account that owns it" {
       "endor.mbt e2e",
     )
     inspect(signature.byte_length(), content="65")
-    // signing is deterministic for a fixed key and message, so the same
-    // message signed twice is the same signature
+    // deterministic for a fixed key and message
     assert_eq(
       @provider.sign_message(provider, @anvil.dev_account(), "endor.mbt e2e"),
       signature,

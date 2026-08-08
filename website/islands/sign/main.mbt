@@ -40,9 +40,8 @@ async fn View::sign(self : View) -> Unit {
     }
     self.who.set(who.to_checksum_string())
     self.status.set("Check the wallet: it should be showing you that text…")
-    // personal_sign. The wallet prefixes the message with
-    // "\x19Ethereum Signed Message:\n" + length before hashing, which is what
-    // keeps this signature from ever being a valid transaction.
+    // personal_sign: the wallet prefixes the message before hashing, which is
+    // what keeps this signature from ever being a valid transaction
     let signature = @provider.sign_message(wallet, who, message)
     self.signature.set(signature.to_string())
     self.status.set(
@@ -63,8 +62,8 @@ fn View::render(self : View) -> DomNode {
   @ui.card(self.status, [
     @ui.field("Signer", self.who),
     @ui.field("Signature", self.signature),
-    // the bytes that actually go over the wire: the message as UTF-8 in hex,
-    // which is what lets the wallet show the text back to the reader
+    // what goes over the wire: the message as UTF-8 in hex, which is what lets
+    // the wallet show the text back
     @ui.computed("as sent (Hex::from_utf8)", () => {
       let message = self.message.get()
       guard message != "" else { return @ui.PLACEHOLDER }

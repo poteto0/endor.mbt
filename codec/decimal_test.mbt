@@ -41,8 +41,7 @@ test "decimal_scale pads out to the full width" {
   assert_eq(@codec.decimal_scale("12", "", decimals=0), Some("12"))
   // exactly as fine as the scale allows: nothing left to pad
   assert_eq(@codec.decimal_scale("0", "000001", decimals=6), Some("0000001"))
-  // and one digit finer than that is not a number this scale can carry — the
-  // rule is stated here so no caller can answer a wrongly scaled amount
+  // one digit finer is not a number this scale can carry
   assert_eq(@codec.decimal_scale("0", "0000001", decimals=6), None)
   assert_eq(@codec.decimal_scale("1", "5", decimals=0), None)
 }

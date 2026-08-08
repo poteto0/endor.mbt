@@ -74,16 +74,14 @@ async fn View::refresh(self : View) -> Unit {
 /// Send, then wait. The prompt is `send_transaction`; the wait is what says
 /// whether the chain accepted it.
 async fn View::send(self : View) -> Unit {
-  // parsed before the wallet is touched, so a typo costs no prompt — and a
-  // mistyped checksummed address is caught here rather than by the chain
+  // parsed before the wallet is touched, so a typo costs no prompt
   let to = @endor.Address::from_string(self.to_input.get().trim().to_owned()) catch {
     _ => {
       self.status.set("Recipient is not a valid address.")
       return
     }
   }
-  // the option shape, because this re-parses on every keystroke; the scale is
-  // ether's eighteen, which `Wei::from_ether` is `from_units` with filled in
+  // the option shape, because this re-parses on every keystroke
   guard @ui.units_of_decimal(self.amount_input.get(), 18) is Some(units) else {
     self.status.set("Amount must be a decimal number, e.g. 0.001.")
     return
@@ -107,8 +105,8 @@ async fn View::send(self : View) -> Unit {
     )
     self.tx.set(hash.to_string())
     self.status.set("Broadcast. Waiting for it to be mined…")
-    // polls eth_getTransactionReceipt. A reverted transaction has a receipt
-    // too, so the wait succeeding is not the transaction succeeding.
+    // a reverted transaction has a receipt too, so the wait succeeding is not
+    // the transaction succeeding
     let receipt = @provider.wait_for_receipt(wallet, hash, timeout=120_000)
     self.receipt.set(
       match receipt.status {
@@ -119,8 +117,7 @@ async fn View::send(self : View) -> Unit {
       },
     )
     self.status.set("Mined.")
-    // the sender is poorer by the value plus the fee, and now that the receipt
-    // is in, the node will say so
+    // the receipt is in, so the node will report the new balance
     self.read_account()
   } catch {
     NotInstalled =>

@@ -112,7 +112,7 @@ pub fn MockProvider::last_call(self : MockProvider) -> (String, Json)? {
 ///|
 pub impl Provider for MockProvider with fn request(self, method_name~, params~) {
   self.calls.push((method_name, params))
-  // A registered run answers first, one entry per call, until it is used up.
+  // a registered run answers first, one entry per call, until it is used up
   if self.sequences.get(method_name) is Some(answers) && !answers.is_empty() {
     return match answers.remove(0) {
       Answers(j) => j
@@ -124,10 +124,8 @@ pub impl Provider for MockProvider with fn request(self, method_name~, params~) 
   }
   match self.responses.get(method_name) {
     Some(j) => j
-    // deliberately *not* `-32601`: that is a node saying it does not have the
-    // method, which `is_method_not_found` turns into an answer rather than a
-    // failure. A test that forgot to register a response must fail loudly
-    // instead of looking like a node without the extension.
+    // deliberately *not* `-32601`, which `is_method_not_found` turns into an
+    // answer: a test that forgot to register a response must fail loudly
     None => raise InvalidConfig("MockProvider: no response for \{method_name}")
   }
 }
@@ -141,8 +139,7 @@ pub impl EventSource for MockProvider with fn subscribe(self, event~, handler~) 
   self.next_listener_id = id + 1
   let registered = self.listeners.get_or_init(event, () => [])
   registered.push((id, handler))
-  // The array's identity is stable, so cancelling needs neither the event name
-  // nor the provider itself.
+  // the array's identity is stable, so cancelling needs nothing else
   Subscription::new(() => registered.retain(entry => entry.0 != id))
 }
 
@@ -168,8 +165,7 @@ pub fn MockProvider::emit(
   payload~ : Json,
 ) -> Unit {
   guard self.listeners.get(event) is Some(registered) else { return }
-  // Iterate a copy: a handler is allowed to unsubscribe itself, and that
-  // mutates the array being walked.
+  // iterate a copy: a handler may unsubscribe itself while this walks
   for entry in registered.copy() {
     (entry.1)(payload)
   }

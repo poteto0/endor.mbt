@@ -148,10 +148,8 @@ pub async fn[P : Provider] fee_history(
 pub async fn[P : Provider] estimate_fees(
   provider : P,
 ) -> @types.Fee raise ProviderError {
-  // the base fee is read off a block rather than out of `fee_history`, whose
-  // last `base_fee_per_gas` is the next block's and so the more direct source:
-  // a chain with no 1559 market is exactly the chain that may not implement
-  // `eth_feeHistory` either, and `eth_getBlockByNumber` is on every node
+  // off a block rather than out of `fee_history`: a chain with no 1559 market
+  // is exactly the one that may not implement `eth_feeHistory` either
   guard block_by_number(provider) is Some(block) &&
     block.base_fee_per_gas is Some(base_fee) &&
     base_fee.to_bigint() is base &&

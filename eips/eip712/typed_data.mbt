@@ -312,8 +312,8 @@ fn array_element(type_name : String) -> (String, Int?)? {
   } else {
     match parse_size(inner) {
       Some(n) => Some((element, Some(n)))
-      // `uint256[x]` is not an array type at all, and it is not a struct name
-      // either — it falls through to the elementary check, which names it
+      // `uint256[x]` is neither an array type nor a struct name: it falls
+      // through to the elementary check, which names it
       None => None
     }
   }
@@ -439,8 +439,8 @@ fn validate_value(
       }
       validate_value(types, f.type_name, field_value, path="\{path}.\{f.name}")
     }
-    // a member no type declares is not part of what gets signed, so carrying
-    // one means the caller believes something the signature will not say
+    // a member no type declares is not signed, so carrying one means believing
+    // something the signature will not say
     for name, _ in members {
       guard declares(fields, name) else {
         raise @types.InvalidJson(
@@ -510,10 +510,8 @@ fn validate_elementary(
       validate_integer(value, bits, signed=false, path~, type_name~)
     Some(Int(bits)) =>
       validate_integer(value, bits, signed=true, path~, type_name~)
-    // `classify_elementary` never returns `@types.AbiType`'s compound variants —
-    // only `array_element` and the document's `types` map produce arrays and
-    // structs here — but the match still has to cover them, and raising is
-    // what the rest of this file does with a type name it cannot use.
+    // `classify_elementary` never returns a compound variant — only
+    // `array_element` and the `types` map do — but the match must cover them
     Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
       raise @types.InvalidValue("\{path} has unknown type \{type_name}")
   }

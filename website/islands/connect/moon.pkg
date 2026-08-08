@@ -15,7 +15,5 @@ supported_targets = "js"
 pkgtype(kind: "executable")
 
 options(
-  // astra hydrates an island by importing the module and calling `hydrate`, so
-  // the package links as an ES module exporting exactly that name
   link: { "js": { "exports": [ "hydrate" ], "format": "esm" } },
 )

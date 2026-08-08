@@ -56,7 +56,6 @@ fn _decode_value(
     Uint(bits) => {
       ignore(AbiType::checked_bits(bits, what="uint"))
       let val = _read_word_as_uint(data, at)
-      // you can use @codec.fits_uint but write this like int case 
       if !_is_valid_uint_bits_word(val, bits) {
         raise InvalidData("Uint(\{bits}) encoding")
       }
@@ -65,9 +64,6 @@ fn _decode_value(
     Int(bits) => {
       ignore(AbiType::checked_bits(bits, what="int"))
       let raw = _read_word_as_uint(data, at)
-      // ? if validate val after to_signed,
-      // ? int(8) value 127 is valid like 0xfffffffffff.....7f
-      // ? it should be kicked
       if !_is_valid_int_bits_word(raw, bits) {
         raise InvalidData("Int(\{bits}) encoding")
       }
@@ -152,8 +148,7 @@ fn _read_index(data : String, at : Int, what~ : String) -> Int raise AbiError {
   for i, c in word.iter2() {
     let digit = @codec.nibble(c)
     // only the last 6 digits can address data this side of 16 MB, so anything
-    // above them is out of range by construction — and keeps `value` in `Int`
-    // top top 58 bits must be all 0
+    // above them is out of range and keeps `value` in `Int`
     if i < WORD_DIGITS - 6 {
       guard digit == 0 else {
         raise InvalidData("\{what} is far larger than the data")

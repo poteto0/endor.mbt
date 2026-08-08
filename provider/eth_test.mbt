@@ -1117,8 +1117,7 @@ async test "can sign typed data" {
     }
     inspect(signature.byte_length(), content="65")
 
-    // the account comes first, and the document reaches the wallet serialized
-    // — v4 takes a string, not a nested object
+    // the account first, and the document serialized: v4 takes a string
     debug_inspect(
       provider.last_call(),
       content=(
