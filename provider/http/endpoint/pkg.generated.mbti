@@ -7,7 +7,7 @@ import {
 }
 
 // Values
-pub fn at(String, headers? : Map[String, String]) -> @http.HttpProvider[Endpoint]
+pub fn at(String, headers? : Map[String, String]) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError
 
 // Errors
 
@@ -15,7 +15,6 @@ pub fn at(String, headers? : Map[String, String]) -> @http.HttpProvider[Endpoint
 pub struct Endpoint {
   // private fields
 }
-pub fn Endpoint::new(String, headers? : Map[String, String]) -> Self
 pub impl @http.HttpTransport for Endpoint
 
 // Type aliases

@@ -24,15 +24,7 @@ pub struct Endpoint {
 ///|
 /// An endpoint at `url`. `headers` are sent with every request, on top of the
 /// `content-type` JSON-RPC needs — an `Authorization` bearer, an `x-api-key`.
-///
-/// ```
-/// let paid = @endpoint.Endpoint::new(
-///   "https://example.invalid/v2",
-///   headers={ "Authorization": "Bearer …" },
-/// )
-/// ignore(paid)
-/// ```
-pub fn Endpoint::new(
+fn Endpoint::new(
   url : String,
   headers? : Map[String, String] = Map([]),
 ) -> Endpoint {
@@ -43,6 +35,8 @@ pub fn Endpoint::new(
 /// A provider reading from the node at `url` — the whole of what an HTTP-only
 /// caller needs, and the shape every doc example uses. `headers` are what
 /// `Endpoint::new` takes them to be.
+/// 
+/// raises `ProviderError::internal` if `url` is not a valid HTTP URL, or if the
 ///
 /// ```
 /// let provider = @endpoint.at("http://127.0.0.1:8545")
@@ -51,7 +45,10 @@ pub fn Endpoint::new(
 pub fn at(
   url : String,
   headers? : Map[String, String] = Map([]),
-) -> @http.HttpProvider[Endpoint] {
+) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError {
+  guard validate_http_url(url) else {
+    raise @provider.ProviderError::internal("invalid HTTP URL: \{url}")
+  }
   @http.HttpProvider::new(Endpoint::new(url, headers~))
 }
 
@@ -63,10 +60,7 @@ pub fn at(
 /// `ProviderError::internal`. A 2xx body is handed up untouched: reading
 /// JSON-RPC out of it is `HttpProvider`'s.
 pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
-  let headers = { "content-type": "application/json" }
-  for name, value in self.headers {
-    headers[name] = value
-  }
+  let headers = apply_headers(self.headers)
   let (response, payload) = @client.post(self.url, body, headers~) catch {
     e =>
       raise @provider.ProviderError::internal("POST \{self.url} failed: \{e}")
@@ -82,4 +76,14 @@ pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
         "unreadable response from \{self.url}: \{e}",
       )
   }
+}
+
+///|
+/// add `content-type: application/json` to `headers`, and return the result.
+fn apply_headers(headers : Map[String, String]) -> Map[String, String] {
+  let applied_headers = { "content-type": "application/json" }
+  for name, value in headers {
+    applied_headers[name] = value
+  }
+  applied_headers
 }
