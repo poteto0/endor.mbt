@@ -1,5 +1,5 @@
 ///|
-/// EIP-712 hashing (#45): the digest a wallet signs over, computed locally.
+/// EIP-712 hashing: the digest a wallet signs over, computed locally.
 ///
 /// `TypedData::new` validates a document but hashes nothing — the wallet
 /// computes the digest, so nothing here had a caller until now. What follows
@@ -34,8 +34,11 @@ pub fn TypedData::type_hash(
 pub fn TypedData::hash_struct(
   self : TypedData,
 ) -> @types.Hex raise @types.CodecError {
+  let cache : Map[String, Bytes] = Map([])
   @types.Hex::from_bytes(
-    @crypto.keccak256(encode_data(self.types, self.primary_type, self.message)),
+    @crypto.keccak256(
+      encode_data(self.types, self.primary_type, self.message, cache~),
+    ),
   )
 }
 
@@ -95,9 +98,10 @@ pub fn TypedDataDomain::check_separator(
 pub fn TypedData::digest(
   self : TypedData,
 ) -> @types.Hex raise @types.CodecError {
-  let domain_sep = domain_separator_bytes(self.domain)
+  let cache : Map[String, Bytes] = Map([])
+  let domain_sep = domain_separator_bytes(self.domain, cache~)
   let message_hash = @crypto.keccak256(
-    encode_data(self.types, self.primary_type, self.message),
+    encode_data(self.types, self.primary_type, self.message, cache~),
   )
   // `0x19 0x01` then the two 32-byte hashes
   let signed = Bytes::makei(2 + 2 * @codec.WORD_BYTES, i => {
@@ -117,11 +121,12 @@ pub fn TypedData::digest(
 ///|
 fn domain_separator_bytes(
   domain : TypedDataDomain,
+  cache? : Map[String, Bytes] = Map([]),
 ) -> Bytes raise @types.CodecError {
   let types : Map[String, Array[TypedDataField]] = Map([
     (DOMAIN_TYPE, domain.fields()),
   ])
-  @crypto.keccak256(encode_data(types, DOMAIN_TYPE, domain.to_json()))
+  @crypto.keccak256(encode_data(types, DOMAIN_TYPE, domain.to_json(), cache~))
 }
 
 ///|
@@ -206,6 +211,25 @@ fn type_hash(
 }
 
 ///|
+/// `type_hash`, computed once per type name.
+///
+/// mutable cache on moonbitlang
+fn type_hash_cached(
+  types : Map[String, Array[TypedDataField]],
+  type_name : String,
+  cache : Map[String, Bytes],
+) -> Bytes raise @types.CodecError {
+  match cache.get(type_name) {
+    Some(hash) => hash
+    None => {
+      let hash = type_hash(types, type_name)
+      cache[type_name] = hash
+      hash
+    }
+  }
+}
+
+///|
 /// `encodeData(s)` = `typeHash ‖` one 32-byte word per field, in declaration
 /// order. Every word is exactly 32 bytes — atomic values are packed the way
 /// ABI encoding packs them, dynamic values and nested structs are hashed down
@@ -214,18 +238,19 @@ fn encode_data(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
   value : Json,
+  cache? : Map[String, Bytes] = Map([]),
 ) -> Bytes raise @types.CodecError {
   guard value is Object(members) else {
     raise @types.InvalidJson("\{type_name} value must be an object")
   }
   let fields = fields_of(types, type_name)
-  let words = [type_hash(types, type_name)]
+  let words = [type_hash_cached(types, type_name, cache)]
   for f in fields {
     let v = match members.get(f.name) {
       Some(v) => v
       None => raise @types.InvalidJson("\{type_name}.\{f.name} is missing")
     }
-    words.push(encode_value(types, f.type_name, v))
+    words.push(encode_value(types, f.type_name, v, cache~))
   }
   @codec.concat_words(words)
 }
@@ -239,15 +264,16 @@ fn encode_value(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
   value : Json,
+  cache? : Map[String, Bytes] = Map([]),
 ) -> Bytes raise @types.CodecError {
   if array_element(type_name) is Some((element, _)) {
     guard value is Array(items) else {
       raise @types.InvalidJson("expected an array for \{type_name}")
     }
-    let words = items.map(item => encode_value(types, element, item))
+    let words = items.map(item => encode_value(types, element, item, cache~))
     @crypto.keccak256(@codec.concat_words(words))
   } else if types.get(type_name) is Some(_) {
-    @crypto.keccak256(encode_data(types, type_name, value))
+    @crypto.keccak256(encode_data(types, type_name, value, cache~))
   } else {
     encode_atomic(type_name, value)
   }
