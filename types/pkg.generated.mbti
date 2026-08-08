@@ -126,6 +126,7 @@ pub struct ChainId {
 pub fn ChainId::amoy() -> Self
 pub fn ChainId::arbitrum() -> Self
 pub fn ChainId::base() -> Self
+pub fn ChainId::from_caip2(String) -> Self raise CodecError
 pub fn ChainId::from_hex(String) -> Self raise CodecError
 pub fn ChainId::from_json(Json) -> Self raise CodecError
 pub fn ChainId::holesky() -> Self
@@ -134,6 +135,7 @@ pub fn ChainId::new(UInt64) -> Self
 pub fn ChainId::optimism() -> Self
 pub fn ChainId::polygon() -> Self
 pub fn ChainId::sepolia() -> Self
+pub fn ChainId::to_caip2(Self) -> String
 pub fn ChainId::to_hex(Self) -> String
 pub fn ChainId::to_json(Self) -> Json
 pub fn ChainId::to_uint64(Self) -> UInt64
