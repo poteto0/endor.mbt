@@ -49,6 +49,14 @@ where the assumption is the caller's own.
 The wallet holds the key and that is the entire security model — an SDK that
 could sign without the wallet would be an SDK that could sign without the user.
 
+**JSON-RPC batch requests**, the `[{…}, {…}]` array a node accepts as one
+request, and any scheduler that bundles calls the caller did not bundle.
+Batching reads is [Multicall3](/cookbook/batch-reads/), which is a different
+thing: it is one `eth_call`, so every call in it is executed against one block,
+which a JSON-RPC batch does not promise. A transport-level batch would carry
+methods other than `eth_call` in exchange for losing that, and is the transport's
+business rather than the contract layer's.
+
 **A cached "current account".** The SDK is stateless on purpose; see
 [How the SDK is shaped](/guide/design/). A cache would be wrong the moment the
 user touched their extension, and wrong silently.

@@ -15,6 +15,7 @@ import {
   "poteto0/endor/abi",
   "poteto0/endor/contract",
   "poteto0/endor/contract/erc20",
+  "poteto0/endor/contract/multicall",
   "poteto0/endor/provider",
   "poteto0/endor/provider/browser",
   "poteto0/endor/provider/http",
