@@ -27,8 +27,9 @@ fn bob() -> @types.Address raise @types.CodecError {
 }
 
 ///|
-/// The nonce every fixture is signed against. A real one is 32 random bytes;
-/// this one is fixed so the hashes below are.
+/// The nonce every fixture is signed against. A real one comes off
+/// `draw_nonce`; this one is fixed so the hashes checked against `cast` are
+/// fixed too.
 fn nonce() -> @types.Hex raise @types.CodecError {
   @types.Hex::from_string(
     "0x0000000000000000000000000000000000000000000000000000000000000001",
@@ -214,8 +215,8 @@ test "error value past uint256" {
     )
     |> ignore
   catch {
-    @types.InvalidLength(_) => ()
-    e => fail("expected invalid length, but not \{e}")
+    @types.InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }

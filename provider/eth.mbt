@@ -1,7 +1,8 @@
 ///|
-/// Perform one JSON-RPC call and decode its result. A malformed response is
-/// the SDK's own problem, so it surfaces as `ProviderError::internal` naming
-/// the method that answered; wallet-side errors propagate untouched.
+/// Perform one JSON-RPC call and decode its result. An answer that will not
+/// read back as the type the method promises surfaces as `Decode`, which keeps
+/// the `CodecError` as it was raised and names the method that answered;
+/// wallet-side errors propagate untouched.
 ///
 /// Every typed helper below is this function plus a `decode`, which is what
 /// keeps their error behaviour identical.
@@ -13,7 +14,7 @@ async fn[P : Provider, T] invoke_rpc(
 ) -> T raise ProviderError {
   let r = provider.request(method_name~, params~)
   decode(r) catch {
-    e => raise ProviderError::internal("decode \{method_name}: \{e}")
+    e => raise Decode(method_name~, cause=e)
   }
 }
 
@@ -68,7 +69,7 @@ pub async fn[P : Provider] require_account(
   provider : P,
 ) -> @types.Address raise ProviderError {
   guard request_accounts(provider).get(0) is Some(addr) else {
-    raise ProviderError::internal("wallet returned no accounts")
+    raise MalformedResponse("eth_requestAccounts returned no accounts")
   }
   addr
 }
@@ -596,6 +597,41 @@ pub async fn[P : Provider] transaction_receipt(
 }
 
 ///|
+/// Return the transaction with `tx_hash` as the node holds it, or `None` when
+/// it has never seen the hash (`eth_getTransactionByHash`).
+///
+/// This answers while `transaction_receipt` still cannot: a transaction is
+/// readable from the moment it reaches the mempool, and `inclusion` says
+/// whether it is still there (`Pending`) or in a block (`Mined`). So `None` and
+/// `Pending` are different facts — `None` is a hash the node knows nothing
+/// about, `Pending` is one it is holding.
+///
+/// It is also what says how the transaction was actually sent, which the hash
+/// `send_transaction` answered with does not: the `fee` and `gas` the wallet
+/// settled on, and the `nonce` it chose — the one a speed-up or a cancel has to
+/// re-use.
+///
+/// ```
+/// async fn[P : @provider.Provider] fee_of(
+///   p : P,
+///   hash : @types.TxHash,
+/// ) -> @types.Fee? raise @provider.ProviderError {
+///   @provider.transaction_by_hash(p, hash).map(tx => tx.fee)
+/// }
+/// ```
+pub async fn[P : Provider] transaction_by_hash(
+  provider : P,
+  tx_hash : @types.TxHash,
+) -> @types.Transaction? raise ProviderError {
+  invoke_rpc(
+    provider,
+    method_name="eth_getTransactionByHash",
+    params=Json::array([tx_hash.to_json()]),
+    decode=j => decode_optional(j, @types.Transaction::from_json),
+  )
+}
+
+///|
 /// Poll until `tx_hash` has a receipt with `confirmations` confirmations, and
 /// return it. This is the other half of `send_transaction`: the hash it answers
 /// with says the transaction was broadcast, and this says it was mined.
@@ -631,12 +667,9 @@ pub async fn[P : Provider] wait_for_receipt(
   timeout? : Int = 60_000,
   poll_interval? : Int = 1_000,
 ) -> @types.TransactionReceipt raise ProviderError {
-  // fewer than one confirmation is not a weaker wait, it is no wait at all —
-  // and a negative one, converted unsigned, would be a wait for a height the
-  // chain never reaches. Neither is what any caller meant, so neither is
-  // silently corrected.
+  // confirmations should be at least 1.
   guard confirmations >= 1 else {
-    raise ProviderError::internal(
+    raise InvalidConfig(
       "wait_for_receipt: confirmations must be at least 1, got \{confirmations}",
     )
   }
@@ -685,7 +718,7 @@ async fn poll_again(
     poll_interval
   }
   @async.sleep(nap) catch {
-    e => raise ProviderError::internal("waiting to poll again: \{e}")
+    e => raise Transport("waiting to poll again: \{e}")
   }
   true
 }

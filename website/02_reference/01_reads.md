@@ -7,6 +7,12 @@ description: Accounts, balances, nonces, code, calls, blocks and receipts — no
 
 Nothing on this page spends money, and only `request_accounts` can open a popup.
 
+Every function here takes a `Provider`, spelled `p` below. That is the injected
+wallet in a dapp, and a node URL anywhere else — reads need no wallet, so all of
+this works over [HTTP JSON-RPC](/cookbook/http-rpc/) from a CLI or a server. The
+one exception is the accounts table immediately below: `request_accounts`
+prompts a human, and an HTTP endpoint has none.
+
 ## Accounts and chain
 
 | Function                              | JSON-RPC method           | Returns                 |
@@ -122,10 +128,18 @@ the encoding done for you.
 A call that reverts comes back as a `ProviderError`, which is what makes
 `estimate_gas` a cheap pre-flight check before asking anyone to sign.
 
-## Receipts and blocks
+Several calls at once are one `eth_call` too, through Multicall3:
+`@multicall.Multicall3::new().aggregate3(p, calls)` takes the calls
+`@contract.Contract::prepare` builds and answers with one `@multicall.Outcome`
+each, in order, all evaluated against the same block. One call failing is a
+`Failed` among the answers rather than a raise —
+[Read many things at once](/cookbook/batch-reads/).
+
+## Transactions, receipts and blocks
 
 | Function                                 | JSON-RPC method             | Returns                      |
 | ---------------------------------------- | --------------------------- | ---------------------------- |
+| `@provider.transaction_by_hash(p, hash)` | `eth_getTransactionByHash`  | `@endor.Transaction?`        |
 | `@provider.transaction_receipt(p, hash)` | `eth_getTransactionReceipt` | `@endor.TransactionReceipt?` |
 | `@provider.wait_for_receipt(p, hash)`    | the same, polled            | `@endor.TransactionReceipt`  |
 | `@provider.block_by_number(p, block?)`   | `eth_getBlockByNumber`      | `@endor.Block?`              |
@@ -141,6 +155,27 @@ so `None` is the answer to expect from the counts, not the answer to rely on.
 
 The two counts are `block_by_number(…).transactions.length()` with the hashes
 left on the node: ask for them when the number is all you want.
+
+A `Transaction` is the transaction itself, and it is readable long before a
+receipt is: a node holds it from the moment it reaches the mempool. That is
+where the fields the wallet — not the request — decided become visible, `nonce`
+above all, since re-sending at that same nonce is what speeding a transaction up
+or cancelling it means. `send_transaction` answers with a hash and nothing else,
+so this is the only way to see them.
+
+`inclusion` is where it is: `Pending` while it is in the mempool, or
+`Mined(block_hash, block_number, transaction_index)` once it is in a block. It
+is one field rather than three optional ones because a node reports those three
+together or not at all. So `None` and `Pending` are different answers — `None`
+is a hash the node has never seen, `Pending` is one it is holding.
+
+The rest is what was signed: `hash`, `from`, `to` (absent for a deployment,
+whose creation code is then `input`), `value`, `input`, `gas` — the limit, not
+the `gas_used` a receipt reports — `chain_id`, the EIP-2718 `transaction_type`,
+and `fee` as the same `@endor.Fee` a `TransactionRequest` is built with. A
+transaction whose type this release does not know still decodes: fields the SDK
+models nothing for (the signature, an access list, blob fees) are dropped rather
+than rejected, and a fee it cannot read reads as `Auto`.
 
 A `TransactionReceipt` carries `block_number` / `block_hash`, `gas_used` /
 `cumulative_gas_used` / `effective_gas_price`, `from` / `to`, `contract_address`

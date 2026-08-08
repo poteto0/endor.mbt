@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/provider/http/endpoint"
+
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/http",
+}
+
+// Values
+pub const DEFAULT_TIMEOUT_MS : Int = 30_000
+
+pub fn at(String, headers? : Map[String, String], timeout? : Int) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError
+
+// Errors
+
+// Types and methods
+pub struct Endpoint {
+  // private fields
+}
+pub impl @http.HttpTransport for Endpoint
+
+// Type aliases
+
+// Traits

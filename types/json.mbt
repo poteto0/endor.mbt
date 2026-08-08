@@ -93,3 +93,26 @@ fn[T] optional_map(
     None => None
   }
 }
+
+///|
+/// A required hex-quantity field, decoded to the number it denotes. Block
+/// numbers and indices are all this shape, so the log, receipt, block and
+/// transaction decoders read them through here rather than spelling out the two
+/// steps each time.
+fn quantity_field(
+  fields : Map[String, Json],
+  name : String,
+  what~ : String,
+) -> UInt64 raise CodecError {
+  Quantity::from_json(required_field(fields, name, what~)).to_uint64()
+}
+
+///|
+/// The same, for a quantity a node may answer `null` for: a pending block's
+/// `number`, and every field that is `null` until a transaction is mined.
+fn optional_quantity_field(
+  fields : Map[String, Json],
+  name : String,
+) -> UInt64? raise CodecError {
+  optional_map(fields, name, j => Quantity::from_json(j).to_uint64())
+}

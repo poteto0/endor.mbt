@@ -68,6 +68,8 @@ pub async fn[P : Provider] switch_chain(P, @types.ChainId) -> Unit raise Provide
 
 pub async fn[P : Provider] switch_or_add_chain(P, @types.ChainParams) -> Unit raise ProviderError
 
+pub async fn[P : Provider] transaction_by_hash(P, @types.TxHash) -> @types.Transaction? raise ProviderError
+
 pub async fn[P : Provider] transaction_count(P, @types.Address, block? : @types.BlockTag) -> UInt64 raise ProviderError
 
 pub async fn[P : Provider] transaction_receipt(P, @types.TxHash) -> @types.TransactionReceipt? raise ProviderError
@@ -83,12 +85,21 @@ pub(all) suberror ProviderError {
   ChainDisconnected
   UnrecognizedChain
   Rpc(code~ : Int, message~ : String)
+  Reverted(code~ : Int, message~ : String, data~ : @types.Hex)
   NotInstalled
+  Transport(String)
+  HttpStatus(code~ : Int, url~ : String)
+  MalformedResponse(String)
+  Decode(method_name~ : String, cause~ : @types.CodecError)
+  InvalidConfig(String)
   Timeout(String)
 } derive(Eq, @debug.Debug)
-pub fn ProviderError::from_code(Int, String) -> Self
-pub fn ProviderError::internal(String) -> Self
+pub fn ProviderError::code(Self) -> Int?
+pub fn ProviderError::from_code(Int, String, data? : Json) -> Self
+pub fn ProviderError::from_error_object(Json) -> Self
 pub fn ProviderError::is_method_not_found(Self) -> Bool
+pub fn ProviderError::is_retryable(Self) -> Bool
+pub fn ProviderError::message(Self) -> String
 pub impl Show for ProviderError
 
 // Types and methods

@@ -15,13 +15,17 @@ pub fn bool_answer(Array[@types.AbiValue], what~ : String) -> Bool raise Contrac
 
 pub fn bytes_answer(Array[@types.AbiValue], what~ : String) -> Bytes raise ContractError
 
-pub async fn[P : @provider.Provider] deploy(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei, confirmations? : Int, timeout? : Int, poll_interval? : Int) -> Contract raise ContractError
+pub async fn[P : @provider.Provider] deploy(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei, errors? : Array[ErrorDef], confirmations? : Int, timeout? : Int, poll_interval? : Int) -> Contract raise ContractError
 
 pub fn deployment_data(bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue]) -> @types.Hex raise ContractError
 
 pub fn int_answer(Array[@types.AbiValue], what~ : String) -> @bigint.BigInt raise ContractError
 
-pub async fn[P : @provider.Provider] send_deployment(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei) -> @types.TxHash raise ContractError
+pub fn panic_reason(@bigint.BigInt) -> String
+
+pub fn revert_error(@provider.ProviderError, errors? : Array[ErrorDef]) -> ContractError
+
+pub async fn[P : @provider.Provider] send_deployment(P, from~ : @types.Address, bytecode~ : @types.Hex, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei, errors? : Array[ErrorDef]) -> @types.TxHash raise ContractError
 
 pub fn string_answer(Array[@types.AbiValue], what~ : String) -> String raise ContractError
 
@@ -32,7 +36,14 @@ pub(all) suberror ContractError {
   Rpc(@provider.ProviderError)
   Abi(@types.AbiError)
   Deployment(String)
+  Revert(String)
+  Panic(@bigint.BigInt)
+  CustomError(selector~ : @types.Hex, name~ : String?, args~ : Array[@types.AbiValue], data~ : @types.Hex)
 } derive(Eq)
+pub fn ContractError::code(Self) -> Int?
+pub fn ContractError::is_retryable(Self) -> Bool
+pub fn ContractError::message(Self) -> String
+pub fn ContractError::revert_reason(Self) -> String?
 pub impl Show for ContractError
 
 // Types and methods
@@ -41,8 +52,24 @@ pub struct Contract {
 } derive(Eq, @debug.Debug)
 pub fn Contract::address(Self) -> @types.Address
 pub async fn[P : @provider.Provider] Contract::call(Self, P, name~ : String, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], outputs? : Array[@types.AbiType], from? : @types.Address, block? : @types.BlockTag) -> Array[@types.AbiValue] raise ContractError
-pub fn Contract::new(@types.Address) -> Self
+pub fn Contract::new(@types.Address, errors? : Array[ErrorDef]) -> Self
+pub fn Contract::prepare(Self, name~ : String, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], outputs? : Array[@types.AbiType]) -> PreparedCall raise ContractError
 pub async fn[P : @provider.Provider] Contract::send(Self, P, from~ : @types.Address, name~ : String, inputs? : Array[@types.AbiType], args? : Array[@types.AbiValue], value? : @types.Wei) -> @types.TxHash raise ContractError
+
+pub(all) struct ErrorDef {
+  name : String
+  inputs : Array[@types.AbiType]
+} derive(Eq, @debug.Debug)
+pub fn ErrorDef::selector(Self) -> @types.Hex?
+pub impl Show for ErrorDef
+
+pub struct PreparedCall {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn PreparedCall::data(Self) -> @types.Hex
+pub fn PreparedCall::decode(Self, @types.Hex) -> Array[@types.AbiValue] raise ContractError
+pub fn PreparedCall::revert(Self, @types.Hex) -> ContractError
+pub fn PreparedCall::target(Self) -> @types.Address
 
 // Type aliases
 

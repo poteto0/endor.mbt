@@ -21,14 +21,11 @@ to the wallet and lets it hash — which is correct for signing.
 [#45](https://github.com/poteto0/endor.mbt/issues/45) is about the case that
 needs the digest locally, which is EIP-1271 contract signature verification.
 
-**An HTTP JSON-RPC transport.**
-[#19](https://github.com/poteto0/endor.mbt/issues/19). Today the only `Provider`
-that reaches a real chain is the injected browser wallet, which means the SDK
-cannot be used from a server or a script. The trait is already the right shape
-for it — that is why `Provider` and `EventSource` are separate.
-
 **`newHeads` subscription to speed up receipt waiting.**
 [#42](https://github.com/poteto0/endor.mbt/issues/42). `wait_for_receipt` polls.
+Nothing in the SDK subscribes to a node: there is no WebSocket transport, and
+[HTTP](/cookbook/http-rpc/) has nothing to subscribe over — `HttpProvider` is a
+`Provider` and not an `EventSource` for that reason.
 
 ## Not planned
 
@@ -51,6 +48,14 @@ where the assumption is the caller's own.
 **Key management of any kind.** No private keys, no local signing, no mnemonics.
 The wallet holds the key and that is the entire security model — an SDK that
 could sign without the wallet would be an SDK that could sign without the user.
+
+**JSON-RPC batch requests**, the `[{…}, {…}]` array a node accepts as one
+request, and any scheduler that bundles calls the caller did not bundle.
+Batching reads is [Multicall3](/cookbook/batch-reads/), which is a different
+thing: it is one `eth_call`, so every call in it is executed against one block,
+which a JSON-RPC batch does not promise. A transport-level batch would carry
+methods other than `eth_call` in exchange for losing that, and is the transport's
+business rather than the contract layer's.
 
 **A cached "current account".** The SDK is stateless on purpose; see
 [How the SDK is shaped](/guide/design/). A cache would be wrong the moment the

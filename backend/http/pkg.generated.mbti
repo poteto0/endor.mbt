@@ -1,0 +1,17 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/backend/http"
+
+import {
+  "poteto0/endor/provider/http/endpoint",
+}
+
+// Values
+pub async fn on(async (@poteto0/endor/provider/http.HttpProvider[@endpoint.Endpoint]) -> Unit) -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits

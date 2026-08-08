@@ -1,6 +1,6 @@
 ---
 title: endor.mbt
-description: An Ethereum SDK for MoonBit — browser wallets over EIP-1193.
+description: An Ethereum SDK for MoonBit — browser wallets over EIP-1193, any node over HTTP.
 layout: home
 islands:
   - connect
@@ -11,7 +11,9 @@ islands:
 **An Ethereum SDK for MoonBit.** It wraps the
 [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider that extensions such
 as MetaMask inject as `globalThis.ethereum`, and exposes it as typed, async
-MoonBit functions.
+MoonBit functions. Where there is no wallet — a script, a CLI, a server — it
+speaks [JSON-RPC over HTTP](/cookbook/http-rpc/) to a node instead, through the
+same typed helpers.
 
 ```sh
 moon add poteto0/endor
@@ -62,6 +64,12 @@ declines is a branch in your `match`, not a crash.
 **Contracts through their ABI.** `encode` / `decode`, selectors and event
 topics, with `Contract::call` and an `Erc20` preset on top. `deploy` is the same
 machinery for a transaction with no recipient.
+
+**A wallet is not required to read.** `@endpoint.at("https://…")` is a
+`Provider` over HTTP JSON-RPC, so the same reads work with no extension
+installed and on `native` and `wasm` as well as `js`. It adds no FFI:
+`moonbitlang/async`'s HTTP client is `fetch` in a browser and sockets with TLS
+everywhere else.
 
 **FFI in exactly one package.** Every `extern "js"` binding lives in
 `endor/ffi/js`. Everything above it is pure MoonBit and testable against

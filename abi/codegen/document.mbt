@@ -35,6 +35,18 @@ priv struct AbiEvent {
 }
 
 ///|
+/// An `error` of the ABI: what a `revert` can name, and the arguments it
+/// carries with it.
+///
+/// Unlike a function or an event, nothing is *called* through this — it is a
+/// declaration the SDK reads a failed call against, so every declared type can
+/// be carried whether or not this generator would put it in a signature.
+priv struct AbiErrorDecl {
+  name : String
+  inputs : Array[Param]
+}
+
+///|
 /// The `constructor` entry: what a deployment has to encode behind the creation
 /// code, and whether it may be handed ether.
 ///
@@ -71,12 +83,13 @@ priv enum CreationCode {
 ///|
 /// Everything in a document this generator has anything to say about.
 ///
-/// `receive`, `fallback` and `error` entries are dropped while reading rather
-/// than reported as skipped: there is nothing to generate from them, and
-/// listing them as casualties would be noise.
+/// `receive` and `fallback` entries are dropped while reading rather than
+/// reported as skipped: there is nothing to generate from them, and listing
+/// them as casualties would be noise.
 priv struct Document {
   functions : Array[AbiFunction]
   events : Array[AbiEvent]
+  errors : Array[AbiErrorDecl]
   ctor : AbiConstructor
   creation_code : CreationCode
 }
@@ -111,6 +124,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
   }
   let functions = []
   let events = []
+  let errors = []
   // a contract that declares no constructor deploys with no arguments
   let mut ctor : AbiConstructor = { inputs: [], payable: false }
   let mut declared_ctor = false
@@ -127,6 +141,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
     match kind {
       "function" => functions.push(read_function(fields, at=i))
       "event" => events.push(read_event(fields, at=i))
+      "error" => errors.push(read_error(fields, at=i))
       "constructor" => {
         // a contract has one constructor, so a document with two is not a
         // document a compiler wrote — and letting the last one win would
@@ -140,7 +155,7 @@ fn Document::parse(source : String) -> Document raise CodegenError {
       _ => ()
     }
   }
-  { functions, events, ctor, creation_code }
+  { functions, events, errors, ctor, creation_code }
 }
 
 ///|
@@ -414,6 +429,18 @@ fn read_event(
     inputs: read_params(fields, "inputs", of="event `\{name}`"),
     anonymous: fields.get("anonymous") is Some(True),
   }
+}
+
+///|
+/// One `"type": "error"` entry: the name a revert carries and what rides with
+/// it. `indexed` has no meaning here and is read as false, as it is everywhere
+/// but an event.
+fn read_error(
+  fields : Map[String, Json],
+  at~ : Int,
+) -> AbiErrorDecl raise CodegenError {
+  let name = read_name(fields, at~, kind="error")
+  { name, inputs: read_params(fields, "inputs", of="error `\{name}`") }
 }
 
 ///|

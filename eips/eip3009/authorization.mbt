@@ -21,9 +21,7 @@
 ///     to=@types.Address::from_string("0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
 ///     value=1000000,
 ///     valid_before=2000000000,
-///     nonce=@types.Hex::from_string(
-///       "0x0000000000000000000000000000000000000000000000000000000000000001",
-///     ),
+///     nonce=draw_nonce(),
 ///   )
 ///   let document = auth.transfer_typed_data(
 ///     domain(
@@ -70,8 +68,11 @@ pub struct Authorization {
 ///
 /// The `nonce` is 32 random bytes and **not** a counter: it is what the token
 /// marks as used, so two authorizations signed with the same one are the same
-/// authorization, and only the first to be submitted takes effect. Drawing it
-/// is the caller's, because randomness is not this package's to own.
+/// authorization, and only the first to be submitted takes effect. It has to
+/// be *drawn*: a nonce a third party can predict is an authorization that
+/// party can burn before the intended submitter gets to it. `draw_nonce()` is
+/// that draw, and passing anything else — a counter, a timestamp — is the
+/// caller saying they meant to.
 ///
 /// The widths are checked here as well as by `@eip712.TypedData::new`, which
 /// checks every message against the type it declares. That is deliberate: an
@@ -296,7 +297,7 @@ pub fn domain(
 ///|
 fn check_uint256(n : BigInt, what~ : String) -> Unit raise @types.CodecError {
   guard @codec.fits_uint(n, bits=@codec.WORD_BITS) else {
-    raise @types.InvalidLength(
+    raise @types.InvalidValue(
       "authorization \{what} does not fit uint256: \{n}",
     )
   }

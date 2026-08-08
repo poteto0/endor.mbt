@@ -89,8 +89,8 @@ async test "error invalid accounts" {
     )
 
     try @provider.request_accounts(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -101,8 +101,8 @@ async test "error invalid accounts" {
     )
 
     try @provider.request_accounts(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -187,8 +187,8 @@ async test "error invalid accounts response" {
     )
 
     try @provider.accounts(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -199,8 +199,8 @@ async test "error invalid accounts response" {
     )
 
     try @provider.accounts(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -299,8 +299,8 @@ async test "error invalid balance" {
     )
 
     try @provider.balance(provider, who) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -312,8 +312,8 @@ async test "error invalid balance" {
     )
 
     try @provider.balance(provider, who) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -349,8 +349,8 @@ async test "error invalid chain id" {
     )
 
     try @provider.chain_id(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -389,8 +389,8 @@ async test "error invalid block number" {
     )
 
     try @provider.block_number(provider) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -402,8 +402,8 @@ async test "error invalid block number" {
     )
 
     try @provider.block_number(provider) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -477,8 +477,8 @@ async test "error invalid transaction count" {
     )
 
     try @provider.transaction_count(provider, who) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -536,8 +536,8 @@ async test "error invalid gas price" {
     )
 
     try @provider.gas_price(provider) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -629,8 +629,8 @@ async test "error invalid code" {
     )
 
     try @provider.code(provider, who) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -641,8 +641,8 @@ async test "error invalid code" {
     )
 
     try @provider.code(provider, who) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -867,8 +867,8 @@ async test "error invalid call result" {
     )
 
     try @provider.call(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -880,8 +880,8 @@ async test "error invalid call result" {
     )
 
     try @provider.call(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -955,8 +955,8 @@ async test "error invalid gas estimate" {
     )
 
     try @provider.estimate_gas(provider, call_request()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected provider error, but not \{e}")
+      @provider.Decode(..) => ()
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -1057,9 +1057,9 @@ async test "error send rejected by the user" {
 }
 
 ///|
-/// A wallet answering with something that is not a 32-byte hash is the SDK's
-/// own problem, so it surfaces as an internal error rather than as a `TxHash`
-/// nobody can use.
+/// A wallet answering with something that is not a 32-byte hash surfaces as
+/// `Decode`, naming the method that answered, rather than as a `TxHash` nobody
+/// can use.
 async test "error send answered with a malformed hash" {
   @async.with_task_group(_ => {
     let provider : @provider.MockProvider = @provider.MockProvider::new().on(
@@ -1068,11 +1068,9 @@ async test "error send answered with a malformed hash" {
     )
 
     try @provider.send_transaction(provider, transaction_request()) catch {
-      @provider.ProviderError::Rpc(code~, message~) => {
-        inspect(code, content="-32603")
-        inspect(message.contains("eth_sendTransaction"), content="true")
-      }
-      e => fail("expected an internal error, but not \{e}")
+      @provider.Decode(method_name~, ..) =>
+        inspect(method_name, content="eth_sendTransaction")
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }
@@ -1399,11 +1397,9 @@ async test "a malformed block is the SDK's own error" {
       response=Json::empty_object(),
     )
     try @provider.block_by_number(provider) catch {
-      @provider.ProviderError::Rpc(code~, message~) => {
-        inspect(code, content="-32603")
-        assert_true(message.contains("eth_getBlockByNumber"))
-      }
-      e => fail("expected an internal error, but not \{e}")
+      @provider.Decode(method_name~, ..) =>
+        inspect(method_name, content="eth_getBlockByNumber")
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected a malformed block to be rejected")
     }
@@ -1510,6 +1506,83 @@ fn a_receipt() -> Json {
 }
 
 ///|
+/// The same transaction as `a_receipt()`, as `eth_getTransactionByHash`
+/// reports it: still pending, so the three fields that would place it in a
+/// block are `null`.
+fn a_pending_transaction() -> Json {
+  {
+    "hash": TX_HASH.to_json(),
+    "blockHash": Json::null(),
+    "blockNumber": Json::null(),
+    "transactionIndex": Json::null(),
+    "from": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266".to_json(),
+    "to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".to_json(),
+    "nonce": "0x7".to_json(),
+    "value": "0xde0b6b3a7640000".to_json(),
+    "input": "0x".to_json(),
+    "gas": "0x5208".to_json(),
+    "maxFeePerGas": "0x77359400".to_json(),
+    "maxPriorityFeePerGas": "0x3b9aca00".to_json(),
+  }
+}
+
+///|
+/// The state `transaction_receipt` cannot report at all. Which fields decode
+/// into what is `types`' business; what this asserts is that the read reaches
+/// the right method and that a pending transaction comes back as one.
+async test "a transaction is readable while it is still pending" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=a_pending_transaction(),
+    )
+    let tx = @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      e => fail("unexpected error \{e}")
+    }
+    guard tx is Some(tx) else { fail("expected a transaction") }
+    inspect(tx.inclusion, content="Pending")
+    guard provider.last_call() is Some((name, params)) else {
+      fail("expected a call")
+    }
+    inspect(name, content="eth_getTransactionByHash")
+    inspect(params.stringify(), content="[\"\{TX_HASH}\"]")
+  })
+}
+
+///|
+/// A hash the node has never seen is `null`, and that is not the same fact as
+/// a transaction it is holding in its mempool.
+async test "an unknown hash reads as no transaction at all" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=Json::null(),
+    )
+    let tx = @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      e => fail("unexpected error \{e}")
+    }
+    assert_true(tx is None)
+  })
+}
+
+///|
+async test "a malformed transaction is the SDK's own error" {
+  @async.with_task_group(_ => {
+    let provider = @provider.MockProvider::new().on(
+      method_name="eth_getTransactionByHash",
+      response=Json::array([]),
+    )
+    try @provider.transaction_by_hash(provider, test_tx_hash()) catch {
+      @provider.Decode(method_name~, ..) =>
+        inspect(method_name, content="eth_getTransactionByHash")
+      e => fail("expected a decode error, but not \{e}")
+    } noraise {
+      _ => fail("expected a malformed transaction to be rejected")
+    }
+  })
+}
+
+///|
 async test "a mined transaction has a receipt, asked for by hash" {
   @async.with_task_group(_ => {
     let provider = @provider.MockProvider::new().on(
@@ -1554,8 +1627,9 @@ async test "a malformed receipt is the SDK's own error" {
       response=Json::array([]),
     )
     try @provider.transaction_receipt(provider, test_tx_hash()) catch {
-      @provider.ProviderError::Rpc(code~, ..) => inspect(code, content="-32603")
-      e => fail("expected an internal error, but not \{e}")
+      @provider.Decode(method_name~, ..) =>
+        inspect(method_name, content="eth_getTransactionReceipt")
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected a malformed receipt to be rejected")
     }
@@ -1723,9 +1797,9 @@ async test "a wait for fewer than one confirmation is rejected" {
       try
         @provider.wait_for_receipt(provider, test_tx_hash(), confirmations=bad)
       catch {
-        @provider.ProviderError::Rpc(message~, ..) =>
+        @provider.InvalidConfig(message) =>
           assert_true(message.contains("confirmations must be at least 1"))
-        e => fail("expected an internal error, but not \{e}")
+        e => fail("expected a configuration error, but not \{e}")
       } noraise {
         _ => fail("expected confirmations=\{bad} to be rejected")
       }

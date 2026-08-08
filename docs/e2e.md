@@ -57,13 +57,19 @@ real extension. That is what the manual checklist below is for.
 
 ## The suite
 
-Three packages of the root module, so they build against the working tree
-rather than the published release:
+Packages of the root module, so they build against the working tree rather than
+the published release:
 
 - `backend/` — the `Backend` trait (`name` / `endpoint` / `install`) and `run`,
   the skip-install-task-group protocol. No FFI, no `js`.
+- `backend/env/` — `ENDOR_E2E_RPC_URL`, read portably rather than through a `js`
+  binding, so a backend that installs nothing needs no `js`.
 - `backend/anvil/` — the Anvil implementation: the shim, the dev accounts, the
   test contract. `@anvil.on(provider => …)` is what a test calls.
+- `backend/http/` — the same skip protocol over `@endpoint.at`, installing
+  nothing. `@http_backend.on(provider => …)` hands a test a real
+  `HttpProvider` pointed at the same node, which is how `e2e/http_test.mbt`
+  proves the read layer needs no wallet at all.
 - `e2e/` — the test cases, and nothing else.
 
 `backend/` and `e2e/` never ship. `moon.mod` excludes both and
@@ -80,7 +86,7 @@ unset** — that is why `just ut` needs no node. Two things keep a skip from
 passing for a pass: `run` says so once on stdout, and `just e2e` refuses to run
 until something answers on the port.
 
-Two contracts are deployed, both hand-written EVM of a few dozen bytes.
+Three contracts are deployed, all hand-written EVM of a few dozen bytes.
 Deployment is in each case a `send_transaction` with no `to` followed by a
 `wait_for_receipt`, with the address read off the receipt's `contract_address`.
 
@@ -99,6 +105,14 @@ a test in that file deploys a gate for the wrong selector to prove the check has
 teeth. The fixture it reads, `fixtures/abi/erc20.abi`, is the same file
 `just codegen-check` runs the CLI against, so a change to one is caught by the
 other.
+
+`@anvil.deploy_reverter(provider, revert_data~)` reverts every call with exactly
+the bytes it was given — an `Error(string)`, a `Panic(uint256)`, a custom error.
+The gate above reverts with nothing, so it cannot answer the question
+`e2e/revert_test.mbt` asks: whether a node hands the revert *data* back at all,
+and under which key of its JSON-RPC error. Everything after that key is decoding
+and is unit-tested; the key itself is only true on the wire, and the wallet shim
+in `backend/anvil/js.mbt` has to forward it the way a real wallet does.
 
 `fixtures/abi/answer.json` is the second half of the same arrangement: a
 compiler *artifact*, so the generator emits a `deploy` from it, and the file

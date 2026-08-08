@@ -35,8 +35,8 @@ async test "mock provider errors for unknown method" {
     try
       provider.request(method_name="eth_unknown", params=Json::array([]))
     catch {
-      @provider.ProviderError::Rpc(_) => ()
-      e => fail("expected rpc error, but not \{e}")
+      @provider.InvalidConfig(_) => ()
+      e => fail("expected a missing-response error, but not \{e}")
     } noraise {
       _ => fail("expected fail, but success")
     }

@@ -41,10 +41,13 @@ async fn owner_of(
 answers nothing is `call(p, name="poke")`.
 
 Errors arrive as `@contract.ContractError`, which keeps the failures apart:
-`Rpc(e)` is the wallet or the node — a rejected prompt, a revert — and `Abi(e)`
-means the contract is not the one the caller described, most often an address
-that is not the contract it was taken for. No retry helps with the second.
-`Deployment(what)` is the third and belongs to `deploy` alone.
+`Rpc(e)` is the wallet or the node — a rejected prompt, a dropped connection —
+and `Abi(e)` means the contract is not the one the caller described, most often
+an address that is not the contract it was taken for. No retry helps with the
+second. `Deployment(what)` belongs to `deploy` alone. A call the contract itself
+refused is `Revert(why)`, `Panic(code)` or `CustomError(…)`, read out of the
+revert the node handed back — see [Errors](/guide/errors/) for what each says and
+how a custom error gets its arguments back.
 
 ## Deploying
 

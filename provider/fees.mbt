@@ -74,14 +74,14 @@ pub async fn[P : Provider] fee_history(
   reward_percentiles? : Array[Double] = [],
 ) -> @types.FeeHistory raise ProviderError {
   guard block_count >= 1 else {
-    raise ProviderError::internal(
+    raise InvalidConfig(
       "fee_history: block_count must be at least 1, got \{block_count}",
     )
   }
   let mut previous = 0.0
   for percentile in reward_percentiles {
     guard percentile >= previous && percentile <= 100.0 else {
-      raise ProviderError::internal(
+      raise InvalidConfig(
         "fee_history: reward_percentiles must be ascending and within 0-100, got \{@debug.to_string(reward_percentiles)}",
       )
     }

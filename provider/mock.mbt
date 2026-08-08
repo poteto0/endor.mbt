@@ -128,10 +128,7 @@ pub impl Provider for MockProvider with fn request(self, method_name~, params~) 
     // method, which `is_method_not_found` turns into an answer rather than a
     // failure. A test that forgot to register a response must fail loudly
     // instead of looking like a node without the extension.
-    None =>
-      raise ProviderError::internal(
-        "MockProvider: no response for \{method_name}",
-      )
+    None => raise InvalidConfig("MockProvider: no response for \{method_name}")
   }
 }
 

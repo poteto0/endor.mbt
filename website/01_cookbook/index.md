@@ -35,6 +35,8 @@ explains them, so the behaviour and the description are the same thing.
 | [React to wallet changes](./events/)         | no                  | no         |
 | [Transfer without gas](./gasless-transfer/)  | yes                 | no, not for you |
 | [Approve without a transaction](./permit/)   | yes                 | no, not for you |
+| [Read without a wallet](./http-rpc/)         | no — there is none  | no         |
+| [Read many things at once](./batch-reads/)   | no                  | no         |
 
 And the ones that need no wallet at all:
 
@@ -47,6 +49,11 @@ And the ones that need no wallet at all:
 Reads cost nothing and prompt nobody: `eth_call` and the `eth_get*` family are
 evaluated against the node's state and need no signature. Writes are the ones
 that spend money, and they are exactly the ones that open a popup.
+
+That is also why the last recipe needs no wallet at all: [Read without a
+wallet](./http-rpc/) points the same typed helpers at a node URL over HTTP,
+which works in a script, a CLI or on a server as well as in a page. It is the
+one page here with no demo on it, and it says why.
 
 <div class="alert alert--warning" role="note">
   <div class="alert__title">About the live demos</div>

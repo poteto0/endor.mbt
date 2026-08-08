@@ -11,6 +11,8 @@ import {
 // Values
 pub fn domain(name~ : String, version? : String, chain_id~ : @types.ChainId, token~ : @types.Address) -> @eip712.TypedDataDomain raise @types.CodecError
 
+pub fn draw_nonce() -> @types.Hex raise @types.CodecError
+
 // Errors
 
 // Types and methods

@@ -14,8 +14,161 @@ applies.
 
 ## [Unreleased]
 
+### Added
+
+- `message()` and `is_retryable()` on all four error types — `ProviderError`,
+  `ContractError`, `AbiError` and `CodecError` — so one handler works whichever
+  one was caught:
+
+  ```moonbit
+  try @provider.chain_id(node) |> ignore catch {
+    UserRejected => ()
+    e =>
+      if e.is_retryable() { retry() } else { show(e.message()) }
+  }
+  ```
+
+  `message()` is one line written for a person — no variant name, no URL, no
+  JSON-RPC code — as against `Show`, which keeps all three and belongs in a log.
+  `is_retryable()` is true for the failures that are about _this attempt_
+  (`Transport`, `Timeout`, `HttpStatus` 429 / 5xx, the `-32005` a hosted RPC
+  rate-limits with) and false for everything already decided. The two types that
+  talk to the wire, `ProviderError` and `ContractError`, add `code()` — the
+  EIP-1193 / EIP-1474 number, or `None` for what never reached the protocol —
+  and `ContractError` adds `revert_reason()`, the string a `require(cond, "…")`
+  carried. (#113)
+
+- `@endor.ProviderError` and `@endor.ContractError`: the root re-exports both,
+  so the public error surface is four types spelled from one package rather than
+  two that need `@provider` and `@contract` imported to be named. (#113)
+- A timeout on every HTTP request. `@endpoint.at` takes `timeout~` in
+  milliseconds (30 000 by default) bounding the whole POST — connecting, sending
+  and reading the body — after which the call raises `Timeout` instead of
+  waiting on a node that stopped answering. (#113)
+- **Batched reads**, so a listing costs one RPC round trip rather than one per
+  field. `@multicall.Multicall3::new().aggregate3(p, calls)` makes every call in
+  a single `eth_call` through
+  [Multicall3](https://github.com/mds1/multicall) and answers with one
+  `@multicall.Outcome` per call, in order — which also means every read in the
+  batch saw the same block. A `@multicall.Call` is a prepared call plus
+  `allow_failure` (`true` by default), and an `Outcome` is `Returned(values)` or
+  `Failed(error)`: one call reverting does not take the others down, and its
+  revert is decoded exactly as a direct call's is, so `Revert` / `Panic` /
+  `CustomError` all arrive — with a custom error's arguments filled in when the
+  `Contract` was given the matching `ErrorDef`s. What _does_ raise is the batch
+  failing as a whole: the node refusing it, or an element with `allow_failure =
+false` bringing `aggregate3` down. An empty batch answers `[]` and asks the
+  node nothing. The address defaults to the canonical
+  `0xcA11bde05977b3631167028862bE2a173976CA11` — the same on every major chain
+  — and `Multicall3::new(address=…)` points at another deployment;
+  `is_deployed` says whether there is a contract there at all, for the chains
+  where there is not. No JSON-RPC batching and no implicit scheduler: calls are
+  bundled because the caller bundled them. (#88)
+- `@contract.Contract::prepare`, which splits `Contract::call` into the encode
+  and the decode it was: it answers with a `@contract.PreparedCall` — the
+  target, the calldata, the declared outputs and the contract's own `ErrorDef`s
+  — that `PreparedCall::decode` reads an answer back with and
+  `PreparedCall::revert` reads raw revert bytes with. Holding an encoded call as
+  a value is what makes bundling possible at all, and `Contract::call` is now
+  `prepare` → `eth_call` → `decode`, so there is one encode path and one decode
+  path. Its behaviour is unchanged. (#88)
+- An HTTP JSON-RPC transport, so the read layer works without a browser wallet
+  **and on every backend**: `@http.HttpProvider` (`provider/http`) is a
+  `Provider` that frames each call as JSON-RPC 2.0 — unique, monotonic ids,
+  checked against the id the answer carries — and `@endpoint.at`
+  (`provider/http/endpoint`) points it at a node:
+
+  ```moonbit
+  let provider = @endpoint.at("http://127.0.0.1:8545")
+  let chain = @provider.chain_id(provider)
+  ```
+
+  No FFI is added for this. `@endpoint` uses `moonbitlang/async`'s HTTP client,
+  already a dependency of this module and implemented per backend — `fetch` on
+  `js`, sockets and TLS on `native` and `wasm` — so the same code reads a chain
+  from a browser, a CLI or a server. `provider/http` itself declares no
+  `supported_targets` and imports nothing but `provider`, so the framing builds
+  on `wasm-gc` too, where a host supplies its own `HttpTransport`. A hosted
+  node that wants a key takes `headers~`.
+
+  The methods that need a wallet UI — every `wallet_*`, plus
+  `eth_requestAccounts` — raise `UnsupportedMethod` without a round trip;
+  everything a node can serve, including `eth_sendTransaction` against an
+  unlocked account, is forwarded. `HttpProvider` implements `Provider` and
+  deliberately not `EventSource`: plain HTTP pushes nothing. (#19)
+
+- `@provider.ProviderError::from_error_object`, the decoder for the
+  `{ code, message }` object EIP-1193 and JSON-RPC both carry. It was already
+  there privately, behind the event path's `from_json`; a node's `error` member
+  needed the same reading, and one mapping is better than two. (#19)
+
 ### Changed
 
+- **Breaking:** `ProviderError` gained five variants, and
+  `ProviderError::internal` is deprecated. Nineteen different failures used to
+  flatten into `internal`, which is `Rpc(code=-32603, …)` — so a typo in a URL
+  claimed the node had had an internal error before any request left the
+  process, and telling "unreachable" from "unreadable" meant matching on the
+  message string. Each now says what happened:
+
+  | was `internal(…)`                      | is now                         |
+  | -------------------------------------- | ------------------------------ |
+  | no connection, DNS, TLS, socket closed | `Transport(String)`            |
+  | a status that is not 2xx               | `HttpStatus(code~, url~)`      |
+  | a 2xx body that is not JSON-RPC        | `MalformedResponse(String)`    |
+  | an answer of the wrong type            | `Decode(method_name~, cause~)` |
+  | a URL or an argument that is wrong     | `InvalidConfig(String)`        |
+
+  `Decode` keeps the `CodecError` **as a value** rather than interpolating it
+  into a message, so which field was wrong stays readable by a program. A
+  `catch` that matched every variant by name is no longer exhaustive; add the
+  cases, or a catch-all. (#113)
+
+- **Breaking:** `CodecError` gained `InvalidValue`, and the variants now split
+  on what is wrong with the value rather than on which decoder noticed:
+  `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are about
+  the **form**, `InvalidValue` about the **meaning**. Three checks moved onto it
+  — a number too wide for `uint256` in `@eip2612` / `@eip3009` (was
+  `InvalidLength`), a `Topic::any_of` with no alternatives (was
+  `InvalidLength`), and an EIP-712 document naming a type it never defines (was
+  `InvalidJson`, which read as "you passed broken JSON" for JSON that parsed
+  exactly as written). A `catch` matching all five by name is no longer
+  exhaustive. (#113)
+- **Breaking:** `CodecError` and `AbiError` now print through their derived
+  `Debug`, so their payload is quoted: `InvalidHex("0x0g")` where it used to be
+  `InvalidHex(0x0g)`. Code that compares `"\{e}"` against a literal has to add
+  the quotes; nothing that matches on variants is affected. The point is that
+  the variant list is the only place to edit when one is added. `JsError` gained
+  the `Show` it never had, and every error type now derives `Debug`. (#113)
+- **Breaking:** the `creation_code()` that `endor-cli abi` generates now embeds
+  the creation code as a `Bytes` literal and calls the total
+  `Hex::from_bytes`, so it can neither `abort` — which it used to, on a literal
+  the generator itself had validated — nor raise. Generated code was the one
+  place in the repository that could panic, and buying out of that with an error
+  no caller can trigger would only have moved it. The signature is unchanged
+  (`-> @types.Hex`); regenerate to get the new body. (#113)
+- **Breaking:** a call a contract **reverts** now comes back as what the
+  contract said, not as the node's `"execution reverted"` string.
+  `ContractError` gained three variants — `Revert(reason)` for
+  `Error(string)`, `Panic(code)` for the checks the Solidity compiler inserts
+  (`@contract.panic_reason` says what a code means), and
+  `CustomError(selector~, name~, args~, data~)` for a contract's own
+  `error` — and `ProviderError` gained `Reverted(code~, message~, data~)`,
+  which carries the ABI-encoded revert as it came off the wire. A `catch` that
+  matched every variant by name is no longer exhaustive; add the cases, or a
+  catch-all. Nothing that is _not_ a revert changed shape: `Rpc` and `Abi` mean
+  exactly what they meant.
+  Where the revert data sits in a JSON-RPC error differs per node, so all three
+  places are read (`error.data`, `error.data.data`,
+  `error.data.originalError.data`). A custom error decodes down to its arguments
+  when the contract was given its own declarations —
+  `Contract::new(address, errors~)`, taking `@contract.ErrorDef` values, which
+  `endor-cli abi` now generates as a `<Name>::errors()` from the `error` entries
+  of an ABI document. Without them a custom error still arrives, holding its
+  selector and raw data. The `Erc20` preset declares its own —
+  `@erc20.standard_errors()`, the six [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093)
+  errors an OpenZeppelin v5 token reverts with — so a transfer beyond a balance
+  reads back as `ERC20InsufficientBalance(sender, balance, needed)`. (#80)
 - **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
   string that is not a decimal amount the target can hold. A `catch` that
   matched all four by name is no longer exhaustive; add the case, or a
@@ -49,9 +202,28 @@ applies.
 
 ### Added
 
+- **The transaction itself**, which `types` had no way to say until now: it had
+  `TransactionRequest` (what is about to be sent) and `TransactionReceipt` (what
+  mining it cost) and nothing for the state in between.
+  `@provider.transaction_by_hash(p, hash)` reads one back
+  (`eth_getTransactionByHash`, answering with a `@endor.Transaction?` because a
+  hash the node has never seen is `null`). A transaction is readable from the
+  moment it reaches the mempool, so this is where the fields the _wallet_ chose
+  become visible — the `fee` it priced the transaction at, the `gas` it
+  estimated, and the `nonce` it took, which is the one a speed-up or a cancel
+  has to re-use. `send_transaction` answers with a hash and nothing else, so
+  there was no way to see any of them before a receipt existed.
+  `@endor.Inclusion` is where the transaction is: `Pending`, or
+  `Mined(block_hash, block_number, transaction_index)`. One field rather than
+  three optional ones, because a node reports those three together or not at
+  all — and it makes `None` and `Pending` the different facts they are. Fees are
+  read into the same `Fee` a request is built with, and a transaction of an
+  EIP-2718 type this release does not know still decodes: unmodelled fields (the
+  signature, an access list, blob fees) are dropped rather than rejected, and a
+  fee that names none of the known keys reads as `Auto`. (#83)
 - Decoding a **log** into the arguments its event was emitted with, which was
   the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
-  topics~, data~)` checks `topics[0]` against the event's own signature hash,
+topics~, data~)` checks `topics[0]` against the event's own signature hash,
   reads the `indexed` arguments out of the topics after it and the rest out of
   `data`, and answers in the order the event declares them. `@abi.EventParam` —
   an `AbiType` and whether it is `indexed` — is what carries the half of the

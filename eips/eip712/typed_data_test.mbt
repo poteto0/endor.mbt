@@ -119,12 +119,12 @@ test "error declaring EIP712Domain" {
     )
     |> ignore
   catch {
-    @types.InvalidJson(m) =>
+    @types.InvalidValue(m) =>
       inspect(
         m,
         content="EIP712Domain is derived from the domain and must not be declared",
       )
-    e => fail("expected invalid json, but not \{e}")
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }
@@ -141,9 +141,9 @@ test "error primary type that is not defined" {
     )
     |> ignore
   catch {
-    @types.InvalidJson(m) =>
+    @types.InvalidValue(m) =>
       inspect(m, content="primaryType Letter is not defined")
-    e => fail("expected invalid json, but not \{e}")
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }
@@ -162,9 +162,9 @@ test "error field type that is not defined" {
     )
     |> ignore
   catch {
-    @types.InvalidJson(m) =>
+    @types.InvalidValue(m) =>
       inspect(m, content="Mail.from has type Persona, which is not defined")
-    e => fail("expected invalid json, but not \{e}")
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }
@@ -282,8 +282,10 @@ test "error values that do not match their type" {
   ]
   for c in cases {
     try one_field(c.0, c.1) |> ignore catch {
-      @types.InvalidJson(_) | @types.InvalidLength(_) | @types.InvalidHex(_) =>
-        ()
+      @types.InvalidJson(_)
+      | @types.InvalidLength(_)
+      | @types.InvalidHex(_)
+      | @types.InvalidValue(_) => ()
       e => fail("expected a codec error for \{c.0}, but not \{e}")
     } noraise {
       _ => fail("expected \{c.0} to reject its value")

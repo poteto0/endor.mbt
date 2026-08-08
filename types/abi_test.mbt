@@ -36,19 +36,27 @@ fn refused(f : () -> Unit raise @types.AbiError) -> String {
 test "the width and size rules refuse a type no contract can declare" {
   inspect(
     refused(() => @types.AbiType::Uint(7).name() |> ignore),
-    content="InvalidAbiType(uint7: width must be a multiple of 8 in 8..=256)",
+    content=(
+      #|InvalidAbiType("uint7: width must be a multiple of 8 in 8..=256")
+    ),
   )
   inspect(
     refused(() => @types.AbiType::Int(512).name() |> ignore),
-    content="InvalidAbiType(int512: width must be a multiple of 8 in 8..=256)",
+    content=(
+      #|InvalidAbiType("int512: width must be a multiple of 8 in 8..=256")
+    ),
   )
   inspect(
     refused(() => @types.AbiType::FixedBytes(0).name() |> ignore),
-    content="InvalidAbiType(bytes0: size must be in 1..=32)",
+    content=(
+      #|InvalidAbiType("bytes0: size must be in 1..=32")
+    ),
   )
   inspect(
     refused(() => @types.AbiType::FixedArray(Bool, -1).name() |> ignore),
-    content="InvalidAbiType(T[-1]: length cannot be negative)",
+    content=(
+      #|InvalidAbiType("T[-1]: length cannot be negative")
+    ),
   )
 }
 
@@ -58,25 +66,35 @@ test "the width and size rules refuse a type no contract can declare" {
 test "a value is refused by the width it does not fit" {
   inspect(
     refused(() => @types.AbiValue::checked_uint(256N, bits=8) |> ignore),
-    content="InvalidValue(uint8 cannot hold 256)",
+    content=(
+      #|InvalidValue("uint8 cannot hold 256")
+    ),
   )
   inspect(
     refused(() => @types.AbiValue::checked_uint(-1N, bits=256) |> ignore),
-    content="InvalidValue(uint256 cannot hold -1)",
+    content=(
+      #|InvalidValue("uint256 cannot hold -1")
+    ),
   )
   inspect(
     refused(() => @types.AbiValue::checked_int(128N, bits=8) |> ignore),
-    content="InvalidValue(int8 cannot hold 128)",
+    content=(
+      #|InvalidValue("int8 cannot hold 128")
+    ),
   )
   inspect(
     refused(() => @types.AbiValue::checked_int(-129N, bits=8) |> ignore),
-    content="InvalidValue(int8 cannot hold -129)",
+    content=(
+      #|InvalidValue("int8 cannot hold -129")
+    ),
   )
   // the widths themselves are checked first: `uint7` is wrong about the type,
   // not about the value
   inspect(
     refused(() => @types.AbiValue::checked_uint(1N, bits=7) |> ignore),
-    content="InvalidAbiType(uint7: width must be a multiple of 8 in 8..=256)",
+    content=(
+      #|InvalidAbiType("uint7: width must be a multiple of 8 in 8..=256")
+    ),
   )
 }
 

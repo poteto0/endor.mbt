@@ -85,7 +85,7 @@ async test "error sign message answered with a non-signature" {
         inspect(
           e,
           content=(
-            #|Rpc(code=-32603, message="decode personal_sign: InvalidHex(not hex)")
+            #|Decode(method_name="personal_sign", cause=InvalidHex("not hex"))
           ),
         )
     } noraise {

@@ -47,14 +47,13 @@ pub impl @provider.Provider for BrowserProvider with fn request(
   })
 
   let result_json = @js.request(self.eth, payload.stringify()).wait() catch {
-    e => raise @provider.ProviderError::internal("request failed: \{e}")
+    e => raise @provider.Transport("request failed: \{e}")
   }
 
   let result = @js.decode_envelope(result_json) catch {
-    @js.JsError::RemoteError(code, msg) =>
-      raise @provider.ProviderError::from_code(code, msg)
-    @js.JsError::InvalidEnvelope(msg) =>
-      raise @provider.ProviderError::internal(msg)
+    @js.JsError::RemoteError(code, msg, data) =>
+      raise @provider.ProviderError::from_code(code, msg, data~)
+    @js.JsError::InvalidEnvelope(msg) => raise @provider.MalformedResponse(msg)
   }
 
   result

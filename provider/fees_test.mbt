@@ -126,7 +126,7 @@ async test "percentiles out of order or out of range are refused" {
           reward_percentiles=percentiles,
         )
       catch {
-        @provider.ProviderError::Rpc(message~, ..) =>
+        @provider.InvalidConfig(message) =>
           assert_true(message.has_prefix("fee_history: reward_percentiles"))
         e => fail("expected an argument error, but not \{e}")
       } noraise {
@@ -143,7 +143,7 @@ async test "a fee history of no blocks at all is refused" {
   @async.with_task_group(_ => {
     let provider = @provider.MockProvider::new()
     try @provider.fee_history(provider, block_count=0) catch {
-      @provider.ProviderError::Rpc(message~, ..) =>
+      @provider.InvalidConfig(message) =>
         assert_true(message.has_prefix("fee_history: block_count"))
       e => fail("expected an argument error, but not \{e}")
     } noraise {

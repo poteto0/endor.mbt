@@ -10,7 +10,7 @@ impl @backend.Backend for Anvil with fn name(_) {
 
 ///|
 impl @backend.Backend for Anvil with fn endpoint(_) {
-  endpoint()
+  @env.endpoint()
 }
 
 ///|
@@ -129,7 +129,7 @@ async fn[P : @provider.Provider] deploy_creation_code(
     poll_interval=100,
   )
   guard receipt.contract_address is Some(deployed) else {
-    raise @provider.ProviderError::internal("receipt has no contractAddress")
+    raise @provider.MalformedResponse("receipt has no contractAddress")
   }
   deployed
 }
@@ -169,9 +169,7 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
   selector : @types.Hex,
 ) -> @types.Address raise @provider.ProviderError {
   guard selector.byte_length() == 4 else {
-    raise @provider.ProviderError::internal(
-      "a selector is four bytes, got \{selector}",
-    )
+    raise @provider.InvalidConfig("a selector is four bytes, got \{selector}")
   }
   let data = @types.Hex::from_digits(
     SELECTOR_GATE_INIT + selector.digits() + SELECTOR_GATE_BODY,
@@ -180,6 +178,71 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
   }
   deploy_creation_code(provider, data)
 }
+
+///|
+/// A contract whose every call reverts with exactly `revert_data`.
+///
+/// The selector gate reverts too, but with `REVERT(0, 0)` and therefore with
+/// nothing to read. This one hands back whatever the caller encoded — an
+/// `Error(string)`, a `Panic(uint256)`, a custom error — which is what
+/// `e2e/revert_test.mbt` needs and says why.
+///
+/// ```mbt check
+/// async test "doc: a contract that reverts with a reason" {
+///   @anvil.on(provider => {
+///     let data = @types.Hex::from_string("0x08c379a0")
+///     let at = @anvil.deploy_reverter(provider, revert_data=data)
+///     inspect(@provider.is_contract(provider, at), content="true")
+///   })
+/// }
+/// ```
+pub async fn[P : @provider.Provider] deploy_reverter(
+  provider : P,
+  revert_data~ : @types.Hex,
+) -> @types.Address raise @provider.ProviderError {
+  // both lengths below are a `PUSH1`, which is what bounds the data: the
+  // runtime is the twelve-byte program plus the data it carries
+  guard revert_data.byte_length() <= 255 - REVERTER_PROGRAM_BYTES else {
+    raise @provider.InvalidConfig(
+      "a reverter carries at most \{255 - REVERTER_PROGRAM_BYTES} bytes, got \{revert_data.byte_length()}",
+    )
+  }
+  // CODECOPY the data out of the runtime into memory, then REVERT with it —
+  // the same shape as the initcode below, ending in `fd` rather than `f3`
+  let runtime = copy_program(length=revert_data.byte_length(), ending_in="fd") +
+    revert_data.digits()
+  let data = @types.Hex::from_digits(
+    copy_program(length=runtime.length() / 2, ending_in="f3") + runtime,
+  ) catch {
+    e => abort("bad reverter code: \{e}")
+  }
+  deploy_creation_code(provider, data)
+}
+
+///|
+/// `CODECOPY(0, REVERTER_PROGRAM_BYTES, length)` followed by `RETURN(0, length)`
+/// or `REVERT(0, length)` — the twelve bytes both halves of the reverter are,
+/// since returning a contract's runtime and reverting with a reason are the same
+/// copy with a different last byte.
+///
+/// The offset it copies from is where this program ends, so it is written out of
+/// `REVERTER_PROGRAM_BYTES` rather than as another literal `0c`.
+fn copy_program(length~ : Int, ending_in~ : String) -> String {
+  let n = push_byte(length)
+  let at = push_byte(REVERTER_PROGRAM_BYTES)
+  "60\{n}60\{at}60003960\{n}6000\{ending_in}"
+}
+
+///|
+/// One byte as the two hex digits a `PUSH1` carries.
+fn push_byte(value : Int) -> String {
+  @codec.digits_of_bytes(Bytes::makei(1, _ => value.to_byte()))
+}
+
+///|
+/// Bytes of the program `copy_program` writes, which is where the data behind
+/// it starts.
+const REVERTER_PROGRAM_BYTES = 12
 
 ///|
 /// The two halves of the selector gate's creation code, with the four selector

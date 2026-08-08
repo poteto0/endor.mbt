@@ -288,13 +288,60 @@ codegen-check:
   moon fmt --check _codegen_check
   echo "ok: the generated code compiles and is already formatted"
 
+# The nix development environment (`docs/nix.md`). Optional: nothing above
+# needs nix, and `.github/actions/setup` is still what CI installs. What nix
+# buys is that `nix develop` hands you the *same* toolchain versions, and a
+# `treefmt` for everything `moon fmt` does not reach.
+
+# `nix develop` in one command, for a shell that has no nix experimental
+# features turned on
+[group("nix")]
+nix-dev:
+  @nix --extra-experimental-features 'nix-command flakes' develop
+
+# the flake's own checks: `treefmt --ci` over the tree, and that the dev shell's
+# tools all run. Needs nix; CI runs it in its own job for that reason.
+[group("nix")]
+nix-check:
+  @nix --extra-experimental-features 'nix-command flakes' flake check -L
+
+# everything treefmt owns — `.mbt` is `just fmt`, and the two do not overlap
+[group("nix")]
+nix-fmt:
+  @nix --extra-experimental-features 'nix-command flakes' fmt
+
+# The MoonBit toolchain is pinned twice — in `.github/actions/setup`, which CI
+# installs, and in `flake.nix`, which `nix develop` hands out — and the whole
+# value of a pin is that everyone is on the same one (#76). So this fails when
+# they disagree. Pure text, no nix: it belongs to `ci-check` rather than to the
+# nix job, since a wrong pin is a wrong pin whether or not the checker uses nix.
+[group("ci")]
+nix-pin-check:
+  #!/usr/bin/env bash
+  set -euo pipefail
+  # `0.10.6+80dc50f24+c19f78e` — upstream's version, then the `core` revision
+  # the overlay pairs with it, which exists only there
+  flake=$(sed -n 's/^ *moonbitVersion = "\(.*\)";$/\1/p' flake.nix)
+  ci=$(sed -n 's/^ *MOONBIT_INSTALL_VERSION: *//p' .github/actions/setup/action.yml)
+  [ -n "$flake" ] || { echo "error: no \`moonbitVersion\` in flake.nix"; exit 1; }
+  [ -n "$ci" ] || { echo "error: no \`MOONBIT_INSTALL_VERSION\` in .github/actions/setup/action.yml"; exit 1; }
+  [ "${flake%+*}" = "$ci" ] || {
+    echo "error: the toolchain pins disagree"
+    echo "  .github/actions/setup: $ci"
+    echo "  flake.nix:             ${flake%+*} (+ core ${flake##*+})"
+    echo "bump both, or pick the flake version from"
+    echo "https://github.com/moonbit-community/moonbit-overlay/tree/master/versions/toolchains"
+    exit 1
+  }
+  echo "ok: both pins are $ci"
+
 # every check, formatting and regenerating in place rather than failing
 [group("ci")]
-ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs-check
+ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs-check nix-pin-check
 
 # what GitHub Actions runs: same checks, but fails instead of rewriting files
 [group("ci")]
-ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check
+ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check nix-pin-check
 
 # what `.githooks/pre-commit` runs (#96): the part of `ci-check` the staged diff
 # can actually break, rather than the whole gate the PR already runs. Which

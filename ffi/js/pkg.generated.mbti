@@ -3,6 +3,7 @@ package "poteto0/endor/ffi/js"
 
 import {
   "moonbitlang/async/js_async",
+  "moonbitlang/core/debug",
 }
 
 // Values
@@ -27,8 +28,9 @@ pub fn spawn(async () -> Unit) -> Unit
 // Errors
 pub(all) suberror JsError {
   InvalidEnvelope(String)
-  RemoteError(Int, String)
-} derive(Eq)
+  RemoteError(Int, String, Json)
+} derive(Eq, @debug.Debug)
+pub impl Show for JsError
 
 // Types and methods
 #external

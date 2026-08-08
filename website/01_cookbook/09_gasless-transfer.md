@@ -20,7 +20,7 @@ what `eips/eip3009` builds.
   <div class="alert__description">
 
 Every other recipe here carries a widget you can click. This one does not: the
-other half of the transfer needs a *submitter* — a service holding gas, willing
+other half of the transfer needs a _submitter_ — a service holding gas, willing
 to relay yours — and this site has none. The SDK's side of that, an ERC-20
 preset sending `transferWithAuthorization`, is
 [#73](https://github.com/poteto0/endor.mbt/issues/73).
@@ -62,7 +62,7 @@ fn pay(
   from : @endor.Address,
   to : @endor.Address,
   now : BigInt,
-  nonce : @endor.Hex,
+  nonce~ : @endor.Hex,
 ) -> @eip3009.Authorization raise @endor.CodecError {
   @eip3009.Authorization::new(
     from~,
@@ -79,8 +79,26 @@ fn pay(
 The `nonce` is **32 random bytes, not a counter**. It is what the token marks as
 used, so two authorizations signed with the same nonce are the same
 authorization and only the first submitted takes effect — and, because there is
-no sequence to keep, several may be in flight at once. Drawing it is yours: the
-SDK owns no randomness.
+no sequence to keep, several may be in flight at once.
+
+`@eip3009.draw_nonce()` is the draw: 32 bytes off the platform's own CSPRNG —
+`crypto.getRandomValues` in a browser — so neither you nor this SDK writes any
+FFI for it.
+
+```moonbit
+fn pay_now(
+  from : @endor.Address,
+  to : @endor.Address,
+  now : BigInt,
+) -> @eip3009.Authorization raise @endor.CodecError {
+  pay(from, to, now, nonce=@eip3009.draw_nonce())
+}
+```
+
+It raises where the platform has no entropy source, and that is the whole
+answer: do not fall back to a counter, a timestamp or `Math.random`. A nonce a
+third party can guess is an authorization that party can cancel out from under
+you, burning the nonce before your submitter gets to it.
 
 `valid_before` has no default on purpose. An authorization that never expires is
 a signature somebody may hold and submit next year, so the window has to be
@@ -124,12 +142,12 @@ whoever holds it, and travels like any other bearer token.
 Two forms, identical but for their name — and that name is in the hash, so a
 signature for one is not a signature for the other.
 
-| Form                        | Built by                | Who may submit it |
-| --------------------------- | ----------------------- | ----------------- |
-| `TransferWithAuthorization` | `transfer_typed_data`   | anyone            |
-| `ReceiveWithAuthorization`  | `receive_typed_data`    | only `to`         |
+| Form                        | Built by              | Who may submit it |
+| --------------------------- | --------------------- | ----------------- |
+| `TransferWithAuthorization` | `transfer_typed_data` | anyone            |
+| `ReceiveWithAuthorization`  | `receive_typed_data`  | only `to`         |
 
-Use the first unless the recipient is a contract that has to *react* to being
+Use the first unless the recipient is a contract that has to _react_ to being
 paid. For that case the second closes a real hole: with a plain transfer, a
 stranger can land the payment on the contract out of band, ahead of the call
 that was supposed to carry it, leaving that call to fail against a contract that

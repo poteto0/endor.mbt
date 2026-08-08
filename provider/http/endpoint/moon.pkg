@@ -1,0 +1,8 @@
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/http",
+  "moonbitlang/async/http" @client,
+  "moonbitlang/async",
+}
+
+supported_targets = "+js +native +wasm"
