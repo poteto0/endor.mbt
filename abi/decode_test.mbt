@@ -21,7 +21,14 @@ test "a single static value is one word" {
   inspect(
     decoded([Address], "0x" + word("dead")),
     content=(
-      #|[Address({ inner: "0x000000000000000000000000000000000000dead" })]
+      #|[
+      #|  Address(
+      #|    {
+      #|      inner: "0x000000000000000000000000000000000000dead",
+      #|      eip55: "0x000000000000000000000000000000000000dEaD",
+      #|    },
+      #|  ),
+      #|]
     ),
   )
 }

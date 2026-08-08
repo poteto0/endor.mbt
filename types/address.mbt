@@ -23,6 +23,7 @@ fn eip55_body(lower_body : String) -> String {
 /// casing is a later milestone.
 pub struct Address {
   priv inner : String
+  priv eip55 : String
 } derive(Eq, Debug)
 
 ///|
@@ -38,7 +39,7 @@ pub fn Address::from_string(s : String) -> Address raise CodecError {
   guard body == lower || body == lower.to_upper() || body == eip55_body(lower) else {
     raise InvalidChecksum("address fails its EIP-55 checksum: \{s}")
   }
-  Address::{ inner: "0x" + lower }
+  Address::{ inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
 }
 
 ///|
@@ -62,7 +63,7 @@ pub fn Address::digits(self : Address) -> String {
 /// inspect(a.to_checksum_string(), content="0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
 /// ```
 pub fn Address::to_checksum_string(self : Address) -> String {
-  "0x" + eip55_body(self.digits())
+  self.eip55
 }
 
 ///|
@@ -90,5 +91,5 @@ pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
 ///|
 /// Displays the checksummed form; the wire form is `to_string` / `to_json`.
 pub impl Show for Address with fn output(self, logger) {
-  logger.write_string(self.inner)
+  logger.write_string(self.eip55)
 }

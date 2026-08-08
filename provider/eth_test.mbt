@@ -60,10 +60,7 @@ async test "require first account" {
       e => fail("unexpected error \{e}")
     }
 
-    inspect(
-      acc.to_checksum_string(),
-      content="0x52908400098527886E0F7030069857D2E4169EE7",
-    )
+    inspect(acc, content="0x52908400098527886E0F7030069857D2E4169EE7")
   })
 
   @async.with_task_group(_ => {
