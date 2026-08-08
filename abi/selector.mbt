@@ -37,9 +37,8 @@ pub fn selector(signature : String) -> @types.Hex {
 }
 
 ///|
-/// Both cuts of a signature's `keccak256`, kept as the `Hex` every caller wants
-/// rather than as bytes: rebuilding one costs more than the lookup that spared
-/// the hash.
+/// Both cuts of a signature's `keccak256`, kept as the `Hex` every caller wants:
+/// rebuilding one costs more than the lookup that spared the hash.
 priv struct SignatureHash {
   selector : @types.Hex
   topic : @types.Hex
@@ -49,15 +48,10 @@ priv struct SignatureHash {
 /// A signature's hash, computed the first time that signature is asked about.
 ///
 /// Not the state "the SDK is stateless" forbids: that rule is about chain state,
-/// which goes stale, and a canonical signature determines its hash completely —
-/// the same reason `@multicall.canonical` and `crypto`'s round constants are
-/// worked out once. `@eip712`'s cache is per-call because a type hash depends on
-/// the whole document its type was declared in; this one does not.
-///
-/// Nothing is evicted: signatures that come from an ABI are a set fixed before
-/// the program runs. A caller that *discovers* them at runtime — one per
-/// keystroke in a decoder UI, one per unknown contract in a scanner — grows this
-/// table without bound, and wants `@crypto.keccak256_string` directly.
+/// which goes stale, and a canonical signature determines its hash completely.
+/// Nothing is evicted either — the signatures an ABI declares are a fixed set.
+/// A caller that *discovers* them at runtime, one per keystroke in a decoder UI,
+/// grows this table without bound and wants `@crypto.keccak256_string` directly.
 let hashes : Map[String, SignatureHash] = Map([])
 
 ///|

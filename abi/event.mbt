@@ -35,11 +35,9 @@ pub impl Show for EventParam with fn output(self, logger) {
 ///
 /// None of that depends on the log. A receipt's logs, or the ten thousand a
 /// range scan of `eth_getLogs` answers with, are all read against one
-/// declaration, so working it out per log is work the batch does not need.
-/// Build this once, outside the loop, and `decode_log` on it does no hashing at
-/// all — nor does the per-log spelling, now that `event_topic` remembers what a
-/// signature hashes to; what is saved here is the signature string and the
-/// topics/data split.
+/// declaration, so working it out per log is work the batch does not need. Build
+/// this once, outside the loop; what it saves per log is the signature string and
+/// the topics/data split, the hash itself being remembered by `event_topic`.
 ///
 /// ```
 /// let transfer = @abi.Event::new(

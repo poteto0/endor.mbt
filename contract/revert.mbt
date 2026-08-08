@@ -94,9 +94,8 @@ pub fn revert_error(
   let undecoded = () => {
     ContractError::CustomError(selector~, name=None, args=[], data~)
   }
-  // matched as a prefix of the digits themselves, which are lower-case by
-  // construction: asking `selector` for its digits back would copy them out
-  // again only to compare them against two constants
+  // a prefix of the digits, which are lower-case by construction: asking
+  // `selector` for its own back would copy them out again
   match digits {
     [.. ERROR_STRING_SELECTOR, ..] => {
       guard decoded([String], payload) is Some([String(reason)]) else {

@@ -1,8 +1,7 @@
 ///|
 /// The ERC-6093 declarations an ERC-20 is read against — `@erc20`'s own list,
-/// written out here because `contract` is below `contract/erc20` and cannot
-/// import it. Six is what a real token carries, and the count is what matters:
-/// a revert is matched against the list one declaration at a time.
+/// written out here because `contract` is below `contract/erc20`. Six is what a
+/// real token carries, and a revert is matched against them one at a time.
 fn bench_errors() -> Array[@contract.ErrorDef] {
   [
     { name: "ERC20InvalidSender", inputs: [Address] },
@@ -58,9 +57,8 @@ fn read_reverts(
 /// Reading a revert, one and a batch of them, against six declarations.
 ///
 /// The `Error(string)` row matches a written-out constant and looks at no
-/// declaration at all. The gap to the rows below it is more than the declaration
-/// walk — the payloads differ too — but the walk is what the batch row
-/// multiplies by 500.
+/// declaration. The gap to the rows below holds more than the declaration walk —
+/// the payloads differ too — but the walk is what x500 multiplies.
 test "bench: revert_error" (b : @bench.T) {
   let errors = bench_errors()
   let custom = bench_reverted_last(errors)

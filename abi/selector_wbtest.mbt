@@ -1,7 +1,7 @@
 ///|
-/// The claim `hashes` makes, and the one thing a caller cannot observe: a
-/// memoized pure function answers exactly what an unmemoized one would. Counted
-/// as a delta, since every other test hashes signatures of its own.
+/// The claim `hashes` makes, and the one thing a caller cannot observe of it: a
+/// memoized pure function answers what an unmemoized one would. A delta, since
+/// every other test hashes signatures of its own.
 test "a signature is hashed once, for both of its cuts" {
   let before = hashes.length()
   let sig = "onceOnly(uint256,bytes)"
