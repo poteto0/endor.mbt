@@ -49,13 +49,25 @@ priv struct SignatureHash {
 ///
 /// Not the state "the SDK is stateless" forbids: that rule is about chain state,
 /// which goes stale, and a canonical signature determines its hash completely.
-/// Nothing is evicted either — the signatures an ABI declares are a fixed set.
-/// A caller that *discovers* them at runtime, one per keystroke in a decoder UI,
-/// grows this table without bound and wants `@crypto.keccak256_string` directly.
 let hashes : Map[String, SignatureHash] = Map([])
 
 ///|
+/// How many signatures are remembered before the table is dropped and refilled.
+///
+/// The signatures an ABI declares are a fixed set well under this, so a program
+/// that hashes what it was written against never reaches it. One that *discovers*
+/// signatures instead — a decoder UI hashing what is typed into it, an indexer
+/// reading ABIs it has never seen — would otherwise grow this table for as long
+/// as it runs. Dropping it caps that at a known size and costs such a caller a
+/// rehash, which is what it paid before the table existed; keeping the newest
+/// entries instead would mean tracking use, for a table this cheap to refill.
+const CACHED_SIGNATURES = 1024
+
+///|
 fn signature_hash(signature : String) -> SignatureHash {
+  if hashes.length() >= CACHED_SIGNATURES {
+    hashes.clear()
+  }
   hashes.get_or_init(signature, () => {
     let hash = @crypto.keccak256_string(signature)
     {

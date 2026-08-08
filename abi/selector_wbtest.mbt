@@ -12,3 +12,19 @@ test "a signature is hashed once, for both of its cuts" {
   assert_true(event_topic(sig).to_string().has_prefix(four_bytes.to_string()))
   assert_eq(hashes.length(), before + 1)
 }
+
+///|
+/// A caller that hashes a new signature every time is capped rather than
+/// followed: the table is dropped and refilled, and every answer stays right.
+test "signatures nobody declared do not grow the table without bound" {
+  for i in 0..<(CACHED_SIGNATURES + 100) {
+    let sig = "generated\{i}(uint256)"
+    assert_eq(
+      selector(sig),
+      @types.Hex::from_bytes(
+        Bytes::makei(SELECTOR_SIZE, j => @crypto.keccak256_string(sig)[j]),
+      ),
+    )
+  }
+  assert_true(hashes.length() <= CACHED_SIGNATURES)
+}
