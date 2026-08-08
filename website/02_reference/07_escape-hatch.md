@@ -25,8 +25,10 @@ async fn transaction_at(
 ```
 
 Errors still arrive as `ProviderError`: the FFI boundary maps the wallet's error
-code through `ProviderError::from_code`, and anything malformed becomes
-`ProviderError::internal`.
+code through `ProviderError::from_code`, and an answer that is not a well-formed
+envelope becomes `MalformedResponse`. What `request` does *not* do is decode —
+so a `result` you then read yourself raises a `CodecError`, not the `Decode` the
+typed helpers wrap it in.
 
 ## Decoding what comes back
 

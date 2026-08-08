@@ -2,7 +2,9 @@
 package "poteto0/endor"
 
 import {
+  "poteto0/endor/contract",
   "poteto0/endor/eips/eip712",
+  "poteto0/endor/provider",
   "poteto0/endor/types",
 }
 
@@ -35,6 +37,8 @@ pub using @types {type ChainParams}
 
 pub using @types {type CodecError}
 
+pub using @contract {type ContractError}
+
 pub using @types {type Fee}
 
 pub using @types {type Hex}
@@ -46,6 +50,8 @@ pub using @types {type Log}
 pub using @types {type LogFilter}
 
 pub using @types {type NativeCurrency}
+
+pub using @provider {type ProviderError}
 
 pub using @types {type Quantity}
 

@@ -81,11 +81,20 @@ pub(all) suberror ProviderError {
   Rpc(code~ : Int, message~ : String)
   Reverted(code~ : Int, message~ : String, data~ : @types.Hex)
   NotInstalled
+  Transport(String)
+  HttpStatus(code~ : Int, url~ : String)
+  MalformedResponse(String)
+  Decode(method_name~ : String, cause~ : @types.CodecError)
+  Config(String)
   Timeout(String)
 } derive(Eq, @debug.Debug)
+pub fn ProviderError::code(Self) -> Int?
 pub fn ProviderError::from_code(Int, String, data? : Json) -> Self
 pub fn ProviderError::from_error_object(Json) -> Self
+#deprecated
 pub fn ProviderError::internal(String) -> Self
+pub fn ProviderError::is_retryable(Self) -> Bool
+pub fn ProviderError::message(Self) -> String
 pub impl Show for ProviderError
 
 // Types and methods

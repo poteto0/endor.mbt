@@ -40,6 +40,10 @@ pub(all) suberror ContractError {
   Panic(@bigint.BigInt)
   CustomError(selector~ : @types.Hex, name~ : String?, args~ : Array[@types.AbiValue], data~ : @types.Hex)
 } derive(Eq)
+pub fn ContractError::code(Self) -> Int?
+pub fn ContractError::is_retryable(Self) -> Bool
+pub fn ContractError::message(Self) -> String
+pub fn ContractError::revert_reason(Self) -> String?
 pub impl Show for ContractError
 
 // Types and methods

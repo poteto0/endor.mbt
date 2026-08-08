@@ -54,11 +54,15 @@ test "event_topic is the whole hash, not four bytes of it" {
 test "an impossible type is refused rather than hashed" {
   inspect(
     refused(() => @abi.signature(name="f", inputs=[Uint(7)]) |> ignore),
-    content="InvalidAbiType(uint7: width must be a multiple of 8 in 8..=256)",
+    content=(
+      #|InvalidAbiType("uint7: width must be a multiple of 8 in 8..=256")
+    ),
   )
   inspect(
     refused(() => @abi.signature(name="f", inputs=[FixedBytes(33)]) |> ignore),
-    content="InvalidAbiType(bytes33: size must be in 1..=32)",
+    content=(
+      #|InvalidAbiType("bytes33: size must be in 1..=32")
+    ),
   )
 }
 

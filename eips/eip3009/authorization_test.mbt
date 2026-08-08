@@ -214,8 +214,8 @@ test "error value past uint256" {
     )
     |> ignore
   catch {
-    @types.InvalidLength(_) => ()
-    e => fail("expected invalid length, but not \{e}")
+    @types.InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }

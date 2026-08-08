@@ -49,7 +49,7 @@ below runs in a page, in a CLI and on a server.
 ```moonbit
 async fn chain_over_http(url : String) -> Unit {
   try {
-    // raises ProviderError::internal if `url` is not an http(s) URL with a host
+    // raises Config if `url` is not an http(s) URL with a host
     let node = @endpoint.at(url)
     let chain = @provider.chain_id(node) // eth_chainId, over one POST
     let height = @provider.block_number(node) // eth_blockNumber, over another
@@ -69,8 +69,8 @@ failure with a stack that points at the wrong place.
 Each provider numbers its own requests, starting at 1 and incrementing, and
 checks the id that comes back against the one it sent. A node that answers a
 different request than the one it was asked raises
-`ProviderError::internal` rather than being decoded into a plausible-looking
-wrong answer.
+`MalformedResponse` rather than being decoded into a plausible-looking wrong
+answer.
 
 ## A node that wants a key
 
@@ -153,12 +153,14 @@ anything. This is exactly why the two traits are
 
 ## Errors
 
-The same four suberrors as everywhere else, from one more source. Whatever is
-the **transport** failing — the request never landing, a non-2xx status, an
-unreadable body — is `ProviderError::internal` with the status and the URL in
-its message. A JSON-RPC `error` object is not a transport failure: it is a
-well-formed answer, and it is mapped through the same code table as a wallet's,
-so a revert from a node is the `Reverted` you already handle.
+The same four suberrors as everywhere else, from one more source. A failing
+**transport** has a variant per thing that failed: `Transport` when the request
+never landed, `HttpStatus` when something answered with a status that is not
+2xx, `MalformedResponse` for a 2xx body that is not JSON-RPC, `Timeout` when
+nothing answered inside the endpoint's deadline, and `Config` for a URL that is
+not a URL. A JSON-RPC `error` object is none of those: it is a well-formed
+answer, and it is mapped through the same code table as a wallet's, so a revert
+from a node is the `Reverted` you already handle.
 
 ```moonbit
 async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
@@ -170,8 +172,28 @@ async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
     // neighbours for everything a node rejects
     Rpc(code~, message~) => println("node error \{code}: \{message}")
     UnsupportedMethod => println("that one needs a wallet")
-    // the URL was wrong, the host was unreachable, or the status was not 2xx
-    e => println("could not reach it: \{e}")
+    // a typo in the URL, caught before anything was sent
+    Config(what) => println("misconfigured: \{what}")
+    // 401 and 403 are the API key; 429 and 5xx are worth trying again
+    HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
+    // the host was unreachable, or it stopped answering mid-request
+    e => println("could not reach it: \{e} (retry? \{e.is_retryable()})")
+  }
+}
+```
+
+Every request is bounded: `at` takes a `timeout` in milliseconds, 30 000 by
+default, covering the whole POST — connecting, sending and reading the body —
+after which the call raises `Timeout` rather than waiting forever.
+
+```moonbit
+async fn impatient(url : String) -> Unit {
+  try {
+    let node = @endpoint.at(url, timeout=2_000)
+    println("chain \{@provider.chain_id(node).to_uint64()}")
+  } catch {
+    Timeout(what) => println("the node is not answering: \{what}")
+    e => println("\{e.message()}")
   }
 }
 ```
@@ -196,7 +218,7 @@ priv struct Recorded {
 impl @http.HttpTransport for Recorded with fn post(self, body) {
   match self.answers.get(body) {
     Some(answer) => answer
-    None => raise @provider.ProviderError::internal("no answer recorded")
+    None => raise @provider.MalformedResponse("no answer recorded")
   }
 }
 

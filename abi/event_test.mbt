@@ -91,7 +91,7 @@ test "decode_log refuses a log of another event" {
       data="0x" + word("2a"),
     ),
     content=(
-      #|InvalidData(`Transfer(address,address,uint256)`: topics[0] is 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925, which is another event)
+      #|InvalidData("`Transfer(address,address,uint256)`: topics[0] is 0x8c5be1e5ebec7d5bd14f71427d1e84f3dd0314c0f7b2291e5b200ac8c7c3b925, which is another event")
     ),
   )
 }
@@ -109,7 +109,7 @@ test "decode_log counts the topics the event declares" {
       data="0x" + word("2a"),
     ),
     content=(
-      #|InvalidData(`Transfer(address,address,uint256)`: 2 indexed parameters, but the log carries 1 topics after the first)
+      #|InvalidData("`Transfer(address,address,uint256)`: 2 indexed parameters, but the log carries 1 topics after the first")
     ),
   )
 }
@@ -126,7 +126,7 @@ test "decode_log needs a topics[0], which an anonymous event has not" {
       data="0x" + word("2a"),
     ),
     content=(
-      #|InvalidData(`Transfer(address,address,uint256)`: the log carries no topics at all)
+      #|InvalidData("`Transfer(address,address,uint256)`: the log carries no topics at all")
     ),
   )
 }
@@ -185,7 +185,7 @@ test "a topic that is not a word is not a topic" {
       data="0x",
     ),
     content=(
-      #|InvalidData(a topic is 32 bytes, and this one is 31)
+      #|InvalidData("a topic is 32 bytes, and this one is 31")
     ),
   )
 }

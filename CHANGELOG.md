@@ -16,6 +16,33 @@ applies.
 
 ### Added
 
+- Three questions every error in the SDK answers, with the same names on
+  `ProviderError`, `ContractError`, `AbiError` and `CodecError`, so one handler
+  works whichever one was caught:
+
+  ```moonbit
+  try @provider.chain_id(node) |> ignore catch {
+    UserRejected => ()
+    e =>
+      if e.is_retryable() { retry() } else { show(e.message()) }
+  }
+  ```
+
+  `message()` is one line written for a person — no variant name, no URL, no
+  JSON-RPC code — as against `Show`, which keeps all three and belongs in a log.
+  `is_retryable()` is true for the failures that are about *this attempt*
+  (`Transport`, `Timeout`, `HttpStatus` 429 / 5xx, the `-32005` a hosted RPC
+  rate-limits with) and false for everything already decided. `code()` gives
+  the EIP-1193 / EIP-1474 number, or `None` for what never reached the protocol.
+  `ContractError` adds `revert_reason()`, the string a `require(cond, "…")`
+  carried. (#113)
+- `@endor.ProviderError` and `@endor.ContractError`: the root re-exports both,
+  so the public error surface is four types spelled from one package rather than
+  two that need `@provider` and `@contract` imported to be named. (#113)
+- A timeout on every HTTP request. `@endpoint.at` takes `timeout~` in
+  milliseconds (30 000 by default) bounding the whole POST — connecting, sending
+  and reading the body — after which the call raises `Timeout` instead of
+  waiting on a node that stopped answering. (#113)
 - An HTTP JSON-RPC transport, so the read layer works without a browser wallet
   **and on every backend**: `@http.HttpProvider` (`provider/http`) is a
   `Provider` that frames each call as JSON-RPC 2.0 — unique, monotonic ids,
@@ -47,6 +74,46 @@ applies.
 
 ### Changed
 
+- **Breaking:** `ProviderError` gained five variants, and
+  `ProviderError::internal` is deprecated. Nineteen different failures used to
+  flatten into `internal`, which is `Rpc(code=-32603, …)` — so a typo in a URL
+  claimed the node had had an internal error before any request left the
+  process, and telling "unreachable" from "unreadable" meant matching on the
+  message string. Each now says what happened:
+
+  | was `internal(…)`                       | is now                                |
+  | --------------------------------------- | ------------------------------------- |
+  | no connection, DNS, TLS, socket closed  | `Transport(String)`                   |
+  | a status that is not 2xx                | `HttpStatus(code~, url~)`             |
+  | a 2xx body that is not JSON-RPC         | `MalformedResponse(String)`           |
+  | an answer of the wrong type             | `Decode(method_name~, cause~)`        |
+  | a URL or an argument that is wrong      | `Config(String)`                      |
+
+  `Decode` keeps the `CodecError` **as a value** rather than interpolating it
+  into a message, so which field was wrong stays readable by a program. A
+  `catch` that matched every variant by name is no longer exhaustive; add the
+  cases, or a catch-all. (#113)
+- **Breaking:** `CodecError` gained `InvalidValue`, and the variants now split
+  on what is wrong with the value rather than on which decoder noticed:
+  `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are about
+  the **form**, `InvalidValue` about the **meaning**. Three checks moved onto it
+  — a number too wide for `uint256` in `@eip2612` / `@eip3009` (was
+  `InvalidLength`), a `Topic::any_of` with no alternatives (was
+  `InvalidLength`), and an EIP-712 document naming a type it never defines (was
+  `InvalidJson`, which read as "you passed broken JSON" for JSON that parsed
+  exactly as written). A `catch` matching all five by name is no longer
+  exhaustive. (#113)
+- **Breaking:** `CodecError` and `AbiError` now print through their derived
+  `Debug`, so their payload is quoted: `InvalidHex("0x0g")` where it used to be
+  `InvalidHex(0x0g)`. Code that compares `"\{e}"` against a literal has to add
+  the quotes; nothing that matches on variants is affected. The point is that
+  the variant list is the only place to edit when one is added. `JsError` gained
+  the `Show` it never had, and every error type now derives `Debug`. (#113)
+- **Breaking:** the `creation_code()` that `endor-cli abi` generates now
+  `raise`s `@types.CodecError` instead of calling `abort` on a literal it
+  validated itself. Generated code was the one place in the repository that
+  could panic; a generated `deploy` maps the failure to
+  `ContractError::Deployment`. Regenerate, or add the `raise` by hand. (#113)
 - **Breaking:** a call a contract **reverts** now comes back as what the
   contract said, not as the node's `"execution reverted"` string.
   `ContractError` gained three variants — `Revert(reason)` for

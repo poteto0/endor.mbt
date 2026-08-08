@@ -27,10 +27,10 @@ pub fn TypedDataField::new(
   type_name : String,
 ) -> TypedDataField raise @types.CodecError {
   guard !name.is_empty() else {
-    raise @types.InvalidJson("typed data field has no name")
+    raise @types.InvalidValue("typed data field has no name")
   }
   guard !base_type(type_name).is_empty() else {
-    raise @types.InvalidJson(
+    raise @types.InvalidValue(
       "typed data field \{name} has no type: \{type_name}",
     )
   }
@@ -234,27 +234,27 @@ pub fn TypedData::new(
   message~ : Json,
 ) -> TypedData raise @types.CodecError {
   guard primary_type != DOMAIN_TYPE else {
-    raise @types.InvalidJson(
+    raise @types.InvalidValue(
       "primaryType must be a struct type, not \{DOMAIN_TYPE}",
     )
   }
   for name, fields in types {
     guard name != DOMAIN_TYPE else {
-      raise @types.InvalidJson(
+      raise @types.InvalidValue(
         "\{DOMAIN_TYPE} is derived from the domain and must not be declared",
       )
     }
     for f in fields {
       let base = base_type(f.type_name)
       guard is_elementary(base) || types.get(base) is Some(_) else {
-        raise @types.InvalidJson(
+        raise @types.InvalidValue(
           "\{name}.\{f.name} has type \{f.type_name}, which is not defined",
         )
       }
     }
   }
   guard types.get(primary_type) is Some(_) else {
-    raise @types.InvalidJson("primaryType \{primary_type} is not defined")
+    raise @types.InvalidValue("primaryType \{primary_type} is not defined")
   }
   validate_value(types, primary_type, message, path=primary_type)
   TypedData::{ types, primary_type, domain, message }
@@ -515,7 +515,7 @@ fn validate_elementary(
     // structs here — but the match still has to cover them, and raising is
     // what the rest of this file does with a type name it cannot use.
     Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
-      raise @types.InvalidJson("\{path} has unknown type \{type_name}")
+      raise @types.InvalidValue("\{path} has unknown type \{type_name}")
   }
 }
 
@@ -565,7 +565,7 @@ fn validate_integer(
     @codec.fits_uint(n, bits~)
   }
   guard fits else {
-    raise @types.InvalidLength("\{path} does not fit \{type_name}: \{n}")
+    raise @types.InvalidValue("\{path} does not fit \{type_name}: \{n}")
   }
 }
 

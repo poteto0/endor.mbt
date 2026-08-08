@@ -296,7 +296,7 @@ pub fn domain(
 ///|
 fn check_uint256(n : BigInt, what~ : String) -> Unit raise @types.CodecError {
   guard @codec.fits_uint(n, bits=@codec.WORD_BITS) else {
-    raise @types.InvalidLength(
+    raise @types.InvalidValue(
       "authorization \{what} does not fit uint256: \{n}",
     )
   }

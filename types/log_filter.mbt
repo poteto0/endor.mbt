@@ -42,7 +42,7 @@ pub fn Topic::exactly(topic : Hex) -> Topic raise CodecError {
 /// filter's `topics`, and an empty set would silently mean the opposite.
 pub fn Topic::any_of(topics : Array[Hex]) -> Topic raise CodecError {
   guard !topics.is_empty() else {
-    raise InvalidLength("a topic needs at least one alternative")
+    raise InvalidValue("a topic needs at least one alternative")
   }
   for topic in topics {
     guard topic.byte_length() == @codec.WORD_BYTES else {

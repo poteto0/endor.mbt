@@ -13,7 +13,9 @@ pub(all) suberror AbiError {
   InvalidAbiType(String)
   InvalidValue(String)
   InvalidData(String)
-} derive(Eq)
+} derive(Eq, @debug.Debug)
+pub fn AbiError::is_retryable(Self) -> Bool
+pub fn AbiError::message(Self) -> String
 pub impl Show for AbiError
 
 pub(all) suberror CodecError {
@@ -22,7 +24,10 @@ pub(all) suberror CodecError {
   InvalidJson(String)
   InvalidChecksum(String)
   InvalidDecimal(String)
-} derive(Eq)
+  InvalidValue(String)
+} derive(Eq, @debug.Debug)
+pub fn CodecError::is_retryable(Self) -> Bool
+pub fn CodecError::message(Self) -> String
 pub impl Show for CodecError
 
 // Types and methods

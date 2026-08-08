@@ -148,7 +148,9 @@ async test "an address that is not the token is an Abi error" {
       e =>
         inspect(
           e,
-          content="Abi(InvalidData(expected a word at byte 0, but the data is 0 bytes))",
+          content=(
+            #|Abi(InvalidData("expected a word at byte 0, but the data is 0 bytes"))
+          ),
         )
     } noraise {
       _ => fail("expected an error")

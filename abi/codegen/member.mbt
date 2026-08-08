@@ -325,7 +325,7 @@ fn deploy_block(
     params~,
     receiver=false,
   )
-  let deploy = ["provider", "from~", "bytecode=\{struct_name}::creation_code()"]
+  let deploy = ["provider", "from~", "bytecode~"]
   deploy.append(abi_args(params))
   if ctor.payable {
     head.write_string("  value? : @types.Wei,\n")
@@ -333,6 +333,11 @@ fn deploy_block(
   }
   head.write_string(
     ") -> \{struct_name} raise @contract.ContractError {\n" +
+    // `creation_code` raises, so it is read before the call rather than inside
+    // its argument list, where a `catch` would not fit on one line
+    "  let bytecode = \{struct_name}::creation_code() catch {\n" +
+    "    e => raise @contract.Deployment(\"creation code: \\{e}\")\n" +
+    "  }\n" +
     call_expr("let deployed = @contract.deploy", deploy, indent=2, suffix="") +
     "  \{struct_name}::{ contract: deployed }\n" +
     "}\n",
@@ -351,10 +356,11 @@ fn deploy_block(
 /// `@contract.deploy` with this, which is the same deployment with the waiting
 /// left to them.
 ///
-/// The `abort` is unreachable by construction: the digits were validated as hex
-/// before they were written here, so the only way to reach it is to edit the
-/// literal in the generated file, which is the one thing its header says not to
-/// do.
+/// It raises rather than aborting (#113): the digits were validated as hex
+/// before they were written here, so the only way to reach the failure is to
+/// edit the literal in the generated file — which is the one thing its header
+/// says not to do — but "unreachable" is not a reason for generated code to
+/// hold the one `abort` the SDK does not.
 ///
 /// The call stays on one line however long the code is — real creation code is
 /// thousands of digits — because that is what `moon fmt` does with it: a string
@@ -366,11 +372,10 @@ fn creation_code_block(struct_name : String, code : String) -> String {
     $|/// The creation code this file was generated from: what `\{struct_name}::deploy`
     $|/// puts on the wire, and what to hand `@contract.deploy` to deploy the same
     $|/// contract while waiting for it your own way.
-    $|pub fn \{struct_name}::creation_code() -> @types.Hex {
-    $|  // validated as hex when this file was generated
-    $|  @types.Hex::from_string("\{code}") catch {
-    $|    _ => abort("generated creation code is not hex")
-    $|  }
+    $|pub fn \{struct_name}::creation_code() -> @types.Hex raise @types.CodecError {
+    $|  // validated as hex when this file was generated; it can only fail if
+    $|  // this literal has been edited by hand
+    $|  @types.Hex::from_string("\{code}")
     $|}
     $|
   )

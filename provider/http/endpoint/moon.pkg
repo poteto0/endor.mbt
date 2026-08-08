@@ -2,6 +2,8 @@ import {
   "poteto0/endor/provider",
   "poteto0/endor/provider/http",
   "moonbitlang/async/http" @client,
+  // `with_timeout` — a node that stops answering must not hang the caller
+  "moonbitlang/async",
 }
 
 supported_targets = "+js +native +wasm"

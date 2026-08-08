@@ -212,7 +212,7 @@ async fn[P : @provider.Provider] a_sent_transaction(
   hash : @types.TxHash,
 ) -> @types.Transaction raise @provider.ProviderError {
   guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
-    raise @provider.ProviderError::internal("no transaction for \{hash}")
+    raise @provider.MalformedResponse("no transaction for \{hash}")
   }
   tx
 }

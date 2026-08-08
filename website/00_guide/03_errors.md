@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: Four suberrors, and which of them a dapp actually has to branch on.
+description: Four suberrors, the three questions a dapp asks of any of them, and what is worth retrying.
 islands:
   - address_tool
 ---
@@ -9,14 +9,49 @@ islands:
 
 Nothing in the SDK panics on a wallet-side failure. Everything that can go wrong
 arrives as one of four suberrors, and which one you catch says where the problem
-was.
+was. All four are spelled from `@endor`, so catching them costs no extra import.
 
-| Suberror                    | Raised by                        | Means                                       |
-| --------------------------- | -------------------------------- | ------------------------------------------- |
-| `@provider.ProviderError`   | every RPC call                   | the wallet, the node, or the connection     |
-| `@contract.ContractError`   | `Contract`, `Erc20`, `deploy`    | one of the above, the ABI, or a revert      |
-| `@endor.AbiError`           | `@abi.encode` / `decode`         | a type or a value the ABI cannot carry      |
-| `@endor.CodecError`         | a domain type's constructor      | a string that is not the thing it claims    |
+| Suberror                | Raised by                     | Means                                    |
+| ----------------------- | ----------------------------- | ---------------------------------------- |
+| `@endor.ProviderError`  | every RPC call                | the wallet, the node, or the connection  |
+| `@endor.ContractError`  | `Contract`, `Erc20`, `deploy` | one of the above, the ABI, or a revert   |
+| `@endor.AbiError`       | `@abi.encode` / `decode`      | a type or a value the ABI cannot carry   |
+| `@endor.CodecError`     | a domain type's constructor   | a string that is not the thing it claims |
+
+## The three questions
+
+Matching every variant is rarely what a dapp wants. Almost every failure is
+handled by asking three things, and each of them is one call — on
+`ProviderError` and on `ContractError` alike, so the same handler works whether
+you caught the wallet's failure or the contract's.
+
+```moonbit
+async fn one_handler(wallet : @browser.BrowserProvider) -> Unit {
+  try {
+    let _ = @provider.request_accounts(wallet)
+  } catch {
+    // 1. was this the user saying no? Then say nothing: declining is an answer,
+    //    not a failure, and a dialog about it is noise.
+    UserRejected => ()
+    e =>
+      // 2. is trying again worth anything? True for a connection that did not
+      //    happen, a node asking for a moment, a request that timed out; false
+      //    for anything already decided.
+      if e.is_retryable() {
+        println("\{e.message()} Trying again…")
+      } else {
+        // 3. what do I put on the screen? `message()` is one line written for a
+        //    person. `Show` — `"\{e}"` — is the developer's view, for the log.
+        println(e.message())
+      }
+  }
+}
+```
+
+`message()` never contains a variant name, a URL or a JSON-RPC code, so it is
+safe to render as-is. `"\{e}"` contains all three, so it belongs in a log and
+never in a dialog. `code()` gives back the EIP-1193 / EIP-1474 number when there
+was one, and `None` for the failures that never reached the protocol.
 
 ## ProviderError
 
@@ -41,18 +76,37 @@ async fn every_branch(wallet : @browser.BrowserProvider) -> Unit {
     UnrecognizedChain => println("unknown chain")
     // no wallet extension at all: raised by BrowserProvider::require
     NotInstalled => println("install a wallet")
-    // wait_for_receipt ran out of time. Deliberately not the same answer as
-    // `transaction_receipt` returning None.
+    // a wait that ran out: `wait_for_receipt` polling, or an HTTP request going
+    // unanswered. Deliberately not the same answer as `transaction_receipt`
+    // returning None.
     Timeout(why) => println("gave up: \{why}")
     // the contract refused the call, and the node handed back the revert it
     // refused with. What that revert *says* needs the ABI — catch it as a
     // `ContractError` below and it arrives decoded.
     Reverted(data~, ..) => println("the contract reverted: \{data}")
-    // anything else the wallet said, with the code it said it under
+    // nothing got through: no connection, DNS, TLS, a socket that closed
+    Transport(why) => println("could not reach it: \{why}")
+    // something answered, with a status that is not 2xx. 429 and 5xx are worth
+    // retrying; 401 and 403 are an API key that is wrong or missing.
+    HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
+    // a 2xx body that is not JSON-RPC at all — a proxy, a captive portal, the
+    // wrong URL. Retrying gets the same body back.
+    MalformedResponse(why) => println("that was not JSON-RPC: \{why}")
+    // the answer was well-formed and still not the type the method promises.
+    // The CodecError is kept as it was raised, not flattened into a string.
+    Decode(method_name~, cause~) => println("\{method_name} answered: \{cause}")
+    // your own mistake, caught before any I/O: a URL that is not a URL
+    Config(what) => println("misconfigured: \{what}")
+    // anything else the wallet or the node said, with the code it said it under
     Rpc(code~, message~) => println("wallet error \{code}: \{message}")
   }
 }
 ```
+
+The last five are the ones added in 0.6 (#113). Before them every one of these
+was the same `Rpc(code=-32603, …)`, which meant "the node had an internal
+error" even when no request had left the process — so telling a typo in a URL
+apart from a node that was down meant matching on the message string.
 
 In practice a dapp branches on two of them — `UserRejected`, because declining is
 a normal thing for a person to do, and `NotInstalled`, because it needs a
@@ -72,8 +126,23 @@ async fn the_usual_shape(wallet : @browser.BrowserProvider) -> Unit {
 ```
 
 `ProviderError::from_code` is what maps an EIP-1193 / EIP-1474 code onto those
-variants, and `ProviderError::internal` is what the SDK's own failures use — a
-malformed answer, a value the wallet returned that is not the type it must be.
+variants. `ProviderError::internal` is deprecated: what used to be flattened
+into it now has a variant of its own, and matching on it means matching on
+whichever variant says what actually happened.
+
+### What to retry
+
+`is_retryable()` is the summary, and this is what it reads:
+
+| Retry               | Do not retry                                                 |
+| ------------------- | ------------------------------------------------------------ |
+| `Transport`         | `UserRejected`, `Unauthorized`, `UnsupportedMethod`           |
+| `Timeout`           | `NotInstalled`, `UnrecognizedChain`                           |
+| `HttpStatus` 429/5xx| `HttpStatus` 401/403 — the API key, not the load              |
+| `Rpc(-32005)`       | `MalformedResponse`, `Decode`, `Config`, `Reverted`           |
+
+Back off between attempts rather than looping: a `429` is the node asking for a
+moment, and a retry that arrives immediately is another `429`.
 
 ## ContractError
 
@@ -132,6 +201,40 @@ fn declared_errors(at : @endor.Address) -> @contract.Contract {
 Without them a custom error still comes back — as `CustomError` holding the
 four-byte selector and the raw data, which is all the revert itself carried.
 
+`ContractError` answers the same three questions as `ProviderError`, delegating
+the ones that came from the wallet, plus one of its own: `revert_reason()`, the
+string a `require(cond, "…")` carried, and `None` for everything that is not a
+plain revert. It is usually the only thing worth showing:
+
+```moonbit
+async fn transfer_or_say_why(
+  wallet : @browser.BrowserProvider,
+  token : @endor.Address,
+  from~ : @endor.Address,
+  to~ : @endor.Address,
+  amount~ : @endor.Wei,
+) -> Unit {
+  try {
+    let _ = @erc20.Erc20::new(token).transfer(
+      wallet,
+      from~,
+      to~,
+      amount=amount.to_bigint(),
+    )
+    println("sent")
+  } catch {
+    // declining is an answer, so it is handled before anything is explained
+    Rpc(UserRejected) => ()
+    e =>
+      match e.revert_reason() {
+        // the contract's author wrote this string for exactly this moment
+        Some(reason) => println("the token refused: \{reason}")
+        None => println(e.message())
+      }
+  }
+}
+```
+
 ## AbiError and CodecError
 
 `AbiError` is `InvalidAbiType` (a type no contract can declare, `uint7`),
@@ -139,7 +242,12 @@ four-byte selector and the raw data, which is all the revert itself carried.
 (bytes that will not read back as the expected types).
 
 `CodecError` is what a domain type's constructor raises, and it is where user
-input gets rejected. **Try it:** type into the box and the first line names the
+input gets rejected. Its variants split on *what is wrong with the value*:
+`InvalidHex`, `InvalidLength`, `InvalidChecksum` and `InvalidJson` are about the
+**form** — the alphabet, the byte count, the self-check, the JSON shape — and
+`InvalidValue` is about the **meaning**: a well-formed value that says something
+the type cannot hold, such as a number past `uint256` or an EIP-712 document
+naming a type it never defines. **Try it:** type into the box and the first line names the
 variant that came back — delete a character for `InvalidLength`, put a `z` in it
 for `InvalidHex`, change the case of one letter for `InvalidChecksum`.
 

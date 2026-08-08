@@ -107,10 +107,25 @@ test "can create from digits alone" {
   )
   assert_eq(@types.Hex::from_digits("DEADBEEF").to_string(), "0xdeadbeef")
   assert_eq(@types.Hex::from_digits("").to_string(), "0x")
-  refuses("abc", "InvalidLength(hex byte string must have even length: 0xabc)")
-  refuses("0g", "InvalidHex(0x0g)")
+  refuses(
+    "abc",
+    (
+      #|InvalidLength("hex byte string must have even length: 0xabc")
+    ),
+  )
+  refuses(
+    "0g",
+    (
+      #|InvalidHex("0x0g")
+    ),
+  )
   // the `0x` belongs to `from_string`; digits here are digits and nothing else
-  refuses("0xab", "InvalidHex(0x0xab)")
+  refuses(
+    "0xab",
+    (
+      #|InvalidHex("0x0xab")
+    ),
+  )
 }
 
 ///|

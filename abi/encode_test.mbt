@@ -172,25 +172,35 @@ test "strings are encoded as their UTF-8 bytes" {
 test "a value that does not fit its type is refused" {
   inspect(
     refused(() => encode_ignoring([Uint(8)], [Uint(256N)])),
-    content="InvalidValue(uint8 cannot hold 256)",
+    content=(
+      #|InvalidValue("uint8 cannot hold 256")
+    ),
   )
   inspect(
     refused(() => encode_ignoring([Uint(256)], [Uint(-1N)])),
-    content="InvalidValue(uint256 cannot hold -1)",
+    content=(
+      #|InvalidValue("uint256 cannot hold -1")
+    ),
   )
   inspect(
     refused(() => encode_ignoring([Int(8)], [Int(128N)])),
-    content="InvalidValue(int8 cannot hold 128)",
+    content=(
+      #|InvalidValue("int8 cannot hold 128")
+    ),
   )
   inspect(
     refused(() => encode_ignoring([FixedBytes(4)], [Bytes(b"abc")])),
-    content="InvalidValue(bytes4 needs 4 bytes, got 3)",
+    content=(
+      #|InvalidValue("bytes4 needs 4 bytes, got 3")
+    ),
   )
   inspect(
     refused(() => {
       encode_ignoring([FixedArray(Uint(256), 2)], [Array([Uint(1N)])])
     }),
-    content="InvalidValue(uint256[2] needs 2 elements, got 1)",
+    content=(
+      #|InvalidValue("uint256[2] needs 2 elements, got 1")
+    ),
   )
 }
 
@@ -198,11 +208,15 @@ test "a value that does not fit its type is refused" {
 test "a value of the wrong shape is refused" {
   inspect(
     refused(() => encode_ignoring([Address], [Uint(1N)])),
-    content="InvalidValue(Uint(1) is not a address)",
+    content=(
+      #|InvalidValue("Uint(1) is not a address")
+    ),
   )
   inspect(
     refused(() => encode_ignoring([Uint(256), Bool], [Uint(1N)])),
-    content="InvalidValue(expected 2 values, got 1)",
+    content=(
+      #|InvalidValue("expected 2 values, got 1")
+    ),
   )
 }
 
