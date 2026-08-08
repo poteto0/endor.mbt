@@ -11,12 +11,12 @@ Nothing in the SDK panics on a wallet-side failure. Everything that can go wrong
 arrives as one of four suberrors, and which one you catch says where the problem
 was. All four are spelled from `@endor`, so catching them costs no extra import.
 
-| Suberror                | Raised by                     | Means                                    |
-| ----------------------- | ----------------------------- | ---------------------------------------- |
-| `@endor.ProviderError`  | every RPC call                | the wallet, the node, or the connection  |
-| `@endor.ContractError`  | `Contract`, `Erc20`, `deploy` | one of the above, the ABI, or a revert   |
-| `@endor.AbiError`       | `@abi.encode` / `decode`      | a type or a value the ABI cannot carry   |
-| `@endor.CodecError`     | a domain type's constructor   | a string that is not the thing it claims |
+| Suberror               | Raised by                     | Means                                    |
+| ---------------------- | ----------------------------- | ---------------------------------------- |
+| `@endor.ProviderError` | every RPC call                | the wallet, the node, or the connection  |
+| `@endor.ContractError` | `Contract`, `Erc20`, `deploy` | one of the above, the ABI, or a revert   |
+| `@endor.AbiError`      | `@abi.encode` / `decode`      | a type or a value the ABI cannot carry   |
+| `@endor.CodecError`    | a domain type's constructor   | a string that is not the thing it claims |
 
 ## The three questions
 
@@ -98,7 +98,7 @@ async fn every_branch(wallet : @browser.BrowserProvider) -> Unit {
     // The CodecError is kept as it was raised, not flattened into a string.
     Decode(method_name~, cause~) => println("\{method_name} answered: \{cause}")
     // your own mistake, caught before any I/O: a URL that is not a URL
-    Config(what) => println("misconfigured: \{what}")
+    InvalidConfig(what) => println("misconfigured: \{what}")
     // anything else the wallet or the node said, with the code it said it under
     Rpc(code~, message~) => println("wallet error \{code}: \{message}")
   }
@@ -254,7 +254,6 @@ back — delete a character for `InvalidLength`, put a `z` in it for
 `InvalidHex`, change the case of one letter for `InvalidChecksum`.
 
 <Island name="address_tool" trigger="visible" />
-
 
 ```moonbit
 fn parse_user_input(typed : String) -> Unit {

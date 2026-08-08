@@ -128,13 +128,13 @@ Two things, and the SDK says so about both rather than failing obscurely.
 `UnsupportedMethod` — without a round trip, since there is nothing behind a URL
 to prompt a human:
 
-| Call                                      | Against an endpoint                      |
-| ----------------------------------------- | ---------------------------------------- |
-| `@provider.request_accounts` / `require_account` | `UnsupportedMethod`               |
-| `@provider.switch_chain` / `add_chain`    | `UnsupportedMethod`                      |
-| `@provider.accounts`                      | forwarded — a dev node answers it        |
-| `@provider.sign_message` / `sign_typed_data` | forwarded — an unlocked node signs    |
-| `@provider.send_transaction`              | forwarded — an unlocked node broadcasts  |
+| Call                                             | Against an endpoint                     |
+| ------------------------------------------------ | --------------------------------------- |
+| `@provider.request_accounts` / `require_account` | `UnsupportedMethod`                     |
+| `@provider.switch_chain` / `add_chain`           | `UnsupportedMethod`                     |
+| `@provider.accounts`                             | forwarded — a dev node answers it       |
+| `@provider.sign_message` / `sign_typed_data`     | forwarded — an unlocked node signs      |
+| `@provider.send_transaction`                     | forwarded — an unlocked node broadcasts |
 
 The refusals stop at the ones that need a wallet **UI**. A node with unlocked
 accounts — Anvil, a dev node — really does serve `eth_accounts`,
@@ -172,7 +172,7 @@ async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
     Rpc(code~, message~) => println("node error \{code}: \{message}")
     UnsupportedMethod => println("that one needs a wallet")
     // a typo in the URL, caught before anything was sent
-    Config(what) => println("misconfigured: \{what}")
+    InvalidConfig(what) => println("misconfigured: \{what}")
     HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
     // the host was unreachable, or it stopped answering mid-request
     e => println("could not reach it: \{e} (retry? \{e.is_retryable()})")

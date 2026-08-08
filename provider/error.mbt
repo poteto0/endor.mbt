@@ -69,7 +69,7 @@ pub(all) suberror ProviderError {
   /// A mistake in how the SDK was set up, caught before any I/O: a URL that is
   /// not HTTP, an argument outside its range. It fails identically every time
   /// until the code changes.
-  Config(String)
+  InvalidConfig(String)
   /// A wait the SDK gave up on: `wait_for_receipt` polled until its timeout
   /// without the transaction reaching the confirmations asked for, or an HTTP
   /// request went unanswered past its deadline. The other side answered every
@@ -286,7 +286,7 @@ pub fn ProviderError::message(self : ProviderError) -> String {
       }
     MalformedResponse(_) | Decode(..) =>
       "The network answered with something this app could not read."
-    Config(_) => "This app is misconfigured."
+    InvalidConfig(_) => "This app is misconfigured."
     Timeout(_) => "The network did not answer in time."
   }
 }
@@ -325,7 +325,7 @@ pub fn ProviderError::is_retryable(self : ProviderError) -> Bool {
     | NotInstalled
     | MalformedResponse(_)
     | Decode(..)
-    | Config(_) => false
+    | InvalidConfig(_) => false
   }
 }
 
@@ -382,7 +382,7 @@ pub fn ProviderError::code(self : ProviderError) -> Int? {
     | HttpStatus(..)
     | MalformedResponse(_)
     | Decode(..)
-    | Config(_)
+    | InvalidConfig(_)
     | Timeout(_) => None
   }
 }

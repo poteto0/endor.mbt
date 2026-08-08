@@ -30,13 +30,14 @@ applies.
 
   `message()` is one line written for a person — no variant name, no URL, no
   JSON-RPC code — as against `Show`, which keeps all three and belongs in a log.
-  `is_retryable()` is true for the failures that are about *this attempt*
+  `is_retryable()` is true for the failures that are about _this attempt_
   (`Transport`, `Timeout`, `HttpStatus` 429 / 5xx, the `-32005` a hosted RPC
   rate-limits with) and false for everything already decided. The two types that
   talk to the wire, `ProviderError` and `ContractError`, add `code()` — the
   EIP-1193 / EIP-1474 number, or `None` for what never reached the protocol —
   and `ContractError` adds `revert_reason()`, the string a `require(cond, "…")`
   carried. (#113)
+
 - `@endor.ProviderError` and `@endor.ContractError`: the root re-exports both,
   so the public error surface is four types spelled from one package rather than
   two that need `@provider` and `@contract` imported to be named. (#113)
@@ -68,6 +69,7 @@ applies.
   everything a node can serve, including `eth_sendTransaction` against an
   unlocked account, is forwarded. `HttpProvider` implements `Provider` and
   deliberately not `EventSource`: plain HTTP pushes nothing. (#19)
+
 - `@provider.ProviderError::from_error_object`, the decoder for the
   `{ code, message }` object EIP-1193 and JSON-RPC both carry. It was already
   there privately, behind the event path's `from_json`; a node's `error` member
@@ -82,18 +84,19 @@ applies.
   process, and telling "unreachable" from "unreadable" meant matching on the
   message string. Each now says what happened:
 
-  | was `internal(…)`                       | is now                                |
-  | --------------------------------------- | ------------------------------------- |
-  | no connection, DNS, TLS, socket closed  | `Transport(String)`                   |
-  | a status that is not 2xx                | `HttpStatus(code~, url~)`             |
-  | a 2xx body that is not JSON-RPC         | `MalformedResponse(String)`           |
-  | an answer of the wrong type             | `Decode(method_name~, cause~)`        |
-  | a URL or an argument that is wrong      | `Config(String)`                      |
+  | was `internal(…)`                      | is now                         |
+  | -------------------------------------- | ------------------------------ |
+  | no connection, DNS, TLS, socket closed | `Transport(String)`            |
+  | a status that is not 2xx               | `HttpStatus(code~, url~)`      |
+  | a 2xx body that is not JSON-RPC        | `MalformedResponse(String)`    |
+  | an answer of the wrong type            | `Decode(method_name~, cause~)` |
+  | a URL or an argument that is wrong     | `InvalidConfig(String)`        |
 
   `Decode` keeps the `CodecError` **as a value** rather than interpolating it
   into a message, so which field was wrong stays readable by a program. A
   `catch` that matched every variant by name is no longer exhaustive; add the
   cases, or a catch-all. (#113)
+
 - **Breaking:** `CodecError` gained `InvalidValue`, and the variants now split
   on what is wrong with the value rather than on which decoder noticed:
   `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are about
@@ -126,7 +129,7 @@ applies.
   `error` — and `ProviderError` gained `Reverted(code~, message~, data~)`,
   which carries the ABI-encoded revert as it came off the wire. A `catch` that
   matched every variant by name is no longer exhaustive; add the cases, or a
-  catch-all. Nothing that is *not* a revert changed shape: `Rpc` and `Abi` mean
+  catch-all. Nothing that is _not_ a revert changed shape: `Rpc` and `Abi` mean
   exactly what they meant.
   Where the revert data sits in a JSON-RPC error differs per node, so all three
   places are read (`error.data`, `error.data.data`,
@@ -178,7 +181,7 @@ applies.
   `@provider.transaction_by_hash(p, hash)` reads one back
   (`eth_getTransactionByHash`, answering with a `@endor.Transaction?` because a
   hash the node has never seen is `null`). A transaction is readable from the
-  moment it reaches the mempool, so this is where the fields the *wallet* chose
+  moment it reaches the mempool, so this is where the fields the _wallet_ chose
   become visible — the `fee` it priced the transaction at, the `gas` it
   estimated, and the `nonce` it took, which is the one a speed-up or a cancel
   has to re-use. `send_transaction` answers with a hash and nothing else, so
@@ -193,7 +196,7 @@ applies.
   fee that names none of the known keys reads as `Auto`. (#83)
 - Decoding a **log** into the arguments its event was emitted with, which was
   the last thing the ABI layer could not do: `@abi.decode_log(name~, params~,
-  topics~, data~)` checks `topics[0]` against the event's own signature hash,
+topics~, data~)` checks `topics[0]` against the event's own signature hash,
   reads the `indexed` arguments out of the topics after it and the rest out of
   `data`, and answers in the order the event declares them. `@abi.EventParam` —
   an `AbiType` and whether it is `indexed` — is what carries the half of the

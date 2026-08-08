@@ -1797,7 +1797,7 @@ async test "a wait for fewer than one confirmation is rejected" {
       try
         @provider.wait_for_receipt(provider, test_tx_hash(), confirmations=bad)
       catch {
-        @provider.Config(message) =>
+        @provider.InvalidConfig(message) =>
           assert_true(message.contains("confirmations must be at least 1"))
         e => fail("expected a configuration error, but not \{e}")
       } noraise {

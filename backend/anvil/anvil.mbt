@@ -169,7 +169,7 @@ pub async fn[P : @provider.Provider] deploy_selector_gate(
   selector : @types.Hex,
 ) -> @types.Address raise @provider.ProviderError {
   guard selector.byte_length() == 4 else {
-    raise @provider.Config("a selector is four bytes, got \{selector}")
+    raise @provider.InvalidConfig("a selector is four bytes, got \{selector}")
   }
   let data = @types.Hex::from_digits(
     SELECTOR_GATE_INIT + selector.digits() + SELECTOR_GATE_BODY,
@@ -203,7 +203,7 @@ pub async fn[P : @provider.Provider] deploy_reverter(
   // both lengths below are a `PUSH1`, which is what bounds the data: the
   // runtime is the twelve-byte program plus the data it carries
   guard revert_data.byte_length() <= 255 - REVERTER_PROGRAM_BYTES else {
-    raise @provider.Config(
+    raise @provider.InvalidConfig(
       "a reverter carries at most \{255 - REVERTER_PROGRAM_BYTES} bytes, got \{revert_data.byte_length()}",
     )
   }

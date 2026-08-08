@@ -667,12 +667,9 @@ pub async fn[P : Provider] wait_for_receipt(
   timeout? : Int = 60_000,
   poll_interval? : Int = 1_000,
 ) -> @types.TransactionReceipt raise ProviderError {
-  // fewer than one confirmation is not a weaker wait, it is no wait at all —
-  // and a negative one, converted unsigned, would be a wait for a height the
-  // chain never reaches. Neither is what any caller meant, so neither is
-  // silently corrected.
+  // confirmations should be at least 1.
   guard confirmations >= 1 else {
-    raise Config(
+    raise InvalidConfig(
       "wait_for_receipt: confirmations must be at least 1, got \{confirmations}",
     )
   }

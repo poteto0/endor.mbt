@@ -68,10 +68,10 @@ pub fn at(
   timeout? : Int = DEFAULT_TIMEOUT_MS,
 ) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError {
   guard validate_http_url(url) else {
-    raise @provider.Config("not an HTTP URL: \{url}")
+    raise @provider.InvalidConfig("not an HTTP URL: \{url}")
   }
   guard timeout > 0 else {
-    raise @provider.Config(
+    raise @provider.InvalidConfig(
       "timeout must be a positive number of ms: \{timeout}",
     )
   }
