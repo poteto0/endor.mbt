@@ -79,8 +79,26 @@ fn pay(
 The `nonce` is **32 random bytes, not a counter**. It is what the token marks as
 used, so two authorizations signed with the same nonce are the same
 authorization and only the first submitted takes effect — and, because there is
-no sequence to keep, several may be in flight at once. Drawing it is yours: the
-SDK owns no randomness.
+no sequence to keep, several may be in flight at once.
+
+Drawing it is yours. The SDK owns no randomness, but MoonBit's own standard
+library does: `@env.rand` is the platform's CSPRNG — `crypto.getRandomValues` in
+a browser, WASI `random_get` on wasm, the runtime's own on native — so this
+needs no FFI of yours either.
+
+```moonbit
+fn draw_nonce() -> @endor.Hex raise @endor.CodecError {
+  guard @env.rand(32) is Some(entropy) else {
+    raise InvalidValue("no entropy source on this platform")
+  }
+  @endor.Hex::from_bytes(entropy)
+}
+```
+
+Do not reach for a counter, a timestamp, or `Math.random` when `None` comes
+back. A nonce a third party can guess is an authorization that party can cancel
+out from under you — burning the nonce before your submitter gets to it — so the
+honest answer to a platform without entropy is to fail.
 
 `valid_before` has no default on purpose. An authorization that never expires is
 a signature somebody may hold and submit next year, so the window has to be
