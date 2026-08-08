@@ -343,14 +343,8 @@ ci: unit-test fmt check info archive-check cli-check cli-test codegen-check docs
 [group("ci")]
 ci-check: fmt-check check build unit-test info-check archive-check cli-check cli-test codegen-check docs-check nix-pin-check
 
-# what `.githooks/pre-commit` runs (#96): the part of `ci-check` the staged diff
-# can actually break, rather than the whole gate the PR already runs. Which
-# staged path pulls in which check — and why that is safe to get wrong — is
-# `scripts/precommit.sh`, which is where the selection lives; every check it
-# picks it runs as a recipe from this file.
 [group("ci")]
-precommit:
-  @scripts/precommit.sh
+precommit: check fmt-check info-check
 
 # every version this repo declares must agree with the release tag. `moon publish`
 # uploads whatever `moon.mod` says and ignores the tag, and a mooncakes release
