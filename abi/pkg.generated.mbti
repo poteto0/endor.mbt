@@ -24,6 +24,17 @@ pub fn signature(name~ : String, inputs~ : Array[@types.AbiType]) -> String rais
 // Errors
 
 // Types and methods
+pub struct Event {
+  signature : String
+  topic0 : @types.Hex
+  params : Array[EventParam]
+  in_data : Array[@types.AbiType]
+  indexed : Int
+}
+pub fn Event::decode_log(Self, topics~ : Array[@types.Hex], data~ : @types.Hex) -> Array[@types.AbiValue] raise @types.AbiError
+pub fn Event::new(name~ : String, params~ : Array[EventParam]) -> Self raise @types.AbiError
+pub impl Show for Event
+
 pub(all) struct EventParam {
   ty : @types.AbiType
   indexed : Bool
