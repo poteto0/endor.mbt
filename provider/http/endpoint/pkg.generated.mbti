@@ -1,0 +1,22 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/provider/http/endpoint"
+
+import {
+  "poteto0/endor/provider",
+  "poteto0/endor/provider/http",
+}
+
+// Values
+pub fn at(String, headers? : Map[String, String]) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError
+
+// Errors
+
+// Types and methods
+pub struct Endpoint {
+  // private fields
+}
+pub impl @http.HttpTransport for Endpoint
+
+// Type aliases
+
+// Traits

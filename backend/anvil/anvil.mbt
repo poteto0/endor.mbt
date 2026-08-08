@@ -10,7 +10,7 @@ impl @backend.Backend for Anvil with fn name(_) {
 
 ///|
 impl @backend.Backend for Anvil with fn endpoint(_) {
-  endpoint()
+  @env.endpoint()
 }
 
 ///|

@@ -47,20 +47,44 @@ Errors are documented once, in the guide: [Errors](/guide/errors/).
 | `endor/contract/erc20`   | `Erc20`, the preset over `Contract` for the standard token interface                                        |
 | `endor/provider`         | `Provider` / `EventSource` traits, `ProviderError`, typed RPC and event helpers, `MockProvider`             |
 | `endor/provider/browser` | `BrowserProvider` — the injected `globalThis.ethereum`, wrapped                                             |
+| `endor/provider/http`    | `HttpProvider` — JSON-RPC 2.0 over an `HttpTransport`, the trait a caller's own HTTP fits                   |
+| `endor/provider/http/endpoint` | `Endpoint` and `at(url, headers?)` — a node at a URL, over `moonbitlang/async`'s HTTP client          |
 | `endor/ffi/js`           | the only `extern "js"` code: `globalThis.ethereum` access, `request`, `on` / `removeListener`, `spawn`      |
 
 ## Backends
 
 `endor`, `endor/crypto`, `endor/codec`, `endor/types`, `endor/eips/eip712`,
-`endor/eips/eip3009`, `endor/eips/eip2612`, `endor/abi`, `endor/contract` and
-`endor/provider` are
+`endor/eips/eip3009`, `endor/eips/eip2612`, `endor/abi`, `endor/contract`,
+`endor/provider` and `endor/provider/http` are
 backend-agnostic;
 `endor/ffi/js` and therefore `endor/provider/browser` are `js`-only, since the
 whole point there is a browser-injected object.
+`endor/provider/http/endpoint` is `js`, `native` and `wasm` — every backend
+`moonbitlang/async`'s HTTP client reaches, which is every one but `wasm-gc`.
 
 So calldata can be built, a typed-data document validated and an answer decoded
 with no provider in hand and no `js` target — and the SDK's own tests run against
 `@provider.MockProvider` with no browser anywhere.
+
+## Reaching a chain
+
+| Provider                                  | Speaks to                     | Signs? | Pushes events? |
+| ----------------------------------------- | ----------------------------- | ------ | -------------- |
+| `@browser.BrowserProvider`                | the injected wallet           | yes    | yes            |
+| `@endpoint.at(url, headers?)`             | a node over HTTP JSON-RPC     | only what an unlocked node signs | no |
+| `@http.HttpProvider::new(t)`              | whatever `t` POSTs to         | —      | no             |
+| `@provider.MockProvider`                  | canned answers, in memory     | —      | yes            |
+
+All four are `Provider`, so everything above the trait — the typed reads,
+`Contract`, `Erc20`, the ABI layer — takes any of them. Only the first and the
+last are also `EventSource`: HTTP pushes nothing, which is why the two traits
+are [separate](./events/#eventsource-is-a-separate-trait).
+
+Against an endpoint, the methods that need a wallet UI — every `wallet_*`, plus
+`eth_requestAccounts` — raise `UnsupportedMethod` without a round trip.
+Everything a node can serve is forwarded, including `eth_sendTransaction`
+against an unlocked account. [Read without a wallet](/cookbook/http-rpc/) is the
+worked page.
 
 ## Finding a wallet
 

@@ -7,6 +7,12 @@ description: Accounts, balances, nonces, code, calls, blocks and receipts — no
 
 Nothing on this page spends money, and only `request_accounts` can open a popup.
 
+Every function here takes a `Provider`, spelled `p` below. That is the injected
+wallet in a dapp, and a node URL anywhere else — reads need no wallet, so all of
+this works over [HTTP JSON-RPC](/cookbook/http-rpc/) from a CLI or a server. The
+one exception is the accounts table immediately below: `request_accounts`
+prompts a human, and an HTTP endpoint has none.
+
 ## Accounts and chain
 
 | Function                              | JSON-RPC method           | Returns                 |

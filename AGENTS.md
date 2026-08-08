@@ -111,7 +111,8 @@ anvil` in one terminal, `just e2e` in another). What a mock cannot prove — the
   on.
 - `scripts/` is repository tooling a recipe calls when the recipe would
   otherwise be a shell program with a `just` header on it. It decides _which_
-  checks run; _how_ a check runs stays in the `justfile`.
+  checks run; _how_ a check runs stays in the `justfile`, so there is one place
+  to read a command out of.
 - `cmd/`, `examples/` and `website/islands/` are separate MoonBit modules
   (listed in `moon.work`) so their dependencies stay out of the SDK's, and
   `moon.mod`'s `exclude` keeps them, `backend/`, `e2e/`, `docs/` and `scripts/`
@@ -123,10 +124,11 @@ cli-test`.
   PR red at once. Bump it in its own PR, carrying whatever `just info`, `just
 fmt` and the dependency bumps that version wants, and install the same version
   locally (`MOONBIT_INSTALL_VERSION=… curl -fsSL
-https://cli.moonbitlang.com/install/unix.sh | bash`). It is pinned a second
-  time in `flake.nix`, for the optional `nix develop` shell — bump both, or
-  `just nix-pin-check` (part of `ci-check`, and it needs no nix) fails.
-  [`docs/nix.md`](docs/nix.md) is the rest of it.
+https://cli.moonbitlang.com/install/unix.sh | bash`) so `just ci-check` still
+  answers what CI will. It is pinned a second time in `flake.nix`, for the
+  optional `nix develop` shell — bump both, or `just nix-pin-check` (part of
+  `ci-check`, and it needs no nix) fails. [`docs/nix.md`](docs/nix.md) is the
+  rest of it.
 - `treefmt.nix` formats everything `moon fmt` does not: nix, shell, `.mjs` and
   `.json`. `.mbt` is deliberately not treefmt's — `moon fmt` formats a module,
   not a file list. Run it with `nix fmt`; `nix flake check` runs it as a check.

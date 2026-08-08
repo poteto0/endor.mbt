@@ -14,6 +14,37 @@ applies.
 
 ## [Unreleased]
 
+### Added
+
+- An HTTP JSON-RPC transport, so the read layer works without a browser wallet
+  **and on every backend**: `@http.HttpProvider` (`provider/http`) is a
+  `Provider` that frames each call as JSON-RPC 2.0 — unique, monotonic ids,
+  checked against the id the answer carries — and `@endpoint.at`
+  (`provider/http/endpoint`) points it at a node:
+
+  ```moonbit
+  let provider = @endpoint.at("http://127.0.0.1:8545")
+  let chain = @provider.chain_id(provider)
+  ```
+
+  No FFI is added for this. `@endpoint` uses `moonbitlang/async`'s HTTP client,
+  already a dependency of this module and implemented per backend — `fetch` on
+  `js`, sockets and TLS on `native` and `wasm` — so the same code reads a chain
+  from a browser, a CLI or a server. `provider/http` itself declares no
+  `supported_targets` and imports nothing but `provider`, so the framing builds
+  on `wasm-gc` too, where a host supplies its own `HttpTransport`. A hosted
+  node that wants a key takes `headers~`.
+
+  The methods that need a wallet UI — every `wallet_*`, plus
+  `eth_requestAccounts` — raise `UnsupportedMethod` without a round trip;
+  everything a node can serve, including `eth_sendTransaction` against an
+  unlocked account, is forwarded. `HttpProvider` implements `Provider` and
+  deliberately not `EventSource`: plain HTTP pushes nothing. (#19)
+- `@provider.ProviderError::from_error_object`, the decoder for the
+  `{ code, message }` object EIP-1193 and JSON-RPC both carry. It was already
+  there privately, behind the event path's `from_json`; a node's `error` member
+  needed the same reading, and one mapping is better than two. (#19)
+
 ### Changed
 
 - **Breaking:** a call a contract **reverts** now comes back as what the

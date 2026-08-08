@@ -77,10 +77,3 @@ extern "js" fn install_wallet(rpc_url : String, reject_from : String) -> Unit =
   #|     },
   #|   }
   #| }
-
-///|
-/// The endpoint the suite runs against, from `ENDOR_E2E_RPC_URL`
-/// (`just e2e` sets it). Empty when unset, and then every test skips.
-pub extern "js" fn endpoint() -> String =
-  #| () => (globalThis.process && globalThis.process.env
-  #|         && globalThis.process.env.ENDOR_E2E_RPC_URL) || ""

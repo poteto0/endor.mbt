@@ -14,7 +14,7 @@
 | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
 | **L1**  | コントラクト層 — ABI encode/decode、型付き contract call、ERC-20 プリセット、ログのデコード（済）／残りは ERC-721                                                                            | [#18](https://github.com/poteto0/endor.mbt/issues/18) |
 | **L1'** | ABI からのプリセット生成 — `abi/codegen` と `endor-cli abi`。**実験的、進行中**: 安全に型付けできるものだけを生成し、それ以外は「生成しない」と名指しでスキップする。安定 API とは見なさない | [#48](https://github.com/poteto0/endor.mbt/issues/48) |
-| **L2**  | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする                                                                                                  | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
+| **L2**  | トランスポート抽象 — HTTP JSON-RPC を `Provider` の別実装として追加し、ブラウザ非依存にする（済: `provider/http` と `provider/http/endpoint`）／残りは WebSocket と購読                        | [#19](https://github.com/poteto0/endor.mbt/issues/19) |
 | **L3**  | ドキュメント / クックブック、semver ポリシー確立                                                                                                                                             | [#20](https://github.com/poteto0/endor.mbt/issues/20) |
 
 L1 が SDK の価値の中心で、L2 は「何がコアか」を決める。この2つは独立に見えて、

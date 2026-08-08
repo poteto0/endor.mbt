@@ -126,19 +126,49 @@ fn revert_data(data : Json) -> @types.Hex? {
 }
 
 ///|
-/// Decode the `ProviderRpcError` object EIP-1193 carries — `{ code, message }` —
-/// through the same code mapping as `from_code`. `None` when the payload is not
-/// that shape, which is how an event with nowhere to raise to drops it.
-fn ProviderError::from_json(payload : Json) -> ProviderError? {
-  guard payload is Object(fields) else { return None }
-  guard fields.get("code") is Some(Number(code, ..)) else { return None }
+/// Decode the `{ code, message }` object both EIP-1193 and JSON-RPC carry,
+/// through the same code mapping as `from_code`. An error that cannot be read
+/// is still an error, so whatever is absent or of the wrong shape falls back to
+/// the internal-error code and an empty message.
+///
+/// This is the one place that payload is read: an event decodes it through
+/// `from_json`, which additionally has to be able to say "not an error object
+/// at all", and `@http.HttpProvider` decodes a node's `error` member with it.
+///
+/// ```mbt check
+/// test "doc: error from an error object" {
+///   inspect(
+///     @provider.ProviderError::from_error_object({
+///       "code": 4001,
+///       "message": "user rejected",
+///     }),
+///     content="UserRejected",
+///   )
+/// }
+/// ```
+pub fn ProviderError::from_error_object(payload : Json) -> ProviderError {
+  guard payload is Object(fields) else { return ProviderError::internal("") }
+  let code = match fields.get("code") {
+    Some(Number(c, ..)) => c.to_int()
+    _ => -32603
+  }
   let message = match fields.get("message") {
     Some(String(s)) => s
     _ => ""
   }
-  Some(
-    ProviderError::from_code(code.to_int(), message, data?=fields.get("data")),
-  )
+  ProviderError::from_code(code, message)
+}
+
+///|
+/// Decode the `ProviderRpcError` object EIP-1193 carries — `{ code, message }` —
+/// through the same code mapping as `from_code`. `None` when the payload is not
+/// that shape, which is how an event with nowhere to raise to drops it: an
+/// event has nowhere to raise to, so a payload it cannot read is not worth
+/// inventing a code for.
+fn ProviderError::from_json(payload : Json) -> ProviderError? {
+  guard payload is Object(fields) else { return None }
+  guard fields.get("code") is Some(Number(_)) else { return None }
+  Some(ProviderError::from_error_object(payload))
 }
 
 ///|
