@@ -78,6 +78,57 @@ pub fn ChainId::to_hex(self : ChainId) -> String {
 }
 
 ///|
+/// Parse a [CAIP-2](https://chainagnostic.org/CAIPs/caip-2) chain identifier —
+/// `"eip155:8453"`, the spelling x402 writes its `network` field in.
+///
+/// Which chain family a CAIP-2 string names is not inferred from the number:
+/// the namespace is written out in front of it, so this accepts `eip155:` and
+/// nothing else. A well-formed identifier in another namespace (`solana:…`) is
+/// `InvalidValue` — the form is fine, it just names a chain this type cannot
+/// hold — and so is a reference that is not a plain decimal number.
+///
+/// The reference must be spelled the one way `to_caip2` spells it, which is
+/// checked by comparing against that spelling: `@string.parse_uint64` on its
+/// own also reads `"007"` and `"+7"` as 7, and accepting those would make the
+/// round trip a thing that only usually holds.
+///
+/// This is the second of `ChainId`'s two wire spellings: `from_hex` / `to_hex`
+/// are the `0x`-prefixed quantity JSON-RPC carries (`eth_chainId`),
+/// `from_caip2` / `to_caip2` the CAIP-2 string.
+///
+/// ```mbt check
+/// test "doc: chain id from caip-2" {
+///   let id = @types.ChainId::from_caip2("eip155:8453")
+///   assert_eq(id, @types.ChainId::base())
+/// }
+/// ```
+pub fn ChainId::from_caip2(s : String) -> ChainId raise CodecError {
+  guard s.has_prefix("eip155:") else {
+    raise InvalidValue("not an eip155 chain id: \{s}")
+  }
+  let value = @string.parse_uint64(s[7:]) catch {
+    _ => raise InvalidValue("chain id reference is not a uint64 decimal: \{s}")
+  }
+  guard s == "eip155:\{value}" else {
+    raise InvalidValue("chain id reference is not canonical decimal: \{s}")
+  }
+  ChainId::{ value, }
+}
+
+///|
+/// Encode as a CAIP-2 chain identifier (`"eip155:8453"`). The namespace is a
+/// constant here: a `ChainId` is an EIP-155 chain id and names no other family.
+///
+/// ```mbt check
+/// test "doc: chain id to caip-2" {
+///   inspect(@types.ChainId::base().to_caip2(), content="eip155:8453")
+/// }
+/// ```
+pub fn ChainId::to_caip2(self : ChainId) -> String {
+  "eip155:\{self.value}"
+}
+
+///|
 /// Encode as a JSON hex-quantity string.
 pub fn ChainId::to_json(self : ChainId) -> Json {
   Json::string(self.to_hex())
