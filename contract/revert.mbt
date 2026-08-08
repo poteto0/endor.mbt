@@ -82,7 +82,8 @@ pub fn revert_error(
   let digits = data.digits()
   // shorter than a selector: nothing names what this revert is
   guard digits.length() >= SELECTOR_DIGITS else { return Rpc(error) }
-  let selector = @types.Hex::from_digits(digits[:SELECTOR_DIGITS]) catch {
+  let selector_digits = digits[:SELECTOR_DIGITS]
+  let selector = @types.Hex::from_digits(selector_digits) catch {
     _ => return Rpc(error)
   }
   let payload = @types.Hex::from_digits(digits[SELECTOR_DIGITS:]) catch {
@@ -93,14 +94,16 @@ pub fn revert_error(
   let undecoded = () => {
     ContractError::CustomError(selector~, name=None, args=[], data~)
   }
-  match selector.digits() {
-    ERROR_STRING_SELECTOR => {
+  // a prefix of the digits, which are lower-case by construction: asking
+  // `selector` for its own back would copy them out again
+  match digits {
+    [.. ERROR_STRING_SELECTOR, ..] => {
       guard decoded([String], payload) is Some([String(reason)]) else {
         return undecoded()
       }
       return Revert(reason)
     }
-    PANIC_SELECTOR => {
+    [.. PANIC_SELECTOR, ..] => {
       guard decoded([Uint(256)], payload) is Some([Uint(code)]) else {
         return undecoded()
       }

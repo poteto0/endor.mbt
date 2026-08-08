@@ -81,3 +81,16 @@ test "encode_call is the selector followed by the arguments" {
       "0000000000000000000000000000000000000000000000000de0b6b3a7640000",
   )
 }
+
+///|
+/// A selector and an event topic are two cuts of one hash, so the table that
+/// answers both has to answer them consistently: the topic's first four bytes
+/// are the selector, for the same signature asked either way.
+test "a selector and a topic are cut from the same hash" {
+  let signature = "Transfer(address,address,uint256)"
+  inspect(
+    @abi.event_topic(signature),
+    content="0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+  )
+  inspect(@abi.selector(signature), content="0xddf252ad")
+}

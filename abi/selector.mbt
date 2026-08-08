@@ -33,14 +33,50 @@ pub fn signature(
 /// )
 /// ```
 pub fn selector(signature : String) -> @types.Hex {
-  @types.Hex::from_bytes(selector_bytes(signature))
+  signature_hash(signature).selector
 }
 
 ///|
-/// The four bytes themselves, for the caller that goes on to concatenate them.
-fn selector_bytes(signature : String) -> Bytes {
-  let hash = @crypto.keccak256_string(signature)
-  Bytes::makei(SELECTOR_SIZE, i => hash[i])
+/// Both cuts of a signature's `keccak256`, kept as the `Hex` every caller wants:
+/// rebuilding one costs more than the lookup that spared the hash.
+priv struct SignatureHash {
+  selector : @types.Hex
+  topic : @types.Hex
+}
+
+///|
+/// A signature's hash, computed the first time that signature is asked about.
+///
+/// Not the state "the SDK is stateless" forbids: that rule is about chain state,
+/// which goes stale, and a canonical signature determines its hash completely.
+let hashes : Map[String, SignatureHash] = Map([])
+
+///|
+/// How many signatures are remembered before the table is dropped and refilled.
+///
+/// The signatures an ABI declares are a fixed set well under this, so a program
+/// that hashes what it was written against never reaches it. One that *discovers*
+/// signatures instead — a decoder UI hashing what is typed into it, an indexer
+/// reading ABIs it has never seen — would otherwise grow this table for as long
+/// as it runs. Dropping it caps that at a known size and costs such a caller a
+/// rehash, which is what it paid before the table existed; keeping the newest
+/// entries instead would mean tracking use, for a table this cheap to refill.
+const CACHED_SIGNATURES = 1024
+
+///|
+fn signature_hash(signature : String) -> SignatureHash {
+  if hashes.length() >= CACHED_SIGNATURES {
+    hashes.clear()
+  }
+  hashes.get_or_init(signature, () => {
+    let hash = @crypto.keccak256_string(signature)
+    {
+      selector: @types.Hex::from_bytes(
+        Bytes::makei(SELECTOR_SIZE, i => hash[i]),
+      ),
+      topic: @types.Hex::from_bytes(hash),
+    }
+  })
 }
 
 ///|
@@ -62,7 +98,7 @@ const SELECTOR_SIZE = 4
 /// )
 /// ```
 pub fn event_topic(signature : String) -> @types.Hex {
-  @types.Hex::from_bytes(@crypto.keccak256_string(signature))
+  signature_hash(signature).topic
 }
 
 ///|
@@ -91,8 +127,6 @@ pub fn encode_call(
   inputs~ : Array[AbiType],
   args~ : Array[AbiValue],
 ) -> @types.Hex raise AbiError {
-  let selector = @codec.digits_of_bytes(
-    selector_bytes(signature(name~, inputs~)),
-  )
+  let selector = signature_hash(signature(name~, inputs~)).selector.digits()
   _hex_of_digits(selector + _encode_block(inputs, args))
 }
