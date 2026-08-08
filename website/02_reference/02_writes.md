@@ -83,6 +83,81 @@ no fee field to an EIP-1559 (dynamic-fee, type `0x02`) transaction — taking
 given. So `Legacy` means "opt out of EIP-1559", for a chain that never forked to
 London; it is not the default and should not be reached for by habit.
 
+### Pricing one yourself
+
+When the wallet's answer is not the one to send — bidding above the market
+during congestion, replacing a stuck transaction, pricing one as a relayer with
+no wallet to ask — `estimate_fees` builds the `Fee` the wallet would have built:
+
+```moonbit
+async fn send_at_market(
+  wallet : @browser.BrowserProvider,
+  from : @endor.Address,
+  to : @endor.Address,
+) -> @endor.TxHash raise {
+  @provider.send_transaction(
+    wallet,
+    @endor.TransactionRequest::new(
+      from,
+      to~,
+      value=@endor.Wei::from_ether("0.01"),
+      fee=@provider.estimate_fees(wallet),
+    ),
+  )
+}
+```
+
+It reads the latest block's `baseFeePerGas` and answers `Eip1559` with the tip
+`eth_maxPriorityFeePerGas` suggests and a cap of `2 * baseFee + tip`. **The
+doubling is geth's own default** for a request that names no cap, not something
+EIP-1559 says; it covers a base fee rising for six consecutive full blocks. A
+chain with no base fee, or one that keeps it at zero, has no 1559 market to price
+into and gets `Legacy(gas_price=eth_gasPrice)` instead.
+
+The estimate is a snapshot. The base fee moves every block, so a cap that was
+generous when it was built can still be too low when the transaction is mined.
+
+The two materials it is built from are callable on their own:
+
+| Function                                   | JSON-RPC method             | Returns                |
+| ------------------------------------------ | --------------------------- | ---------------------- |
+| `@provider.max_priority_fee_per_gas(p)`    | `eth_maxPriorityFeePerGas`  | `@endor.Wei?`          |
+| `@provider.fee_history(p, block_count=…)`  | `eth_feeHistory`            | `@endor.FeeHistory`    |
+
+`max_priority_fee_per_gas` answers `None` — not an error, not a zero tip — when
+the node does not implement the method, which it is allowed not to: it is a geth
+extension rather than a standardized call. (`estimate_fees` then takes the tip
+from `eth_gasPrice` less the base fee, which is the same quantity, since that is
+how the suggested price was built.)
+
+`fee_history` is what a caller that wants to decide the tip itself reads. Its
+`reward_percentiles` are percentiles of each block's gas sorted by effective tip,
+so `[50.0]` asks what the transaction paying for the median unit of gas tipped:
+
+```moonbit
+async fn median_tip_over_ten_blocks(
+  wallet : @browser.BrowserProvider,
+) -> @endor.Wei? raise {
+  let history = @provider.fee_history(
+    wallet,
+    block_count=10,
+    reward_percentiles=[50.0],
+  )
+  // one row per block — oldest first, so the newest is the last — and one
+  // column per percentile asked for
+  match history.reward {
+    Some([.., [newest_median, ..]]) => Some(newest_median)
+    _ => None // no percentile was asked for, or the node kept no blocks
+  }
+}
+```
+
+`base_fee_per_gas` is deliberately one element longer than the other arrays: its
+last element is the base fee of the block *after* the newest one, which the
+protocol already fixes, and that is the one a fee for the next block is built
+from. Asking for no percentile at all is the cheap form, and the answer then
+carries no `reward` — `None` rather than a list of empty lists.
+
 ## Waiting
 
 `wait_for_receipt` is the other half of `send_transaction` — it polls until the

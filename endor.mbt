@@ -19,6 +19,7 @@ pub using @types {
   type TransactionReceipt,
   type ReceiptStatus,
   type Log,
+  type FeeHistory,
   type LogFilter,
   type Topic,
   type ChainParams,

@@ -41,6 +41,8 @@ pub using @contract {type ContractError}
 
 pub using @types {type Fee}
 
+pub using @types {type FeeHistory}
+
 pub using @types {type Hex}
 
 pub using @types {type Inclusion}

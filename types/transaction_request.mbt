@@ -23,6 +23,14 @@ pub(all) enum Fee {
 } derive(Eq, Debug)
 
 ///|
+/// Render through the derived `Debug` representation, so the three cases stay
+/// the single source of truth for how a fee prints. `estimate_fees` answers
+/// with one of them, and which one is the interesting half of the answer.
+pub impl Show for Fee with fn output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
 /// Read a fee back off the wire, out of the fields of a transaction a node
 /// reported. The mirror of `TransactionRequest::to_json`'s fee arm, and here
 /// beside it so the two directions of the same rule stay together.

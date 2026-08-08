@@ -124,11 +124,11 @@ pub impl Provider for MockProvider with fn request(self, method_name~, params~) 
   }
   match self.responses.get(method_name) {
     Some(j) => j
-    None =>
-      raise Rpc(
-        code=-32601,
-        message="MockProvider: no response for \{method_name}",
-      )
+    // deliberately *not* `-32601`: that is a node saying it does not have the
+    // method, which `is_method_not_found` turns into an answer rather than a
+    // failure. A test that forgot to register a response must fail loudly
+    // instead of looking like a node without the extension.
+    None => raise InvalidConfig("MockProvider: no response for \{method_name}")
   }
 }
 

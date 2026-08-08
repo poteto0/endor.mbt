@@ -386,3 +386,40 @@ pub fn ProviderError::code(self : ProviderError) -> Int? {
     | Timeout(_) => None
   }
 }
+
+///|
+/// JSON-RPC's "method not found". A node that never implemented a method
+/// answers with this code.
+const METHOD_NOT_FOUND : Int = -32601
+
+///|
+/// Whether this is a node saying it does not have the method that was called.
+/// Two spellings mean it: JSON-RPC's `-32601` from a node that never
+/// implemented it, and EIP-1193's `UnsupportedMethod` (4200) from a provider
+/// that will not forward it.
+///
+/// Most of the SDK's methods are ones every node has, so this is not a case to
+/// handle everywhere — it is for the wrappers around a method that is an
+/// *extension* rather than a standard, where "the node does not have it" is an
+/// answer rather than a failure. `max_priority_fee_per_gas` is the one that
+/// exists so far, and it turns exactly this into `None`.
+///
+/// ```mbt check
+/// test "doc: a method the node does not have" {
+///   inspect(
+///     @provider.ProviderError::from_code(-32601, "method not found").is_method_not_found(),
+///     content="true",
+///   )
+///   inspect(
+///     @provider.InvalidConfig("bad response").is_method_not_found(),
+///     content="false",
+///   )
+/// }
+/// ```
+pub fn ProviderError::is_method_not_found(self : ProviderError) -> Bool {
+  match self {
+    UnsupportedMethod => true
+    Rpc(code~, ..) => code == METHOD_NOT_FOUND
+    _ => false
+  }
+}

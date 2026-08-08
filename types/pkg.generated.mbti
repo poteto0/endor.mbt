@@ -153,6 +153,16 @@ pub(all) enum Fee {
   Eip1559(max_fee_per_gas~ : Wei, max_priority_fee_per_gas~ : Wei)
   Legacy(gas_price~ : Wei)
 } derive(Eq, @debug.Debug)
+pub impl Show for Fee
+
+pub(all) struct FeeHistory {
+  oldest_block : UInt64
+  base_fee_per_gas : Array[Wei]
+  gas_used_ratio : Array[Double]
+  reward : Array[Array[Wei]]?
+} derive(Eq, @debug.Debug)
+pub fn FeeHistory::from_json(Json) -> Self raise CodecError
+pub impl Show for FeeHistory
 
 pub struct Hex {
   // private fields

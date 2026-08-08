@@ -42,6 +42,11 @@ turned into an error.
 `is_contract` is `code` with an emptiness test: an externally owned account has
 no bytecode.
 
+`gas_price` is the pre-EIP-1559 price and only half the story on a London chain.
+The rest of the fee material — `max_priority_fee_per_gas`, `fee_history` and the
+`estimate_fees` that composes them — is on the
+[Writes](./writes/#pricing-one-yourself) page, next to the `Fee` it builds.
+
 `storage_at` reads one 32-byte slot straight out of the EVM, which is the only
 way to see state a contract does not expose — no ABI declares a storage layout,
 so what the word *means* is yours to know. A slot nobody ever wrote reads as

@@ -283,6 +283,42 @@ topics~, data~)` checks `topics[0]` against the event's own signature hash,
   to stay inside them. What comes back is decoded with `@abi.decode_log` (#79),
   which pairs the indexed arguments up with the topics this filter matched on.
   (#78)
+- The material an EIP-1559 fee is built from, which the SDK did not have: `Fee`
+  could spell `Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)` but only
+  `eth_gasPrice` was wrapped, so a caller that wanted to fill it in had to drop
+  to `Provider::request`. (#84)
+  - `max_priority_fee_per_gas(p)` — `eth_maxPriorityFeePerGas`, answering
+    `@endor.Wei?`. `None` is neither an error nor a zero tip: the method is a
+    geth extension rather than a standardized one, and a node that never
+    implemented it answers `-32601` (or a provider refusing to forward it,
+    EIP-1193's 4200). Every other failure raises as before
+  - `fee_history(p, block_count~, newest_block?, reward_percentiles?)` —
+    `eth_feeHistory`, over the new `@endor.FeeHistory`: `oldest_block`,
+    `base_fee_per_gas`, `gas_used_ratio` and an optional `reward`.
+    `base_fee_per_gas` is **one element longer** than the range, its last being
+    the already-fixed base fee of the block after the newest — the one a fee for
+    the next block is built from. `reward` is `None`, not a list of empty lists,
+    when no percentile was asked for. Percentiles are checked for being
+    ascending and within 0–100 here, so the error names the argument
+  - `estimate_fees(p)` — the two composed into the `Fee` a wallet would have
+    built: the latest block's base fee, the suggested tip, and a cap of
+    `2 * baseFee + tip`. **The doubling is geth's own default** for a request
+    naming no cap, not something EIP-1559 states, and it is written down where
+    it is used. Where the tip method is missing the tip is `eth_gasPrice` less
+    the base fee, which is the same quantity by construction, floored at zero. A
+    chain with no base fee or one pinned at zero has no 1559 market to price
+    into and gets `Legacy(gas_price=eth_gasPrice)`. `Auto` is still what a dapp
+    normally sends — this is for bidding above the market, replacing a stuck
+    transaction, or pricing one as a relayer with no wallet to ask
+  - `Fee` now implements `Show`, so the answer can be printed
+  - `ProviderError::is_method_not_found()`: the two spellings of "this node does
+    not have that method" (`-32601` and 4200) as one predicate, which is what
+    `max_priority_fee_per_gas` turns into its `None`. It lives on the error
+    rather than in the caller because the next wrapper around an extension
+    method needs the same fact. `MockProvider` no longer answers an
+    *unregistered* method with `-32601` for the same reason — it answers
+    `-32603`, so a test that forgot to register a response fails loudly instead
+    of looking like a node without the extension
 - EIP-2612 _permit_, as `@eip2612`: the ERC-20 approval **signed instead of
   sent**, so `approve` and the call that spends the allowance stop being two
   transactions. `Permit::new` validates the five members and

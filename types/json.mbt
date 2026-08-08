@@ -33,6 +33,16 @@ fn[T] json_array_of(
 }
 
 ///|
+/// A JSON number, as the `Double` it is. Nearly everything numeric on this wire
+/// is a hex quantity *string*, which is why this is the only place a JSON
+/// number is read: `eth_feeHistory`'s `gasUsedRatio` is a ratio rather than a
+/// quantity, and a ratio is spelled as a number.
+fn json_double(j : Json) -> Double raise CodecError {
+  guard j is Number(value, ..) else { raise InvalidJson("expected a number") }
+  value
+}
+
+///|
 /// A required field holding an array, decoded element by element: a block's
 /// `transactions`, a receipt's `logs`, a log's `topics`. The field's name is
 /// what the array is called, so it names the error too.
