@@ -1,0 +1,39 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/contract/multicall"
+
+import {
+  "moonbitlang/core/debug",
+  "poteto0/endor/contract",
+  "poteto0/endor/provider",
+  "poteto0/endor/types",
+}
+
+// Values
+pub fn default_address() -> @types.Address
+
+// Errors
+
+// Types and methods
+pub struct Call {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Call::new(@contract.PreparedCall, allow_failure? : Bool) -> Self
+
+pub struct Multicall3 {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Multicall3::address(Self) -> @types.Address
+pub async fn[P : @provider.Provider] Multicall3::aggregate3(Self, P, Array[Call], from? : @types.Address, block? : @types.BlockTag) -> Array[Outcome] raise @contract.ContractError
+pub async fn[P : @provider.Provider] Multicall3::is_deployed(Self, P, block? : @types.BlockTag) -> Bool raise @contract.ContractError
+pub fn Multicall3::new(address? : @types.Address) -> Self
+
+pub(all) enum Outcome {
+  Returned(Array[@types.AbiValue])
+  Failed(@contract.ContractError)
+} derive(Eq)
+pub fn Outcome::values(Self) -> Array[@types.AbiValue] raise @contract.ContractError
+pub impl Show for Outcome
+
+// Type aliases
+
+// Traits

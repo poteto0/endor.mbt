@@ -36,6 +36,7 @@ explains them, so the behaviour and the description are the same thing.
 | [Transfer without gas](./gasless-transfer/)  | yes                 | no, not for you |
 | [Approve without a transaction](./permit/)   | yes                 | no, not for you |
 | [Read without a wallet](./http-rpc/)         | no — there is none  | no         |
+| [Read many things at once](./batch-reads/)   | no                  | no         |
 
 And the ones that need no wallet at all:
 

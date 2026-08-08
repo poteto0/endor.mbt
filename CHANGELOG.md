@@ -16,6 +16,33 @@ applies.
 
 ### Added
 
+- **Batched reads**, so a listing costs one RPC round trip rather than one per
+  field. `@multicall.Multicall3::new().aggregate3(p, calls)` makes every call in
+  a single `eth_call` through
+  [Multicall3](https://github.com/mds1/multicall) and answers with one
+  `@multicall.Outcome` per call, in order — which also means every read in the
+  batch saw the same block. A `@multicall.Call` is a prepared call plus
+  `allow_failure` (`true` by default), and an `Outcome` is `Returned(values)` or
+  `Failed(error)`: one call reverting does not take the others down, and its
+  revert is decoded exactly as a direct call's is, so `Revert` / `Panic` /
+  `CustomError` all arrive — with a custom error's arguments filled in when the
+  `Contract` was given the matching `ErrorDef`s. What *does* raise is the batch
+  failing as a whole: the node refusing it, or an element with `allow_failure =
+  false` bringing `aggregate3` down. An empty batch answers `[]` and asks the
+  node nothing. The address defaults to the canonical
+  `0xcA11bde05977b3631167028862bE2a173976CA11` — the same on every major chain
+  — and `Multicall3::new(address=…)` points at another deployment;
+  `is_deployed` says whether there is a contract there at all, for the chains
+  where there is not. No JSON-RPC batching and no implicit scheduler: calls are
+  bundled because the caller bundled them. (#88)
+- `@contract.Contract::prepare`, which splits `Contract::call` into the encode
+  and the decode it was: it answers with a `@contract.PreparedCall` — the
+  target, the calldata, the declared outputs and the contract's own `ErrorDef`s
+  — that `PreparedCall::decode` reads an answer back with and
+  `PreparedCall::revert` reads raw revert bytes with. Holding an encoded call as
+  a value is what makes bundling possible at all, and `Contract::call` is now
+  `prepare` → `eth_call` → `decode`, so there is one encode path and one decode
+  path. Its behaviour is unchanged. (#88)
 - An HTTP JSON-RPC transport, so the read layer works without a browser wallet
   **and on every backend**: `@http.HttpProvider` (`provider/http`) is a
   `Provider` that frames each call as JSON-RPC 2.0 — unique, monotonic ids,
