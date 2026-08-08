@@ -166,12 +166,12 @@ test "a number too wide for a word is refused" {
     )
     |> ignore
   catch {
-    @types.InvalidLength(m) =>
+    @types.InvalidValue(m) =>
       inspect(
         m,
         content="permit value does not fit uint256: 115792089237316195423570985008687907853269984665640564039457584007913129639936",
       )
-    e => fail("expected invalid length, but not \{e}")
+    e => fail("expected an invalid value, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }

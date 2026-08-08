@@ -50,9 +50,9 @@ test "a topic that is not 32 bytes is refused" {
 /// filter's `topics`, and an empty set would read as the opposite of what it is.
 test "a topic with no alternatives at all is refused" {
   try @types.Topic::any_of([]) catch {
-    @types.CodecError::InvalidLength(msg) =>
+    @types.CodecError::InvalidValue(msg) =>
       assert_true(msg.has_prefix("a topic needs at least one"))
-    e => fail("expected InvalidLength, but not \{e}")
+    e => fail("expected InvalidValue, but not \{e}")
   } noraise {
     _ => fail("expected an empty alternative list to be rejected")
   }

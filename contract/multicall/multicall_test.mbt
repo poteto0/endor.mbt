@@ -281,7 +281,7 @@ async test "an answer with the wrong number of results is the batch's failure" {
       @contract.ContractError::Abi(e) =>
         inspect(
           e,
-          content="InvalidData(aggregate3 answered with 1 results for 2 calls)",
+          content="InvalidData(\"aggregate3 answered with 1 results for 2 calls\")",
         )
       e => fail("expected an ABI failure, not \{e}")
     } noraise {

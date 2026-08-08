@@ -27,7 +27,7 @@ impl @http.HttpTransport for FakeTransport with fn post(self, body) {
     raise e
   }
   if self.responses.is_empty() {
-    raise @provider.ProviderError::internal("FakeTransport: no response left")
+    raise @provider.Transport("FakeTransport: no response left")
   }
   self.responses.remove(0)
 }
@@ -119,8 +119,8 @@ async test "a JSON-RPC error object maps onto the matching ProviderError" {
 ///|
 /// Whatever cannot be read is still an error: an `error` member of the wrong
 /// shape, a body that is not JSON-RPC at all, and a response carrying neither
-/// member all report as the SDK's own internal error rather than as an answer.
-async test "an unreadable answer is an internal error, never a result" {
+/// member all report as `MalformedResponse` rather than as an answer.
+async test "an unreadable answer is a malformed response, never a result" {
   for
     body in [
       "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":\"boom\"}", "<html>502 Bad Gateway</html>",
@@ -129,7 +129,7 @@ async test "an unreadable answer is an internal error, never a result" {
     let _ = on_answers([body], provider => {
       assert_true(
         refusal(provider, method_name="eth_chainId")
-        is @provider.Rpc(code=-32603, ..),
+        is @provider.MalformedResponse(_),
       )
     })
   }
@@ -152,7 +152,7 @@ async test "a response answering some other request is refused" {
     inspect(
       refusal(provider, method_name="eth_chainId"),
       content=(
-        #|Rpc(code=-32603, message="JSON-RPC id mismatch: sent 1, got 7")
+        #|MalformedResponse("id mismatch: sent 1, got 7")
       ),
     )
   })
@@ -173,14 +173,14 @@ async test "a response with no id at all is accepted" {
 ///|
 async test "a transport that cannot reach the node propagates its error" {
   let transport = FakeTransport::failing(
-    @provider.ProviderError::internal("POST http://127.0.0.1:1 failed"),
+    @provider.Transport("POST http://127.0.0.1:1 failed"),
   )
   let provider = @http.HttpProvider::new(transport)
   @async.with_task_group(_ => {
     inspect(
       refusal(provider, method_name="eth_chainId"),
       content=(
-        #|Rpc(code=-32603, message="POST http://127.0.0.1:1 failed")
+        #|Transport("POST http://127.0.0.1:1 failed")
       ),
     )
   })

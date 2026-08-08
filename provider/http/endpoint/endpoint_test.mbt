@@ -21,9 +21,9 @@ test "at accepts the urls a node is reached at" {
 test "at refuses a url with no host" {
   for url in ["http://", "http://:8545", "http://user@/v2"] {
     try ignore(@endpoint.at(url)) catch {
-      @provider.ProviderError::Rpc(code=-32603, message~) =>
-        assert_eq(message, "invalid HTTP URL: \{url}")
-      e => fail("expected an internal error for \{url}, but not \{e}")
+      @provider.InvalidConfig(message) =>
+        assert_eq(message, "not an HTTP URL: \{url}")
+      e => fail("expected a configuration error for \{url}, but not \{e}")
     } noraise {
       _ => fail("expected \{url} to be refused")
     }
@@ -36,9 +36,9 @@ test "at refuses a url with no host" {
 test "at refuses a scheme it cannot POST to" {
   for url in ["ws://127.0.0.1:8546", "ipc:///tmp/geth.ipc", "127.0.0.1:8545"] {
     try ignore(@endpoint.at(url)) catch {
-      @provider.ProviderError::Rpc(code=-32603, message~) =>
-        assert_eq(message, "invalid HTTP URL: \{url}")
-      e => fail("expected an internal error for \{url}, but not \{e}")
+      @provider.InvalidConfig(message) =>
+        assert_eq(message, "not an HTTP URL: \{url}")
+      e => fail("expected a configuration error for \{url}, but not \{e}")
     } noraise {
       _ => fail("expected \{url} to be refused")
     }

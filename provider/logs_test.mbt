@@ -86,18 +86,18 @@ async test "a filter that matches nothing answers with no logs" {
 }
 
 ///|
-/// A node that answers a shape the decoder cannot read is the SDK's own
-/// problem, so it surfaces as an internal error naming the method.
-async test "a malformed log answer is an internal error" {
+/// A node that answers a shape the decoder cannot read surfaces as `Decode`,
+/// naming the method that answered and keeping the `CodecError` it raised.
+async test "a malformed log answer is a decode error" {
   @async.with_task_group(_ => {
     let provider = @provider.MockProvider::new().on(
       method_name="eth_getLogs",
       response=Json::string("nope"),
     )
     try @provider.logs(provider, @types.LogFilter::range()) catch {
-      @provider.ProviderError::Rpc(code=-32603, message~) =>
-        assert_true(message.has_prefix("decode eth_getLogs"))
-      e => fail("expected an internal error, but not \{e}")
+      @provider.Decode(method_name~, ..) =>
+        inspect(method_name, content="eth_getLogs")
+      e => fail("expected a decode error, but not \{e}")
     } noraise {
       _ => fail("expected a string answer to be rejected")
     }

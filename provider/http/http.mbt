@@ -9,11 +9,10 @@
 /// POSTs `body` with `content-type: application/json` and answers with the raw
 /// response body — the JSON-RPC envelope is parsed above, not here.
 ///
-/// A network failure or a non-2xx status raises
-/// `@provider.ProviderError::internal(...)` with a message naming what
-/// happened (the status and the URL, say): the transport reports *transport*
-/// failures, and a JSON-RPC `error` object is not one of them — that is a
-/// well-formed answer, and `HttpProvider` maps it.
+/// A network failure raises `@provider.Transport` and a non-2xx status
+/// `@provider.HttpStatus`: the transport reports *transport* failures, and a
+/// JSON-RPC `error` object is not one of them — that is a well-formed answer,
+/// and `HttpProvider` maps it.
 ///
 /// ```
 /// struct AlwaysEmpty {}
@@ -93,15 +92,10 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   })
   let body = self.transport.post(payload.stringify())
   let parsed = @json.parse(body) catch {
-    e =>
-      raise @provider.ProviderError::internal(
-        "malformed JSON-RPC response: \{e}",
-      )
+    e => raise @provider.MalformedResponse("response is not JSON: \{e}")
   }
   guard parsed is Object(fields) else {
-    raise @provider.ProviderError::internal(
-      "JSON-RPC response is not an object: \{body}",
-    )
+    raise @provider.MalformedResponse("response is not an object: \{body}")
   }
   check_id(fields, id)
   if fields.get("error") is Some(error) && !(error is Null) {
@@ -110,8 +104,8 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   // `null` is a legitimate result — a receipt for a transaction that has not
   // been mined — so absence is the missing *key*, not the null value.
   guard fields.get("result") is Some(result) else {
-    raise @provider.ProviderError::internal(
-      "JSON-RPC response carries neither result nor error: \{body}",
+    raise @provider.MalformedResponse(
+      "response carries neither result nor error: \{body}",
     )
   }
   result
@@ -129,8 +123,8 @@ fn check_id(
     None | Some(Null) => ()
     Some(Number(got, ..)) if got.to_int() == sent => ()
     Some(other) =>
-      raise @provider.ProviderError::internal(
-        "JSON-RPC id mismatch: sent \{sent}, got \{other.stringify()}",
+      raise @provider.MalformedResponse(
+        "id mismatch: sent \{sent}, got \{other.stringify()}",
       )
   }
 }

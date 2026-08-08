@@ -60,13 +60,21 @@ test "a signed answer and an unsigned one are not interchangeable" {
     e =>
       inspect(
         e,
-        content="Abi(InvalidData(skew() did not answer a signed number))",
+        content=(
+          #|Abi(InvalidData("skew() did not answer a signed number"))
+        ),
       )
   } noraise {
     _ => fail("expected a uint answer to be refused as an int")
   }
   try @contract.uint_answer([@abi.AbiValue::Int(1)], what="skew") catch {
-    e => inspect(e, content="Abi(InvalidData(skew() did not answer a number))")
+    e =>
+      inspect(
+        e,
+        content=(
+          #|Abi(InvalidData("skew() did not answer a number"))
+        ),
+      )
   } noraise {
     _ => fail("expected an int answer to be refused as a uint")
   }
@@ -79,13 +87,23 @@ test "a signed answer and an unsigned one are not interchangeable" {
 test "a wrong answer names the getter that was asked" {
   try @contract.bool_answer([@abi.AbiValue::Uint(1)], what="paused") catch {
     e =>
-      inspect(e, content="Abi(InvalidData(paused() did not answer a boolean))")
+      inspect(
+        e,
+        content=(
+          #|Abi(InvalidData("paused() did not answer a boolean"))
+        ),
+      )
   } noraise {
     _ => fail("expected a number to be refused as a boolean")
   }
   try @contract.address_answer([], what="owner") catch {
     e =>
-      inspect(e, content="Abi(InvalidData(owner() did not answer an address))")
+      inspect(
+        e,
+        content=(
+          #|Abi(InvalidData("owner() did not answer an address"))
+        ),
+      )
   } noraise {
     _ => fail("expected an empty answer to be refused")
   }

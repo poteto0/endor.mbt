@@ -7,7 +7,9 @@ import {
 }
 
 // Values
-pub fn at(String, headers? : Map[String, String]) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError
+pub const DEFAULT_TIMEOUT_MS : Int = 30_000
+
+pub fn at(String, headers? : Map[String, String], timeout? : Int) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError
 
 // Errors
 

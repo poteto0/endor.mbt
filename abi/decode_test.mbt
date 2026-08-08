@@ -124,15 +124,21 @@ test "nested values round-trip" {
 test "data that does not fit the types is refused" {
   inspect(
     refused(() => decode_ignoring([Uint(256), Uint(256)], "0x" + word("1"))),
-    content="InvalidData(expected a word at byte 32, but the data is 32 bytes)",
+    content=(
+      #|InvalidData("expected a word at byte 32, but the data is 32 bytes")
+    ),
   )
   inspect(
     refused(() => decode_ignoring([Uint(256)], "0x")),
-    content="InvalidData(expected a word at byte 0, but the data is 0 bytes)",
+    content=(
+      #|InvalidData("expected a word at byte 0, but the data is 0 bytes")
+    ),
   )
   inspect(
     refused(() => decode_ignoring([Bool], "0x" + word("2"))),
-    content="InvalidData(bool must be 0 or 1, got 2)",
+    content=(
+      #|InvalidData("bool must be 0 or 1, got 2")
+    ),
   )
 }
 
@@ -142,11 +148,15 @@ test "data that does not fit the types is refused" {
 test "an offset or length outside the data is refused" {
   inspect(
     refused(() => decode_ignoring([Bytes], "0x" + word("80") + word("0"))),
-    content="InvalidData(offset 128 is past the end of 64 bytes)",
+    content=(
+      #|InvalidData("offset 128 is past the end of 64 bytes")
+    ),
   )
   inspect(
     refused(() => decode_ignoring([Bytes], "0x" + word("20") + word("40"))),
-    content="InvalidData(64 bytes claimed at byte 64, past the end of 64 bytes)",
+    content=(
+      #|InvalidData("64 bytes claimed at byte 64, past the end of 64 bytes")
+    ),
   )
   inspect(
     refused(() => {
@@ -157,7 +167,9 @@ test "an offset or length outside the data is refused" {
         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
       )
     }),
-    content="InvalidData(byte length is far larger than the data)",
+    content=(
+      #|InvalidData("byte length is far larger than the data")
+    ),
   )
 }
 
@@ -175,7 +187,9 @@ test "invalid utf-8 string is refused" {
         ),
       )
     }),
-    content="InvalidData(string is not valid UTF-8)",
+    content=(
+      #|InvalidData("string is not valid UTF-8")
+    ),
   )
 }
 
@@ -188,7 +202,9 @@ test "error on invalid value" {
         "0x00000000000000000000000000000000000000000000000000000000000001ff",
       )
     }),
-    content="InvalidData(Uint(8) encoding)",
+    content=(
+      #|InvalidData("Uint(8) encoding")
+    ),
   )
   inspect(
     refused(() => {
@@ -197,7 +213,9 @@ test "error on invalid value" {
         "0x00000000000000000000000000000000000000000000000000000000000000c8",
       )
     }),
-    content="InvalidData(Int(8) encoding)",
+    content=(
+      #|InvalidData("Int(8) encoding")
+    ),
   )
   inspect(
     refused(() => {
@@ -206,7 +224,9 @@ test "error on invalid value" {
         "0xdeadbeefdeadbeefdeadbeefdeadbeef00000000000000000000000000000001",
       )
     }),
-    content="InvalidData(Address encoding)",
+    content=(
+      #|InvalidData("Address encoding")
+    ),
   )
   inspect(
     refused(() => {
@@ -215,6 +235,8 @@ test "error on invalid value" {
         "0x1111111111111111111111111111111111111111111111111111111111111111",
       )
     }),
-    content="InvalidData(FixedBytes(1) encoding)",
+    content=(
+      #|InvalidData("FixedBytes(1) encoding")
+    ),
   )
 }
