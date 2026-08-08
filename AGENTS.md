@@ -25,7 +25,10 @@ not a refactor.
 - **The SDK is stateless.** It caches no current account and no current chain:
   events go to callbacks and nowhere else, and every read goes to the node. A
   dapp that wants "the current account" holds it itself. Do not add a cache, and
-  do not add a `connect()` that would need one.
+  do not add a `connect()` that would need one. What it forbids is remembering
+  what changes underneath the SDK and goes stale, not a table whose key fully
+  determines its contents: `abi`'s signature → selector memo is the one of
+  those, and a second one is this decision again.
 - **`js` is where the _wallet_ is, not where the SDK is.** The injected wallet
   is JS-only and every recipe pins `js`, but the read layer builds on every
   backend. Before writing an `extern "js"` for anything that is not the wallet,

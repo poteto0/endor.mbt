@@ -53,9 +53,11 @@ fn decode_logs_as(
 ///|
 /// Both spellings of the read side, on the same logs.
 ///
-/// The pair is the point: `decode_log` works the signature and its `keccak256`
-/// out per log, `Event` works them out once, and the gap between the two rows
-/// is what that costs a caller who decodes a batch.
+/// The pair is the point: `decode_log` works the signature out per log, `Event`
+/// works it out once, and the gap between the two rows is what that costs a
+/// caller who decodes a batch. The gap holds no `keccak256` — `event_topic`
+/// remembers one, so both spellings hash once per process — so it is narrow, and
+/// what is left in it is the signature string and the topics/data split.
 test "bench: decode_log" (b : @bench.T) {
   let params = transfer_params()
   let data = @types.Hex::from_string("0x" + word("2a")) catch { _ => return }
