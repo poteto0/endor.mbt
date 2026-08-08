@@ -1,7 +1,11 @@
 import {
   "poteto0/endor/types",
   "poteto0/endor/eips/eip712",
-  // for the error facade alone: `@endor.ProviderError` / `@endor.ContractError`
+  // for the error facade alone: `@endor.ProviderError` / `@endor.ContractError`.
+  // Not free — `@endor` was `types` + `eip712`, and a caller that imports it
+  // only to spell `@endor.Address` now links the provider and contract trees
+  // too. Worth it for the four error types being nameable from one package;
+  // worth remembering before `provider` grows a `supported_targets`.
   "poteto0/endor/provider",
   "poteto0/endor/contract",
   "moonbitlang/core/debug",

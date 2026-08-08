@@ -339,13 +339,9 @@ test "an artifact generates a contract that can be deployed" {
   }
   assert_eq(generate_all(config), 0)
   let code = @fs.read_file_to_string(join(out, "answer.mbt"))
-  assert_true(
-    code.contains(
-      "pub fn Answer::creation_code() -> @types.Hex raise @types.CodecError {",
-    ),
-  )
+  assert_true(code.contains("pub fn Answer::creation_code() -> @types.Hex {"))
   assert_true(
     code.contains("pub async fn[P : @provider.Provider] Answer::deploy("),
   )
-  assert_true(code.contains("let bytecode = Answer::creation_code() catch {"))
+  assert_true(code.contains("bytecode=Answer::creation_code(),"))
 }

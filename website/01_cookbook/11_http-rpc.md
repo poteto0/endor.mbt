@@ -154,13 +154,12 @@ anything. This is exactly why the two traits are
 ## Errors
 
 The same four suberrors as everywhere else, from one more source. A failing
-**transport** has a variant per thing that failed: `Transport` when the request
-never landed, `HttpStatus` when something answered with a status that is not
-2xx, `MalformedResponse` for a 2xx body that is not JSON-RPC, `Timeout` when
-nothing answered inside the endpoint's deadline, and `Config` for a URL that is
-not a URL. A JSON-RPC `error` object is none of those: it is a well-formed
-answer, and it is mapped through the same code table as a wallet's, so a revert
-from a node is the `Reverted` you already handle.
+**transport** has a variant per thing that failed — `Transport`, `HttpStatus`,
+`MalformedResponse`, `Timeout`, `Config` — each described, with what is worth
+retrying, in the [Errors guide](/guide/errors/). A JSON-RPC `error` object is
+none of them: it is a well-formed answer, and it is mapped through the same code
+table as a wallet's, so a revert from a node is the `Reverted` you already
+handle.
 
 ```moonbit
 async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
@@ -174,7 +173,6 @@ async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
     UnsupportedMethod => println("that one needs a wallet")
     // a typo in the URL, caught before anything was sent
     Config(what) => println("misconfigured: \{what}")
-    // 401 and 403 are the API key; 429 and 5xx are worth trying again
     HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
     // the host was unreachable, or it stopped answering mid-request
     e => println("could not reach it: \{e} (retry? \{e.is_retryable()})")

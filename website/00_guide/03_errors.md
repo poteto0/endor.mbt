@@ -50,8 +50,10 @@ async fn one_handler(wallet : @browser.BrowserProvider) -> Unit {
 
 `message()` never contains a variant name, a URL or a JSON-RPC code, so it is
 safe to render as-is. `"\{e}"` contains all three, so it belongs in a log and
-never in a dialog. `code()` gives back the EIP-1193 / EIP-1474 number when there
-was one, and `None` for the failures that never reached the protocol.
+never in a dialog. Both are on all four suberrors. `ProviderError` and
+`ContractError` carry a third, `code()`, giving back the EIP-1193 / EIP-1474
+number when there was one and `None` for the failures that never reached the
+protocol — `AbiError` and `CodecError` never do, so they do not have it.
 
 ## ProviderError
 
@@ -134,12 +136,12 @@ whichever variant says what actually happened.
 
 `is_retryable()` is the summary, and this is what it reads:
 
-| Retry               | Do not retry                                                 |
-| ------------------- | ------------------------------------------------------------ |
-| `Transport`         | `UserRejected`, `Unauthorized`, `UnsupportedMethod`           |
-| `Timeout`           | `NotInstalled`, `UnrecognizedChain`                           |
-| `HttpStatus` 429/5xx| `HttpStatus` 401/403 — the API key, not the load              |
-| `Rpc(-32005)`       | `MalformedResponse`, `Decode`, `Config`, `Reverted`           |
+| Retry                 | Do not retry                                        |
+| --------------------- | --------------------------------------------------- |
+| `Transport`           | `UserRejected`, `Unauthorized`, `UnsupportedMethod` |
+| `Timeout`             | `NotInstalled`, `UnrecognizedChain`                 |
+| `HttpStatus` 429, 5xx | `HttpStatus` 401, 403 — the API key, not the load   |
+| `Rpc(-32005)`         | `MalformedResponse`, `Decode`, `Config`, `Reverted` |
 
 Back off between attempts rather than looping: a `429` is the node asking for a
 moment, and a retry that arrives immediately is another `429`.
@@ -242,14 +244,14 @@ async fn transfer_or_say_why(
 (bytes that will not read back as the expected types).
 
 `CodecError` is what a domain type's constructor raises, and it is where user
-input gets rejected. Its variants split on *what is wrong with the value*:
-`InvalidHex`, `InvalidLength`, `InvalidChecksum` and `InvalidJson` are about the
-**form** — the alphabet, the byte count, the self-check, the JSON shape — and
-`InvalidValue` is about the **meaning**: a well-formed value that says something
-the type cannot hold, such as a number past `uint256` or an EIP-712 document
-naming a type it never defines. **Try it:** type into the box and the first line names the
-variant that came back — delete a character for `InvalidLength`, put a `z` in it
-for `InvalidHex`, change the case of one letter for `InvalidChecksum`.
+input gets rejected. Its variants split on what is wrong with the value: four
+about the **form** (`InvalidHex`, `InvalidLength`, `InvalidChecksum`,
+`InvalidJson`) and `InvalidValue` about the **meaning** — a well-formed value
+that says something the type cannot hold.
+
+**Try it:** type into the box and the first line names the variant that came
+back — delete a character for `InvalidLength`, put a `z` in it for
+`InvalidHex`, change the case of one letter for `InvalidChecksum`.
 
 <Island name="address_tool" trigger="visible" />
 

@@ -325,7 +325,7 @@ fn deploy_block(
     params~,
     receiver=false,
   )
-  let deploy = ["provider", "from~", "bytecode~"]
+  let deploy = ["provider", "from~", "bytecode=\{struct_name}::creation_code()"]
   deploy.append(abi_args(params))
   if ctor.payable {
     head.write_string("  value? : @types.Wei,\n")
@@ -333,11 +333,6 @@ fn deploy_block(
   }
   head.write_string(
     ") -> \{struct_name} raise @contract.ContractError {\n" +
-    // `creation_code` raises, so it is read before the call rather than inside
-    // its argument list, where a `catch` would not fit on one line
-    "  let bytecode = \{struct_name}::creation_code() catch {\n" +
-    "    e => raise @contract.Deployment(\"creation code: \\{e}\")\n" +
-    "  }\n" +
     call_expr("let deployed = @contract.deploy", deploy, indent=2, suffix="") +
     "  \{struct_name}::{ contract: deployed }\n" +
     "}\n",
@@ -356,29 +351,48 @@ fn deploy_block(
 /// `@contract.deploy` with this, which is the same deployment with the waiting
 /// left to them.
 ///
-/// It raises rather than aborting (#113): the digits were validated as hex
-/// before they were written here, so the only way to reach the failure is to
-/// edit the literal in the generated file — which is the one thing its header
-/// says not to do — but "unreachable" is not a reason for generated code to
-/// hold the one `abort` the SDK does not.
+/// The bytes, not the hex string they were read from (#113). `Hex::from_bytes`
+/// is total where `Hex::from_string` raises, so the generated function cannot
+/// fail — which is what lets it stay a plain `-> @types.Hex` that no caller has
+/// to `catch`, and is why it needs neither the `abort` it used to hold nor a
+/// `raise` to replace it. Generated code is not exempt from "no panics", and it
+/// should not buy its way out with an error nothing can trigger either.
 ///
-/// The call stays on one line however long the code is — real creation code is
-/// thousands of digits — because that is what `moon fmt` does with it: a string
-/// literal is not something it can break, so wrapping the call around one only
-/// produces a file the next `just fmt` unwraps.
+/// The call is wrapped by `call_expr`'s rule rather than always written on one
+/// line: `moon fmt` breaks the call around a `Bytes` literal it cannot fit,
+/// unlike a string literal, and `codegen-check` holds the generated file to
+/// being already formatted.
 fn creation_code_block(struct_name : String, code : String) -> String {
   (
     $|///|
     $|/// The creation code this file was generated from: what `\{struct_name}::deploy`
     $|/// puts on the wire, and what to hand `@contract.deploy` to deploy the same
     $|/// contract while waiting for it your own way.
-    $|pub fn \{struct_name}::creation_code() -> @types.Hex raise @types.CodecError {
-    $|  // validated as hex when this file was generated; it can only fail if
-    $|  // this literal has been edited by hand
-    $|  @types.Hex::from_string("\{code}")
-    $|}
+    $|pub fn \{struct_name}::creation_code() -> @types.Hex {
+    $|\{call_expr("@types.Hex::from_bytes", [bytes_literal(code)], indent=2, suffix="")}}
     $|
   )
+}
+
+///|
+/// A `0x`-prefixed hex string as the MoonBit `Bytes` literal holding the same
+/// bytes: `"0x600a"` becomes `b"\\x60\\x0a"`.
+///
+/// Every byte is escaped rather than only the ones that have to be. A creation
+/// code is not prose, so spelling a third of it as ASCII would suggest a
+/// meaning those bytes do not have, and one rule reads more easily than two.
+fn bytes_literal(code : String) -> String {
+  let out = StringBuilder::new()
+  out.write_string("b\"")
+  // `code` was validated as `0x` + an even number of hex digits before it got
+  // here, so the digits pair up exactly
+  let digits = code[2:]
+  for i = 0; i < digits.length(); i = i + 2 {
+    out.write_string("\\x")
+    out.write_string(digits[i:i + 2].to_owned())
+  }
+  out.write_string("\"")
+  out.to_string()
 }
 
 ///|

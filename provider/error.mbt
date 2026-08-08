@@ -125,12 +125,12 @@ pub fn ProviderError::from_code(
   data? : Json,
 ) -> ProviderError {
   match code {
-    4001 => UserRejected
-    4100 => Unauthorized
-    4200 => UnsupportedMethod
-    4900 => Disconnected
-    4901 => ChainDisconnected
-    4902 => UnrecognizedChain
+    USER_REJECTED => UserRejected
+    UNAUTHORIZED => Unauthorized
+    UNSUPPORTED_METHOD => UnsupportedMethod
+    DISCONNECTED => Disconnected
+    CHAIN_DISCONNECTED => ChainDisconnected
+    UNRECOGNIZED_CHAIN => UnrecognizedChain
     _ =>
       match data.bind(revert_data) {
         Some(data) => Reverted(code~, message~, data~)
@@ -138,6 +138,38 @@ pub fn ProviderError::from_code(
       }
   }
 }
+
+///|
+/// The EIP-1193 codes, named once: `from_code` reads them and `code` writes
+/// them back, and a table spelled out in both directions is a table that
+/// drifts.
+const USER_REJECTED : Int = 4001
+
+///|
+const UNAUTHORIZED : Int = 4100
+
+///|
+const UNSUPPORTED_METHOD : Int = 4200
+
+///|
+const DISCONNECTED : Int = 4900
+
+///|
+const CHAIN_DISCONNECTED : Int = 4901
+
+///|
+const UNRECOGNIZED_CHAIN : Int = 4902
+
+///|
+/// EIP-1474's internal error, which is what an error object that cannot be read
+/// falls back to.
+const INTERNAL_ERROR : Int = -32603
+
+///|
+/// The EIP-1474 code a hosted RPC answers with when the caller is over its
+/// quota. It arrives inside a 200 response, which is why `HttpStatus(429)` is
+/// not the only rate limit there is.
+const RATE_LIMITED : Int = -32005
 
 ///|
 /// The ABI-encoded revert hiding in a JSON-RPC error's `data`, if there is one.
@@ -192,7 +224,7 @@ pub fn ProviderError::from_error_object(payload : Json) -> ProviderError {
   }
   let code = match fields.get("code") {
     Some(Number(c, ..)) => c.to_int()
-    _ => -32603
+    _ => INTERNAL_ERROR
   }
   let message = match fields.get("message") {
     Some(String(s)) => s
@@ -246,14 +278,11 @@ pub fn ProviderError::message(self : ProviderError) -> String {
     Reverted(..) => "The contract refused the transaction."
     Transport(_) => "Could not reach the network. Check your connection."
     HttpStatus(code~, ..) =>
-      if code == 429 {
-        "The network is busy. Try again in a moment."
-      } else if code == 401 || code == 403 {
-        "This app is not authorized to use that node."
-      } else if code >= 500 {
-        "The node is having trouble. Try again in a moment."
-      } else {
-        "The node refused the request."
+      match http_status_kind(code) {
+        Busy => "The network is busy. Try again in a moment."
+        Unauthenticated => "This app is not authorized to use that node."
+        NodeTrouble => "The node is having trouble. Try again in a moment."
+        Refused => "The node refused the request."
       }
     MalformedResponse(_) | Decode(..) =>
       "The network answered with something this app could not read."
@@ -284,19 +313,49 @@ pub fn ProviderError::message(self : ProviderError) -> String {
 pub fn ProviderError::is_retryable(self : ProviderError) -> Bool {
   match self {
     Transport(_) | Timeout(_) => true
-    HttpStatus(code~, ..) => code == 429 || code >= 500
-    // -32005: "limit exceeded", what a hosted RPC rate-limits with over
-    // JSON-RPC rather than over HTTP
+    HttpStatus(code~, ..) => http_status_kind(code) is (Busy | NodeTrouble)
     Rpc(code~, ..) => code == RATE_LIMITED
-    _ => false
+    UserRejected
+    | Unauthorized
+    | UnsupportedMethod
+    | Disconnected
+    | ChainDisconnected
+    | UnrecognizedChain
+    | Reverted(..)
+    | NotInstalled
+    | MalformedResponse(_)
+    | Decode(..)
+    | Config(_) => false
   }
 }
 
 ///|
-/// The EIP-1474 code a hosted RPC answers with when the caller is over its
-/// quota. It arrives inside a 200 response, which is why `HttpStatus(429)` is
-/// not the only rate limit there is.
-const RATE_LIMITED : Int = -32005
+/// What an HTTP status means for the caller, which is the only thing either
+/// `message` or `is_retryable` wants to know about one. Stated once so the two
+/// cannot disagree about whether a `503` is worth another try.
+priv enum HttpStatusKind {
+  /// 429 — over the quota, for now.
+  Busy
+  /// 401 / 403 — the API key is wrong or absent. Retrying is pointless.
+  Unauthenticated
+  /// 5xx — the node or its gateway is unwell.
+  NodeTrouble
+  /// Anything else a node answers with: a 404 at the wrong path, a 400.
+  Refused
+}
+
+///|
+fn http_status_kind(code : Int) -> HttpStatusKind {
+  if code == 429 {
+    Busy
+  } else if code == 401 || code == 403 {
+    Unauthenticated
+  } else if code >= 500 {
+    NodeTrouble
+  } else {
+    Refused
+  }
+}
 
 ///|
 /// The EIP-1193 / EIP-1474 code this error was, or would have been, reported
@@ -311,12 +370,12 @@ const RATE_LIMITED : Int = -32005
 /// ```
 pub fn ProviderError::code(self : ProviderError) -> Int? {
   match self {
-    UserRejected => Some(4001)
-    Unauthorized => Some(4100)
-    UnsupportedMethod => Some(4200)
-    Disconnected => Some(4900)
-    ChainDisconnected => Some(4901)
-    UnrecognizedChain => Some(4902)
+    UserRejected => Some(USER_REJECTED)
+    Unauthorized => Some(UNAUTHORIZED)
+    UnsupportedMethod => Some(UNSUPPORTED_METHOD)
+    Disconnected => Some(DISCONNECTED)
+    ChainDisconnected => Some(CHAIN_DISCONNECTED)
+    UnrecognizedChain => Some(UNRECOGNIZED_CHAIN)
     Rpc(code~, ..) | Reverted(code~, ..) => Some(code)
     NotInstalled
     | Transport(_)

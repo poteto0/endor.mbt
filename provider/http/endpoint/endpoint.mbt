@@ -18,6 +18,8 @@
 /// ```
 pub struct Endpoint {
   priv url : String
+  /// The caller's headers with `content-type: application/json` already in
+  /// them: they do not change after construction, so neither does this.
   priv headers : Map[String, String]
   priv timeout : Int
 }
@@ -32,12 +34,19 @@ pub const DEFAULT_TIMEOUT_MS : Int = 30_000
 /// An endpoint at `url`. `headers` are sent with every request, on top of the
 /// `content-type` JSON-RPC needs — an `Authorization` bearer, an `x-api-key`.
 /// `timeout` bounds the whole POST — connecting, sending and reading the body.
+///
+/// Private, and `at` is its only caller, so it states no defaults of its own:
+/// the defaults are `at`'s and are written once.
 fn Endpoint::new(
   url : String,
-  headers? : Map[String, String] = Map([]),
-  timeout? : Int = DEFAULT_TIMEOUT_MS,
+  headers~ : Map[String, String],
+  timeout~ : Int,
 ) -> Endpoint {
-  Endpoint::{ url, headers, timeout }
+  let merged = { "content-type": "application/json" }
+  for name, value in headers {
+    merged[name] = value
+  }
+  Endpoint::{ url, headers: merged, timeout }
 }
 
 ///|
@@ -45,8 +54,9 @@ fn Endpoint::new(
 /// caller needs, and the shape every doc example uses. `headers` and `timeout`
 /// are what `Endpoint::new` takes them to be.
 ///
-/// Raises `Config` when `url` is not an HTTP URL — that is a typo in the
-/// program, caught before anything is sent.
+/// Raises `Config` when `url` is not an HTTP URL, or when `timeout` is not a
+/// positive number of milliseconds — both are typos in the program, caught
+/// before anything is sent.
 ///
 /// ```
 /// let provider = @endpoint.at("http://127.0.0.1:8545")
@@ -59,6 +69,11 @@ pub fn at(
 ) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError {
   guard validate_http_url(url) else {
     raise @provider.Config("not an HTTP URL: \{url}")
+  }
+  guard timeout > 0 else {
+    raise @provider.Config(
+      "timeout must be a positive number of ms: \{timeout}",
+    )
   }
   @http.HttpProvider::new(Endpoint::new(url, headers~, timeout~))
 }
@@ -77,10 +92,14 @@ pub fn at(
 /// because a node that dribbles a response out forever is no better than one
 /// that never connects.
 pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
-  // `with_timeout_opt` raises `Error` — a cancellation, from the task group it
-  // runs the POST in. `send` answers with a `Result` so that nothing else can
-  // arrive here, which is what lets this one branch stay honest.
-  let outcome = @async.with_timeout_opt(self.timeout, () => self.send(body)) catch {
+  // `with_timeout_opt`'s own error type is `Error`, so `send`'s `ProviderError`
+  // is carried across it as a value and re-raised on the far side. Nothing else
+  // can come out of it, which is what lets the `catch` name one thing.
+  let outcome = @async.with_timeout_opt(self.timeout, () => {
+    Ok(self.send(body)) catch {
+      e => Err(e)
+    }
+  }) catch {
     e => raise @provider.Transport("POST \{self.url} was cancelled: \{e}")
   }
   match outcome {
@@ -95,38 +114,17 @@ pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
 
 ///|
 /// One POST, without the deadline around it.
-///
-/// It answers with a `Result` rather than raising, so that the only thing that
-/// can come out of `with_timeout_opt` is the deadline: that combinator's own
-/// error type is `Error`, and letting a `ProviderError` travel through it would
-/// widen `post`'s.
 async fn Endpoint::send(
   self : Endpoint,
   body : String,
-) -> Result[String, @provider.ProviderError] {
-  let headers = apply_headers(self.headers)
-  let (response, payload) = @client.post(self.url, body, headers~) catch {
-    e => return Err(@provider.Transport("POST \{self.url} failed: \{e}"))
+) -> String raise @provider.ProviderError {
+  let (response, payload) = @client.post(self.url, body, headers=self.headers) catch {
+    e => raise @provider.Transport("POST \{self.url} failed: \{e}")
   }
   guard response.code >= 200 && response.code < 300 else {
-    return Err(@provider.HttpStatus(code=response.code, url=self.url))
+    raise @provider.HttpStatus(code=response.code, url=self.url)
   }
-  Ok(
-    payload.text() catch {
-      e =>
-        return Err(
-          @provider.Transport("unreadable response from \{self.url}: \{e}"),
-        )
-    },
-  )
-}
-
-///|
-/// add `content-type: application/json` to `headers`, and return the result.
-fn apply_headers(headers : Map[String, String]) -> Map[String, String] {
-  let applied_headers = { "content-type": "application/json" }
-  for name, value in headers {
-    applied_headers[name] = value
+  payload.text() catch {
+    e => raise @provider.Transport("unreadable response from \{self.url}: \{e}")
   }
-  applied_headers
 }

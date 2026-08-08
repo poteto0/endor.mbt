@@ -16,9 +16,9 @@ applies.
 
 ### Added
 
-- Three questions every error in the SDK answers, with the same names on
-  `ProviderError`, `ContractError`, `AbiError` and `CodecError`, so one handler
-  works whichever one was caught:
+- `message()` and `is_retryable()` on all four error types — `ProviderError`,
+  `ContractError`, `AbiError` and `CodecError` — so one handler works whichever
+  one was caught:
 
   ```moonbit
   try @provider.chain_id(node) |> ignore catch {
@@ -32,9 +32,10 @@ applies.
   JSON-RPC code — as against `Show`, which keeps all three and belongs in a log.
   `is_retryable()` is true for the failures that are about *this attempt*
   (`Transport`, `Timeout`, `HttpStatus` 429 / 5xx, the `-32005` a hosted RPC
-  rate-limits with) and false for everything already decided. `code()` gives
-  the EIP-1193 / EIP-1474 number, or `None` for what never reached the protocol.
-  `ContractError` adds `revert_reason()`, the string a `require(cond, "…")`
+  rate-limits with) and false for everything already decided. The two types that
+  talk to the wire, `ProviderError` and `ContractError`, add `code()` — the
+  EIP-1193 / EIP-1474 number, or `None` for what never reached the protocol —
+  and `ContractError` adds `revert_reason()`, the string a `require(cond, "…")`
   carried. (#113)
 - `@endor.ProviderError` and `@endor.ContractError`: the root re-exports both,
   so the public error surface is four types spelled from one package rather than
@@ -109,11 +110,13 @@ applies.
   the quotes; nothing that matches on variants is affected. The point is that
   the variant list is the only place to edit when one is added. `JsError` gained
   the `Show` it never had, and every error type now derives `Debug`. (#113)
-- **Breaking:** the `creation_code()` that `endor-cli abi` generates now
-  `raise`s `@types.CodecError` instead of calling `abort` on a literal it
-  validated itself. Generated code was the one place in the repository that
-  could panic; a generated `deploy` maps the failure to
-  `ContractError::Deployment`. Regenerate, or add the `raise` by hand. (#113)
+- **Breaking:** the `creation_code()` that `endor-cli abi` generates now embeds
+  the creation code as a `Bytes` literal and calls the total
+  `Hex::from_bytes`, so it can neither `abort` — which it used to, on a literal
+  the generator itself had validated — nor raise. Generated code was the one
+  place in the repository that could panic, and buying out of that with an error
+  no caller can trigger would only have moved it. The signature is unchanged
+  (`-> @types.Hex`); regenerate to get the new body. (#113)
 - **Breaking:** a call a contract **reverts** now comes back as what the
   contract said, not as the node's `"execution reverted"` string.
   `ContractError` gained three variants — `Revert(reason)` for

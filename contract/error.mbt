@@ -113,7 +113,8 @@ pub fn ContractError::message(self : ContractError) -> String {
 pub fn ContractError::is_retryable(self : ContractError) -> Bool {
   match self {
     Rpc(e) => e.is_retryable()
-    _ => false
+    Abi(e) => e.is_retryable()
+    Deployment(_) | Revert(_) | Panic(_) | CustomError(..) => false
   }
 }
 

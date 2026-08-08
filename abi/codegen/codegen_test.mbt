@@ -1138,19 +1138,19 @@ let counter_artifact : String =
   #|}
 
 ///|
-/// The creation code an artifact carries is embedded as a literal, as hex the
-/// generated `Hex::from_string` cannot fail on — it raises rather than aborting
-/// all the same, since generated code is not exempt from "no panics" (#113).
+/// The creation code an artifact carries is embedded as the bytes themselves,
+/// so the generated `creation_code()` calls the total `Hex::from_bytes` and can
+/// neither `abort` nor `raise` (#113).
 test "generate: an artifact's creation code is embedded" {
   let out = @codegen.generate("Counter", counter_artifact)
   assert_true(out.deploys)
   assert_true(
     out.code.contains(
       (
-        #|pub fn Counter::creation_code() -> @types.Hex raise @types.CodecError {
-        #|  // validated as hex when this file was generated; it can only fail if
-        #|  // this literal has been edited by hand
-        #|  @types.Hex::from_string("0x600a600c600039600a6000f3602a60005260206000f3")
+        #|pub fn Counter::creation_code() -> @types.Hex {
+        #|  @types.Hex::from_bytes(
+        #|    b"\x60\x0a\x60\x0c\x60\x00\x39\x60\x0a\x60\x00\xf3\x60\x2a\x60\x00\x52\x60\x20\x60\x00\xf3",
+        #|  )
         #|}
       ),
     ),
@@ -1173,13 +1173,10 @@ test "generate: an artifact deploys through @contract.deploy" {
         #|  from~ : @types.Address,
         #|  start~ : BigInt,
         #|) -> Counter raise @contract.ContractError {
-        #|  let bytecode = Counter::creation_code() catch {
-        #|    e => raise @contract.Deployment("creation code: \{e}")
-        #|  }
         #|  let deployed = @contract.deploy(
         #|    provider,
         #|    from~,
-        #|    bytecode~,
+        #|    bytecode=Counter::creation_code(),
         #|    inputs=[Uint(256)],
         #|    args=[Uint(start)],
         #|  )
@@ -1270,10 +1267,11 @@ test "generate: a contract that declares no constructor still deploys" {
         #|  provider : P,
         #|  from~ : @types.Address,
         #|) -> Bare raise @contract.ContractError {
-        #|  let bytecode = Bare::creation_code() catch {
-        #|    e => raise @contract.Deployment("creation code: \{e}")
-        #|  }
-        #|  let deployed = @contract.deploy(provider, from~, bytecode~)
+        #|  let deployed = @contract.deploy(
+        #|    provider,
+        #|    from~,
+        #|    bytecode=Bare::creation_code(),
+        #|  )
         #|  Bare::{ contract: deployed }
         #|}
       ),
@@ -1320,8 +1318,8 @@ test "read: the artifact shapes every compiler emits" {
   for shape in shapes {
     let out = @codegen.generate("Foo", shape.1)
     assert_true(out.deploys)
-    // the `0x` a compiler leaves off is what `Hex` requires
-    assert_true(out.code.contains("from_string(\"0x6001\")"), msg=shape.0)
+    // the `0x` a compiler leaves off is read all the same
+    assert_true(out.code.contains("from_bytes(b\"\\x60\\x01\")"), msg=shape.0)
   }
 }
 
@@ -1443,11 +1441,7 @@ test "read: a constructor this generator cannot type skips only deploy" {
   ])
   // the escape hatch the file must not lose: this is precisely the caller who
   // has to deploy by hand, so the bytes stay
-  assert_true(
-    out.code.contains(
-      "pub fn Blob::creation_code() -> @types.Hex raise @types.CodecError {",
-    ),
-  )
+  assert_true(out.code.contains("pub fn Blob::creation_code() -> @types.Hex {"))
   assert_false(out.code.contains("Blob::deploy("))
 }
 

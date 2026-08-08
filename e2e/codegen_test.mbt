@@ -221,8 +221,16 @@ async test "the creation code the fixture embeds deploys and answers" {
     let out = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))
     assert_true(out.deploys)
     assert_eq(out.skipped.join("\n"), "")
-    // the bytes in the generated literal are the fixture's, unmangled
-    assert_true(out.code.contains("\"\{@anvil.answer_contract_code()}\""))
+    // the bytes in the generated literal are the fixture's, unmangled. The
+    // literal is `Bytes`, so the fixture's digits are paired back into the
+    // `\xNN` escapes the generator writes
+    let digits = @anvil.answer_contract_code().digits()
+    let escaped = StringBuilder::new()
+    for i = 0; i < digits.length(); i = i + 2 {
+      escaped.write_string("\\x")
+      escaped.write_string(digits[i:i + 2].to_owned())
+    }
+    assert_true(out.code.contains("b\"\{escaped}\""))
     let deployed = @contract.deploy(
       provider,
       from=@anvil.dev_account(),
