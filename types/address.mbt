@@ -90,5 +90,5 @@ pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
 ///|
 /// Displays the checksummed form; the wire form is `to_string` / `to_json`.
 pub impl Show for Address with fn output(self, logger) {
-  logger.write_string(self.to_checksum_string())
+  logger.write_string(self.inner)
 }
