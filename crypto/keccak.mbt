@@ -19,15 +19,42 @@ const DIGEST_SIZE = 32
 const KECCAK_PAD : Byte = 0x01
 
 ///|
-/// Round constants for iota, one per round of `keccak-f[1600]`. They exist only
-/// to break the symmetry that the other four steps preserve.
-let round_constants : FixedArray[UInt64] = [
-  0x0000000000000001, 0x0000000000008082, 0x800000000000808a, 0x8000000080008000,
-  0x000000000000808b, 0x0000000080000001, 0x8000000080008081, 0x8000000000008009,
-  0x000000000000008a, 0x0000000000000088, 0x0000000080008009, 0x000000008000000a,
-  0x000000008000808b, 0x800000000000008b, 0x8000000000008089, 0x8000000000008003,
-  0x8000000000008002, 0x8000000000000080, 0x000000000000800a, 0x800000008000000a,
-  0x8000000080008081, 0x8000000000008080, 0x0000000080000001, 0x8000000080008008,
+/// A grid of 64-bit lanes, each held as its low and high 32 bits rather than
+/// as one `UInt64`.
+///
+/// The split is what makes this usable on `js`, which is the module's preferred
+/// target. `UInt64` compiles to a JavaScript `BigInt` there, and every xor,
+/// shift and mask on one allocates an arbitrary-precision heap object — at 24
+/// rounds x 25 lanes per permutation that cost is the whole hash. Two `UInt`
+/// halves stay in machine words on every backend, so the same code that fixes
+/// `js` costs the others only a second 32-bit op where they had one 64-bit one.
+priv struct Lanes {
+  lo : FixedArray[UInt]
+  hi : FixedArray[UInt]
+}
+
+///|
+fn Lanes::zero(size : Int) -> Lanes {
+  { lo: FixedArray::make(size, 0U), hi: FixedArray::make(size, 0U) }
+}
+
+///|
+/// Round constants for iota, one per round of `keccak-f[1600]`, split into the
+/// two halves the state is held in. They exist only to break the symmetry that
+/// the other four steps preserve.
+let round_constants_lo : FixedArray[UInt] = [
+  0x00000001, 0x00008082, 0x0000808a, 0x80008000, 0x0000808b, 0x80000001, 0x80008081,
+  0x00008009, 0x0000008a, 0x00000088, 0x80008009, 0x8000000a, 0x8000808b, 0x0000008b,
+  0x00008089, 0x00008003, 0x00008002, 0x00000080, 0x0000800a, 0x8000000a, 0x80008081,
+  0x00008080, 0x80000001, 0x80008008,
+]
+
+///|
+let round_constants_hi : FixedArray[UInt] = [
+  0x00000000, 0x00000000, 0x80000000, 0x80000000, 0x00000000, 0x00000000, 0x80000000,
+  0x80000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x00000000, 0x80000000,
+  0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x00000000, 0x80000000, 0x80000000,
+  0x80000000, 0x00000000, 0x80000000,
 ]
 
 ///|
@@ -48,13 +75,35 @@ let pi_targets : FixedArray[Int] = FixedArray::makei(LANES, fn(i) {
 })
 
 ///|
-/// Rotate left within 64 bits. `n` is always in `0..<64`; a shift of exactly 64
-/// is not well defined, so a zero rotation returns the input untouched.
-fn _rotl64(x : UInt64, n : Int) -> UInt64 {
+/// Low half of a 64-bit left-rotation of the lane `(lo, hi)`. `n` is always in
+/// `0..<64`; a shift of exactly 0 or 32 would ask for a 32-bit shift by 32,
+/// which is not well defined, so both land in their own branch.
+fn _rotl64_lo(lo : UInt, hi : UInt, n : Int) -> UInt {
   if n == 0 {
-    x
+    lo
+  } else if n < 32 {
+    (lo << n) | (hi >> (32 - n))
+  } else if n == 32 {
+    hi
   } else {
-    (x << n) | (x >> (64 - n))
+    let m = n - 32
+    (hi << m) | (lo >> (32 - m))
+  }
+}
+
+///|
+/// High half of the same rotation — identical but for the two halves swapping
+/// roles, since rotating past 32 bits is what exchanges them.
+fn _rotl64_hi(lo : UInt, hi : UInt, n : Int) -> UInt {
+  if n == 0 {
+    hi
+  } else if n < 32 {
+    (hi << n) | (lo >> (32 - n))
+  } else if n == 32 {
+    lo
+  } else {
+    let m = n - 32
+    (lo << m) | (hi >> (32 - m))
   }
 }
 
@@ -71,21 +120,29 @@ fn _right_idx(x : Int, n? : Int = 1) -> Int {
 ///|
 /// theta — fold each column into a parity lane, then spread it across the
 /// two neighbouring columns so a single bit reaches the whole state.
-fn _do_theta_step(a : FixedArray[UInt64], c : FixedArray[UInt64]) -> Unit {
+fn _do_theta_step(a : Lanes, c : Lanes) -> Unit {
   // parity bit
   // EX for 4 bit
   // c := [0010 1110 1100 1001 1111]
   for x in 0..<5 {
-    c[x] = a[x] ^ a[x + 5] ^ a[x + 10] ^ a[x + 15] ^ a[x + 20]
+    c.lo[x] = a.lo[x] ^ a.lo[x + 5] ^ a.lo[x + 10] ^ a.lo[x + 15] ^ a.lo[x + 20]
+    c.hi[x] = a.hi[x] ^ a.hi[x + 5] ^ a.hi[x + 10] ^ a.hi[x + 15] ^ a.hi[x + 20]
   }
-
   for x in 0..<5 {
+    let l = _left_idx(x)
+    let r = _right_idx(x)
     // EX for x = 1
     // 0010 xor 1001(rotated) => d := 1011
-    let d = c[_left_idx(x)] ^ _rotl64(c[_right_idx(x)], 1)
+    //
+    // The rotation is by one, so rather than go through `_rotl64_*` each half
+    // simply takes the other's top bit.
+    let d_lo = c.lo[l] ^ ((c.lo[r] << 1) | (c.hi[r] >> 31))
+    let d_hi = c.hi[l] ^ ((c.hi[r] << 1) | (c.lo[r] >> 31))
     for y in 0..<5 {
       // embed c back to a
-      a[x + 5 * y] = a[x + 5 * y] ^ d
+      let i = x + 5 * y
+      a.lo[i] = a.lo[i] ^ d_lo
+      a.hi[i] = a.hi[i] ^ d_hi
     }
   }
 }
@@ -93,54 +150,79 @@ fn _do_theta_step(a : FixedArray[UInt64], c : FixedArray[UInt64]) -> Unit {
 ///|
 /// rho (rotate each lane) and pi (move it elsewhere in the grid) — both are
 /// pure relocation, so one pass into a scratch grid does the two of them.
-fn _do_rho_and_pi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
+fn _do_rho_and_pi_step(a : Lanes, b : Lanes) -> Unit {
   for i in 0..<LANES {
-    b[pi_targets[i]] = _rotl64(a[i], rho_offsets[i])
+    let target = pi_targets[i]
+    let n = rho_offsets[i]
+    let lo = a.lo[i]
+    let hi = a.hi[i]
+    b.lo[target] = _rotl64_lo(lo, hi, n)
+    b.hi[target] = _rotl64_hi(lo, hi, n)
   }
 }
 
 ///|
 ///  chi — the only non-linear step, mixing each lane with the next two in
 /// its row.
-/// 
-fn _do_chi_step(a : FixedArray[UInt64], b : FixedArray[UInt64]) -> Unit {
+///
+fn _do_chi_step(a : Lanes, b : Lanes) -> Unit {
   for y in 0..<5 {
     let row = 5 * y
     for x in 0..<5 {
       // flip self lane if next lane = 0 & next-next lane = 1
-      a[row + x] = b[row + x] ^
-        (b[row + _right_idx(x)].lnot() & b[row + _right_idx(x, n=2)])
+      let self_ = row + x
+      let next = row + _right_idx(x)
+      let after = row + _right_idx(x, n=2)
+      a.lo[self_] = b.lo[self_] ^ (b.lo[next].lnot() & b.lo[after])
+      a.hi[self_] = b.hi[self_] ^ (b.hi[next].lnot() & b.hi[after])
     }
   }
 }
 
 ///|
+/// The sponge's working memory: the state plus the two scratch grids the steps
+/// need. They live together so a multi-block input allocates them once instead
+/// of once per permutation.
+priv struct Keccak {
+  a : Lanes
+  b : Lanes
+  c : Lanes
+}
+
+///|
+fn Keccak::new() -> Keccak {
+  { a: Lanes::zero(LANES), b: Lanes::zero(LANES), c: Lanes::zero(5) }
+}
+
+///|
 /// The `keccak-f[1600]` permutation: 24 rounds of theta, rho, pi, chi, iota,
-/// applied to `a` in place.
-fn _permute(a : FixedArray[UInt64]) -> Unit {
-  let c = FixedArray::make(5, 0UL)
-  let b = FixedArray::make(LANES, 0UL)
-  for round in 0..<round_constants.length() {
-    _do_theta_step(a, c)
-    _do_rho_and_pi_step(a, b)
-    _do_chi_step(a, b)
+/// applied to the state in place.
+fn Keccak::permute(self : Keccak) -> Unit {
+  for round in 0..<round_constants_lo.length() {
+    _do_theta_step(self.a, self.c)
+    _do_rho_and_pi_step(self.a, self.b)
+    _do_chi_step(self.a, self.b)
 
     // iota
-    a[0] = a[0] ^ round_constants[round]
+    self.a.lo[0] = self.a.lo[0] ^ round_constants_lo[round]
+    self.a.hi[0] = self.a.hi[0] ^ round_constants_hi[round]
   }
 }
 
 ///|
 /// XOR one `RATE`-byte block into the state (little-endian lanes) and permute.
 ///
-/// The unchecked read is sound by construction: `from` only ever names the
+/// The unchecked reads are sound by construction: `from` only ever names the
 /// start of a whole block, so every lane lies within `from ..< from + RATE`,
 /// and the caller never passes a block that stops short of that.
-fn _absorb(a : FixedArray[UInt64], block : Bytes, from : Int) -> Unit {
+fn Keccak::absorb(self : Keccak, block : Bytes, from : Int) -> Unit {
   for lane in 0..<(RATE / 8) {
-    a[lane] = a[lane] ^ block.unsafe_read_uint64_le(from + lane * 8)
+    let at = from + lane * 8
+    // Little-endian, so the low half is the earlier four bytes.
+    self.a.lo[lane] = self.a.lo[lane] ^ block.unsafe_read_uint32_le(at)
+    self.a.hi[lane] = self.a.hi[lane] ^ block.unsafe_read_uint32_le(at + 4)
   }
-  _permute(a)
+  self.permute()
 }
 
 ///|
@@ -171,10 +253,10 @@ pub fn keccak256(input : Bytes) -> Bytes {
 /// which is the only external authority available — no standard library ships
 /// keccak256 itself.
 fn _sponge(input : Bytes, pad : Byte) -> Bytes {
-  let a = FixedArray::make(LANES, 0UL)
+  let k = Keccak::new()
   let full_blocks = input.length() / RATE
   for block in 0..<full_blocks {
-    _absorb(a, input, block * RATE)
+    k.absorb(input, block * RATE)
   }
 
   // The tail always needs one more block, even when the input divides evenly
@@ -196,11 +278,15 @@ fn _sponge(input : Bytes, pad : Byte) -> Bytes {
       byte
     }
   })
-  _absorb(a, tail, 0)
+  k.absorb(tail, 0)
 
   // Squeeze. The digest is shorter than `RATE`, so it comes straight off the
   // front of the state with no further permutation.
-  Bytes::makei(DIGEST_SIZE, i => (a[i / 8] >> (8 * (i % 8))).to_byte())
+  Bytes::makei(DIGEST_SIZE, i => {
+    let byte = i % 8
+    let half = if byte < 4 { k.a.lo[i / 8] } else { k.a.hi[i / 8] }
+    (half >> (8 * (byte % 4))).to_byte()
+  })
 }
 
 ///|

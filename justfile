@@ -10,6 +10,10 @@ alias ut := unit-test
 unit-test opts="":
   @moon test --target {{target}} {{opts}}
 
+[group("ci")]
+bench bench_target=target opts="":
+  @moon bench --target {{bench_target}} {{opts}}
+
 # end-to-end tests against a local Anvil node (`just anvil` first) — what they
 # do and do not prove is in docs/e2e.md. They are not part of `ci-check`, which
 # `precommit` selects from — committing must not need a node. `e2e` is still a
