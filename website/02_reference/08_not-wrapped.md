@@ -11,10 +11,6 @@ typed helper.
 
 ## Planned
 
-**EIP-6963.** The SDK takes `globalThis.ethereum`, which is whichever wallet won
-the race to inject itself. Enumerating several injected providers and letting the
-user pick is not implemented.
-
 **Computing the EIP-712 digest for signing.**
 `endor/eips/eip712` implements the hashing, but `sign_typed_data` hands the document
 to the wallet and lets it hash — which is correct for signing.

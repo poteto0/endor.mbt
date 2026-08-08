@@ -14,11 +14,25 @@ pub struct BrowserProvider {
   // private fields
 }
 pub fn BrowserProvider::detect() -> Self?
+pub async fn BrowserProvider::discover(timeout_ms? : Int) -> Array[DiscoveredWallet]
 pub fn BrowserProvider::has_events(Self) -> Bool
 pub fn BrowserProvider::is_metamask(Self) -> Bool
+pub fn BrowserProvider::on_announce((ProviderInfo, Self) -> Unit) -> @provider.Subscription
 pub fn BrowserProvider::require() -> Self raise @provider.ProviderError
 pub impl @provider.EventSource for BrowserProvider
 pub impl @provider.Provider for BrowserProvider
+
+pub(all) struct DiscoveredWallet {
+  info : ProviderInfo?
+  provider : BrowserProvider
+}
+
+pub(all) struct ProviderInfo {
+  uuid : String
+  name : String
+  icon : String
+  rdns : String
+}
 
 // Type aliases
 

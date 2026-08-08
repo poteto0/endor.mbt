@@ -2,11 +2,8 @@ import {
   "poteto0/endor/provider",
   "poteto0/endor/ffi/js",
   "moonbitlang/core/debug",
-}
-
-import {
   "moonbitlang/async",
-} for "test"
+}
 
 // Inherited from `ffi/js`: `BrowserProvider` wraps the injected JS object.
 

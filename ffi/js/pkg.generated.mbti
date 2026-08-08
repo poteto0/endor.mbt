@@ -19,9 +19,15 @@ pub fn is_metamask(Ethereum) -> Bool
 
 pub fn on(Ethereum, event~ : String, handler~ : (Json) -> Unit) -> Listener
 
+pub fn on_announce(handler~ : (Json, Ethereum) -> Unit) -> WindowListener
+
+pub fn remove_announce_listener(WindowListener) -> Unit
+
 pub fn remove_listener(Ethereum, event~ : String, listener~ : Listener) -> Unit
 
 pub fn request(Ethereum, String) -> @js_async.Promise[String]
+
+pub fn request_providers() -> Unit
 
 pub fn spawn(async () -> Unit) -> Unit
 
@@ -38,6 +44,9 @@ pub type Ethereum
 
 #external
 pub type Listener
+
+#external
+pub type WindowListener
 
 // Type aliases
 
