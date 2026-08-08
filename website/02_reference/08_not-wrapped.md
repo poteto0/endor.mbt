@@ -21,14 +21,11 @@ to the wallet and lets it hash — which is correct for signing.
 [#45](https://github.com/poteto0/endor.mbt/issues/45) is about the case that
 needs the digest locally, which is EIP-1271 contract signature verification.
 
-**An HTTP JSON-RPC transport.**
-[#19](https://github.com/poteto0/endor.mbt/issues/19). Today the only `Provider`
-that reaches a real chain is the injected browser wallet, which means the SDK
-cannot be used from a server or a script. The trait is already the right shape
-for it — that is why `Provider` and `EventSource` are separate.
-
 **`newHeads` subscription to speed up receipt waiting.**
 [#42](https://github.com/poteto0/endor.mbt/issues/42). `wait_for_receipt` polls.
+Nothing in the SDK subscribes to a node: there is no WebSocket transport, and
+[HTTP](/cookbook/http-rpc/) has nothing to subscribe over — `HttpProvider` is a
+`Provider` and not an `EventSource` for that reason.
 
 ## Not planned
 

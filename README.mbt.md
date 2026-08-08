@@ -7,10 +7,11 @@
 [![CI](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml/badge.svg)](https://github.com/poteto0/endor.mbt/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/poteto0/endor.mbt/blob/main/LICENSE)
 
-An Ethereum SDK for MoonBit. Currently focused on browser wallets via the
-[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider standard: it wraps
-the provider that extensions such as MetaMask inject as `globalThis.ethereum`,
-and exposes it as typed, async MoonBit functions.
+An Ethereum SDK for MoonBit. In a browser it wraps the
+[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider that extensions
+such as MetaMask inject as `globalThis.ethereum`; anywhere else it speaks
+JSON-RPC over HTTP to a node. Either way the surface is the same typed, async
+MoonBit functions.
 
 ![demo](https://raw.githubusercontent.com/poteto0/endor.mbt/main/docs/movie/demo.gif)
 
@@ -81,6 +82,8 @@ raise `UnsupportedMethod`, since there is nothing behind a URL to prompt the
 user. `HttpTransport` stays a trait for a caller whose HTTP is its own —
 retries, a connection pool, a proxy — and for `wasm-gc`, the one backend
 `@endpoint` cannot reach.
+[Read without a wallet](https://endor.poteto-mahiro.com/cookbook/http-rpc/) is
+the whole recipe: headers, errors, and what an endpoint refuses.
 
 The domain types are re-exported from the root package, so
 `"poteto0/endor"` gives you `@endor.Address`, `@endor.ChainId`, and friends when

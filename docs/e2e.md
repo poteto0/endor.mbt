@@ -57,13 +57,19 @@ real extension. That is what the manual checklist below is for.
 
 ## The suite
 
-Three packages of the root module, so they build against the working tree
-rather than the published release:
+Packages of the root module, so they build against the working tree rather than
+the published release:
 
 - `backend/` — the `Backend` trait (`name` / `endpoint` / `install`) and `run`,
   the skip-install-task-group protocol. No FFI, no `js`.
+- `backend/env/` — `ENDOR_E2E_RPC_URL`, read portably rather than through a `js`
+  binding, so a backend that installs nothing needs no `js`.
 - `backend/anvil/` — the Anvil implementation: the shim, the dev accounts, the
   test contract. `@anvil.on(provider => …)` is what a test calls.
+- `backend/http/` — the same skip protocol over `@endpoint.at`, installing
+  nothing. `@http_backend.on(provider => …)` hands a test a real
+  `HttpProvider` pointed at the same node, which is how `e2e/http_test.mbt`
+  proves the read layer needs no wallet at all.
 - `e2e/` — the test cases, and nothing else.
 
 `backend/` and `e2e/` never ship. `moon.mod` excludes both and

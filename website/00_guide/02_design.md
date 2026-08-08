@@ -108,6 +108,14 @@ against `@provider.MockProvider`. That is why the SDK's own test suite needs no
 browser and no wallet, and why calldata can be built with no provider in hand at
 all.
 
+The HTTP transport adds no FFI to that list. `endor/provider/http` is the
+JSON-RPC framing and imports nothing but `provider`;
+`endor/provider/http/endpoint` puts it on the wire through `moonbitlang/async`'s
+HTTP client, which is implemented per backend — `fetch` on `js`, sockets and TLS
+on `native` and `wasm` — so reaching a real chain outside a browser cost this
+SDK no `extern` of its own. [Read without a wallet](/cookbook/http-rpc/) is what
+that buys.
+
 ## Next
 
 - [Errors](./errors/) — the failures this shape leaves you to handle

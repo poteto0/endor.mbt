@@ -21,8 +21,12 @@ All three take an `@provider.EventSource` — a provider that can push, which
 ## EventSource is a separate trait
 
 Deliberately: a transport can answer RPC without being able to push anything
-back, and the typed RPC helpers stay usable against one that cannot. Anything the
-three helpers do not cover is reachable with the raw
+back, and the typed RPC helpers stay usable against one that cannot.
+[`@http.HttpProvider`](/cookbook/http-rpc/) is that case in the SDK itself — it
+implements `Provider` and not `EventSource`, because a POST endpoint has no
+`accountsChanged` to send and nobody behind it to change an account. Passing one
+to a helper on this page is a compile error rather than a subscription that
+never fires. Anything the three helpers do not cover is reachable with the raw
 `EventSource::subscribe(event~, handler~)`, which hands the payload over as
 `Json`.
 
