@@ -47,8 +47,7 @@ async fn View::read(
     "\{erc20.name(wallet)} (\{erc20.symbol(wallet)}), \{decimals} decimals",
   )
   self.supply.set(@ui.decimal_of_units(erc20.total_supply(wallet), decimals))
-  // `accounts` never prompts, so a reader who has not connected still gets the
-  // token's own answers — only the balance needs to know who is asking
+  // `accounts` never prompts: only the balance needs to know who is asking
   let who = @provider.accounts(wallet) catch { e => raise Rpc(e) }
   match who.get(0) {
     Some(addr) => {
@@ -83,8 +82,7 @@ async fn View::load(self : View) -> Unit {
   } catch {
     // the wallet could not answer, or answered an error
     Rpc(e) => self.status.set("The wallet said: \{e}")
-    // it answered, but not with what an ERC-20 returns — most often because
-    // that address holds no contract, or holds one that is not a token
+    // it answered, but not with what an ERC-20 returns
     Abi(e) =>
       self.status.set("That address does not answer like an ERC-20: \{e}")
     e => self.status.set("Error: \{e}")

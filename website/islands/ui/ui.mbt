@@ -141,8 +141,8 @@ pub fn text_input(
     class="endor-demo-input",
     type_="text",
     placeholder~,
-    // the signal's starting value, written once. Not `dyn_value`: that would
-    // rewrite the box on every keystroke and fight whoever is typing in it.
+    // the starting value, written once. Not `dyn_value`, which would rewrite
+    // the box on every keystroke
     value=into.get(),
     on=events().input(e => {
       into.set(@dom.HTMLInputElement::cast_from_element(e.target()).value)

@@ -92,9 +92,8 @@ pub fn at(
 /// because a node that dribbles a response out forever is no better than one
 /// that never connects.
 pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
-  // `with_timeout_opt`'s own error type is `Error`, so `send`'s `ProviderError`
-  // is carried across it as a value and re-raised on the far side. Nothing else
-  // can come out of it, which is what lets the `catch` name one thing.
+  // `with_timeout_opt` raises `Error`, so `send`'s `ProviderError` crosses it
+  // as a value and is re-raised on the far side
   let outcome = @async.with_timeout_opt(self.timeout, () => {
     Ok(self.send(body)) catch {
       e => Err(e)

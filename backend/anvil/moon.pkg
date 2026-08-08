@@ -11,7 +11,4 @@ import {
   "moonbitlang/async",
 } for "test"
 
-// `js`-only, and the one package outside `ffi/js` that declares `extern "js"`
-// at all: it fakes the environment underneath the SDK. See `js.mbt`.
-
 supported_targets = "js"

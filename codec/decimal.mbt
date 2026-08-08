@@ -63,17 +63,15 @@ pub fn decimal_scale(
 /// package's.
 pub fn decimal_unscale(digits : StringView, decimals~ : Int) -> String {
   guard decimals > 0 else { return digits.to_owned() }
-  // where the point falls, and the zeros in front of the fraction when the
-  // value is narrower than the scale: 1 unit of a 6-decimal token is
-  // "0.000001", so five of those zeros are not in `digits` at all
+  // where the point falls, plus the zeros in front of a fraction narrower than
+  // the scale: 1 unit of a 6-decimal token is "0.000001"
   let point = if digits.length() > decimals {
     digits.length() - decimals
   } else {
     0
   }
   let leading = zeros_on_positive(decimals - digits.length())
-  // only the fold has to look at the digits: `leading` is zeros throughout, so
-  // a `tail` that folds away takes it with it
+  // `leading` is zeros throughout, so a `tail` that folds away takes it along
   let tail = digits[point:].trim_end(chars="0")
   let buf = StringBuilder::new()
   if point == 0 {

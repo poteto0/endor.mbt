@@ -48,13 +48,9 @@ pub fn default_address() -> @types.Address {
 }
 
 ///|
-/// Parsed once rather than on every `new`: the literal is checksummed, so
-/// reading it is a `keccak256` over its digits, and it answers the same address
-/// every time. `codec`'s digit table and `crypto`'s round constants are hoisted
-/// for the same reason.
-///
-/// The `abort` is unreachable and the doc test on `default_address` is what says
-/// so — it asserts the literal reads back as itself.
+/// Parsed once rather than on every `new`: reading a checksummed literal is a
+/// `keccak256` over its digits. The `abort` is unreachable, and the doc test on
+/// `default_address` is what says so.
 let canonical : @types.Address = @types.Address::from_string(
   "0xcA11bde05977b3631167028862bE2a173976CA11",
 ) catch {
@@ -97,8 +93,8 @@ pub async fn[P : @provider.Provider] Multicall3::is_deployed(
   provider : P,
   block? : @types.BlockTag,
 ) -> Bool raise @contract.ContractError {
-  // `eth_getCode` is not `eth_call` and cannot come back reverted, so there is
-  // nothing here for `revert_error` to decode — this failure is the node's
+  // `eth_getCode` cannot come back reverted, so there is nothing here for
+  // `revert_error` to decode
   @provider.is_contract(provider, self.at, block?) catch {
     e => raise @contract.ContractError::Rpc(e)
   }
@@ -240,8 +236,7 @@ pub async fn[P : @provider.Provider] Multicall3::aggregate3(
   from? : @types.Address,
   block? : @types.BlockTag,
 ) -> Array[Outcome] raise @contract.ContractError {
-  // nothing to ask about: an empty batch is an empty answer, and a round trip
-  // that returns an empty array is a round trip nobody needed
+  // an empty batch is an empty answer, with no round trip
   guard !calls.is_empty() else { return [] }
   let elements = calls.map(call => {
     @types.AbiValue::Tuple([
@@ -256,8 +251,8 @@ pub async fn[P : @provider.Provider] Multicall3::aggregate3(
     e => raise @contract.ContractError::Abi(e)
   }
   let request = @types.CallRequest::new(self.at, from?, data~)
-  // the batch as a whole: a node that refused, or `aggregate3` reverting
-  // because an element that was not allowed to fail did
+  // the batch as a whole: a node that refused, or `aggregate3` reverting over
+  // an element that was not allowed to fail
   let answer = @provider.call(provider, request, block?) catch {
     e => raise @contract.revert_error(e)
   }
@@ -269,8 +264,7 @@ pub async fn[P : @provider.Provider] Multicall3::aggregate3(
       InvalidData("aggregate3 did not answer with Result[]"),
     )
   }
-  // a count that does not match cannot be lined up with the calls at all, so
-  // this one is the batch's failure rather than any element's
+  // a count that does not line up is the batch's failure, not an element's
   guard results.length() == calls.length() else {
     raise @contract.ContractError::Abi(
       InvalidData(

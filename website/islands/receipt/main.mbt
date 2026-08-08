@@ -65,8 +65,7 @@ fn View::show(self : View, receipt : @endor.TransactionReceipt) -> Unit {
       None => "not a deployment"
     },
   )
-  // `topics[0]` is what `@abi.event_topic` is matched against to pick one
-  // event's logs out of the rest
+  // `topics[0]` is what `@abi.event_topic` is matched against
   let transfer = @abi.event_topic("Transfer(address,address,uint256)")
   let transfers = receipt.logs.filter(log => {
     log.topics.get(0) is Some(t) && t == transfer
@@ -79,8 +78,8 @@ fn View::show(self : View, receipt : @endor.TransactionReceipt) -> Unit {
 ///|
 async fn View::look_up(self : View) -> Unit {
   let hash = @endor.TxHash::from_string(self.hash_input.get().trim().to_owned()) catch {
-    // a `TxHash` is a `Hex` narrowed to exactly 32 bytes, so a hash of the
-    // wrong length is refused here rather than by the node
+    // a `TxHash` is a `Hex` of exactly 32 bytes, so a wrong length is refused
+    // here rather than by the node
     e => {
       self.status.set("Not a transaction hash: \{e}")
       return
@@ -95,8 +94,7 @@ async fn View::look_up(self : View) -> Unit {
         self.show(receipt)
         self.status.set("Read. No prompt and no gas — a receipt is a read.")
       }
-      // `None` is not an error: it says there is no receipt *right now*, which
-      // is the normal answer a second after broadcasting
+      // `None` is not an error: it is the normal answer right after broadcasting
       None =>
         self.status.set(
           "No receipt yet — either still pending, or not a transaction this chain knows.",

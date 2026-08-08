@@ -113,8 +113,7 @@ test "one unusable ABI does not cost the others" {
     abi_in: given("mixed-in", [
       ("erc20.abi", abi),
       ("truncated.abi", "[{ \"type\": \"function\""),
-      // `9lives` cannot be a MoonBit type name, and the generator will not
-      // invent one that is
+      // `9lives` is no MoonBit type name, and none is invented
       ("9lives.abi", "[]"),
     ]),
     abi_out: out,
@@ -287,8 +286,7 @@ test "init leaves a directory that abi can run in" {
   let config = read_config(path=join(dir, "endor.yaml"))
   assert_eq(config.abi_in, "./abi")
   assert_eq(config.abi_out, "./outputs")
-  // the input directory is there, so `abi` reports "nothing to do" rather than
-  // failing on a directory that is not there
+  // the input directory is there, so this is "nothing to do", not a failure
   assert_eq(generate_all({ ..config, abi_in: join(dir, config.abi_in) }), 0)
 }
 
