@@ -123,6 +123,13 @@ the encoding done for you.
 A call that reverts comes back as a `ProviderError`, which is what makes
 `estimate_gas` a cheap pre-flight check before asking anyone to sign.
 
+Several calls at once are one `eth_call` too, through Multicall3:
+`@multicall.Multicall3::new().aggregate3(p, calls)` takes the calls
+`@contract.Contract::prepare` builds and answers with one `@multicall.Outcome`
+each, in order, all evaluated against the same block. One call failing is a
+`Failed` among the answers rather than a raise —
+[Read many things at once](/cookbook/batch-reads/).
+
 ## Transactions, receipts and blocks
 
 | Function                                 | JSON-RPC method             | Returns                      |
