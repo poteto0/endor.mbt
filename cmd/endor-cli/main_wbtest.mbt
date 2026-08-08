@@ -95,7 +95,6 @@ test "every listed command dispatches and has a usage" {
 
 ///|
 test "the banner warns before anything is generated" {
-  // it takes no arguments and has no answer to assert on; what is being
-  // pinned is that every run pays for it, including a run that succeeds
+  // what is pinned is that every run pays for it, including one that succeeds
   banner()
 }

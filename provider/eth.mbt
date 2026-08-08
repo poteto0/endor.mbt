@@ -2,10 +2,8 @@
 /// Perform one JSON-RPC call and decode its result. An answer that will not
 /// read back as the type the method promises surfaces as `Decode`, which keeps
 /// the `CodecError` as it was raised and names the method that answered;
-/// wallet-side errors propagate untouched.
-///
-/// Every typed helper below is this function plus a `decode`, which is what
-/// keeps their error behaviour identical.
+/// wallet-side errors propagate untouched. Every typed helper below is this
+/// plus a `decode`, which is what keeps their error behaviour identical.
 async fn[P : Provider, T] invoke_rpc(
   provider : P,
   method_name~ : String,
@@ -246,10 +244,9 @@ pub async fn[P : Provider] code(
 /// as thirty-two zero bytes rather than as an absence.
 ///
 /// This is the only way to read state a contract does not expose: no ABI
-/// declares a storage layout, so nothing above this can type the answer, and
-/// what the word *means* is the caller's to know. The use that motivates it is
-/// a proxy's implementation address, which EIP-1967 puts at a fixed slot —
-/// there the word is an address in its low 20 bytes.
+/// declares a storage layout, so what the word *means* is the caller's to
+/// know. The use that motivates it is a proxy's implementation address, which
+/// EIP-1967 puts at a fixed slot, in the word's low 20 bytes.
 ///
 /// `slot` goes out as it is spelled, so it is the caller that decides whether to
 /// send the full word or the short form a node also accepts.
@@ -484,8 +481,7 @@ pub async fn[P : Provider] block_transaction_count_by_hash(
 
 ///|
 /// The two counts differ only in how the block is named, so the decode they
-/// share — a quantity, or `null` for a block the node does not have — is stated
-/// once here rather than in each of them.
+/// share — a quantity, or `null` for a block the node does not have — is here.
 async fn[P : Provider] block_transaction_count(
   provider : P,
   method_name~ : String,
@@ -667,7 +663,6 @@ pub async fn[P : Provider] wait_for_receipt(
   timeout? : Int = 60_000,
   poll_interval? : Int = 1_000,
 ) -> @types.TransactionReceipt raise ProviderError {
-  // confirmations should be at least 1.
   guard confirmations >= 1 else {
     raise InvalidConfig(
       "wait_for_receipt: confirmations must be at least 1, got \{confirmations}",
@@ -675,8 +670,7 @@ pub async fn[P : Provider] wait_for_receipt(
   }
   let wanted = confirmations.to_uint64()
   let deadline = @async.now() + timeout.to_int64()
-  // a receipt does not change once it exists, so it is fetched once and the
-  // rest of the wait is a question about the head alone
+  // a receipt does not change once it exists: fetch it once, then watch the head
   let receipt = for ;; {
     if transaction_receipt(provider, tx_hash) is Some(receipt) {
       break receipt
@@ -685,8 +679,7 @@ pub async fn[P : Provider] wait_for_receipt(
       raise Timeout("transaction \{tx_hash} was not mined within \{timeout}ms")
     }
   }
-  // the receipt's own block is the first confirmation, so the default wait is
-  // over without asking the node anything more
+  // the receipt's own block is the first confirmation
   if wanted > 1 {
     // `head + 1 < number + wanted` rather than a subtraction: both sides are
     // unsigned and a reorg can leave the head *below* the receipt's block
@@ -703,15 +696,14 @@ pub async fn[P : Provider] wait_for_receipt(
 
 ///|
 /// Wait one poll interval, or answer `false` once `deadline` has passed. Both
-/// halves of the wait run off the same deadline, so `timeout` covers the whole
-/// call rather than each half of it.
+/// halves of the wait share the deadline, so `timeout` covers the whole call.
 async fn poll_again(
   deadline : Int64,
   poll_interval : Int,
 ) -> Bool raise ProviderError {
   let remaining = deadline - @async.now()
   guard remaining > 0 else { return false }
-  // never nap past the deadline: the last poll before it should still happen
+  // never nap past the deadline
   let nap = if remaining < poll_interval.to_int64() {
     remaining.to_int()
   } else {

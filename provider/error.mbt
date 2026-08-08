@@ -70,23 +70,16 @@ pub(all) suberror ProviderError {
   /// not HTTP, an argument outside its range. It fails identically every time
   /// until the code changes.
   InvalidConfig(String)
-  /// A wait the SDK gave up on: `wait_for_receipt` polled until its timeout
-  /// without the transaction reaching the confirmations asked for, or an HTTP
-  /// request went unanswered past its deadline. The other side answered every
-  /// question it was asked, so this is not a wallet-side failure — it is the
-  /// absence of an answer, and it is what tells a timeout apart from the `None`
-  /// a not-yet-mined transaction reads as.
+  /// A wait the SDK gave up on: `wait_for_receipt` polled past its timeout, or
+  /// an HTTP request went unanswered past its deadline. This is what tells a
+  /// timeout apart from the `None` a not-yet-mined transaction reads as.
   Timeout(String)
 } derive(Eq, Debug)
 
 ///|
-/// Render through the derived `Debug` representation, so the variant list stays
-/// the single source of truth for how errors print.
-///
-/// `Reverted` is the one exception: its `data` is a `Hex`, whose derived debug
-/// form is the struct it is made of rather than the `0x…` everything else
-/// spells it as, and a revert is read by a person often enough that it is worth
-/// the arm.
+/// Render through the derived `Debug`, so the variant list stays the single
+/// source of truth. `Reverted` is the exception: its `data` is a `Hex`, whose
+/// derived form is the struct rather than the `0x…` a reader expects.
 pub impl Show for ProviderError with fn output(self, logger) {
   match self {
     Reverted(code~, message~, data~) =>
@@ -140,9 +133,8 @@ pub fn ProviderError::from_code(
 }
 
 ///|
-/// The EIP-1193 codes, named once: `from_code` reads them and `code` writes
-/// them back, and a table spelled out in both directions is a table that
-/// drifts.
+/// The EIP-1193 codes, named once: `from_code` reads them, `code` writes them
+/// back.
 const USER_REJECTED : Int = 4001
 
 ///|
@@ -174,13 +166,11 @@ const RATE_LIMITED : Int = -32005
 ///|
 /// The ABI-encoded revert hiding in a JSON-RPC error's `data`, if there is one.
 ///
-/// Which key it is under is not something the standards settle, so the shapes
-/// nodes actually write are all read: geth and Anvil put the hex directly in
-/// `error.data`, while a wallet that wraps a node's answer nests it once
-/// (`error.data.data`) or twice, keeping the node's own error alongside
-/// (`error.data.originalError.data`). Anything else — a plain string that is not
-/// hex, an object with none of those keys — is no revert, and the error stays
-/// `Rpc`.
+/// The standards do not settle which key it is under, so every shape nodes
+/// write is read: geth and Anvil put the hex in `error.data`, a wallet that
+/// wraps a node's answer nests it once (`error.data.data`) or twice
+/// (`error.data.originalError.data`). Anything else is no revert, and the
+/// error stays `Rpc`.
 fn revert_data(data : Json) -> @types.Hex? {
   match data {
     String(_) => Some(@types.Hex::from_json(data) catch { _ => return None })
@@ -200,10 +190,6 @@ fn revert_data(data : Json) -> @types.Hex? {
 /// an error that cannot be read is still an error — while a payload that is not
 /// an object at all is not an error report and comes back as
 /// `MalformedResponse`.
-///
-/// This is the one place that payload is read: an event decodes it through
-/// `from_json`, which additionally has to be able to say "not an error object
-/// at all", and `@http.HttpProvider` decodes a node's `error` member with it.
 ///
 /// ```mbt check
 /// test "doc: error from an error object" {
@@ -235,10 +221,9 @@ pub fn ProviderError::from_error_object(payload : Json) -> ProviderError {
 
 ///|
 /// Decode the `ProviderRpcError` object EIP-1193 carries — `{ code, message }` —
-/// through the same code mapping as `from_code`. `None` when the payload is not
-/// that shape, which is how an event with nowhere to raise to drops it: an
-/// event has nowhere to raise to, so a payload it cannot read is not worth
-/// inventing a code for.
+/// through the same code mapping as `from_code`. `None` when the payload is
+/// not that shape: an event has nowhere to raise to, so it drops one it cannot
+/// read rather than inventing a code for it.
 fn ProviderError::from_json(payload : Json) -> ProviderError? {
   guard payload is Object(fields) else { return None }
   guard fields.get("code") is Some(Number(_)) else { return None }
@@ -398,11 +383,9 @@ const METHOD_NOT_FOUND : Int = -32601
 /// implemented it, and EIP-1193's `UnsupportedMethod` (4200) from a provider
 /// that will not forward it.
 ///
-/// Most of the SDK's methods are ones every node has, so this is not a case to
-/// handle everywhere — it is for the wrappers around a method that is an
-/// *extension* rather than a standard, where "the node does not have it" is an
-/// answer rather than a failure. `max_priority_fee_per_gas` is the one that
-/// exists so far, and it turns exactly this into `None`.
+/// This is for the wrappers around a method that is an *extension* rather than
+/// a standard, where "the node does not have it" is an answer rather than a
+/// failure — `max_priority_fee_per_gas` turns exactly this into `None`.
 ///
 /// ```mbt check
 /// test "doc: a method the node does not have" {

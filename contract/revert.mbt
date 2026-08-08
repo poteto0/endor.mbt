@@ -89,8 +89,8 @@ pub fn revert_error(
   let payload = @types.Hex::from_digits(digits[SELECTOR_DIGITS:]) catch {
     _ => return Rpc(error)
   }
-  // what the revert says, if it can be read; otherwise the revert itself,
-  // which still names the error even when nothing here can name its arguments
+  // what the revert says if it can be read; otherwise the revert itself, which
+  // still names the error
   let undecoded = () => {
     ContractError::CustomError(selector~, name=None, args=[], data~)
   }
@@ -167,9 +167,8 @@ const PANIC_SELECTOR = "4e487b71"
 /// }
 /// ```
 pub fn panic_reason(code : @bigint.BigInt) -> String {
-  // the declared type is `uint256` and every code the compiler assigns is one
-  // byte, so anything wider is unknown by the same rule as `0x99` is — and
-  // narrowing it first is what lets the rest read as the table it is
+  // every code the compiler assigns is one byte, so anything wider is unknown
+  // by the same rule as `0x99` — and narrowing lets the rest read as a table
   guard code >= 0N && code < 0x100N else { return "unknown panic code" }
   match code.to_int() {
     0x00 => "generic compiler-inserted panic"

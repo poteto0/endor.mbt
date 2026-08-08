@@ -116,13 +116,13 @@ pub fn digits_right_pad(digits : String) -> String {
 let word_zeros : String = "0".repeat(WORD_DIGITS)
 
 ///|
-/// `n` zero digits. 
-/// Negative asks for none: a value that already fills its word needs no padding. 
+/// `n` zero digits. Negative asks for none: a value that already fills its
+/// word needs no padding.
 fn zeros_on_positive(n : Int) -> String {
   if n <= 0 {
     ""
   } else if n <= WORD_DIGITS {
-    // for performance, use reserved zeros
+    // slice the hoisted run rather than building one
     word_zeros[:n].to_owned()
   } else {
     "0".repeat(n)

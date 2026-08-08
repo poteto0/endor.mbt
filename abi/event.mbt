@@ -79,9 +79,8 @@ pub fn Event::new(
   name~ : String,
   params~ : Array[EventParam],
 ) -> Event raise AbiError {
-  // the signature is every parameter, indexed or not — an event is declared
-  // once — while `data` holds only the ones that are not, so both lists come
-  // out of the one walk over the declaration
+  // the signature is every parameter, indexed or not, while `data` holds only
+  // the ones that are not — so both lists come out of one walk
   let declared = []
   let in_data = []
   for p in params {
@@ -200,8 +199,7 @@ pub fn Event::decode_log(
     )
   }
   // the non-indexed parameters are one ABI block of their own, laid out as if
-  // they were the only parameters the event had — which, as far as `data` is
-  // concerned, they are
+  // they were the event's only parameters
   let rest = decode(self.in_data, data)
   let out = []
   let mut topic = 0
@@ -230,8 +228,8 @@ fn _decode_topic(t : AbiType, topic : @types.Hex) -> AbiValue raise AbiError {
   if _is_hashed_when_indexed(t) {
     Bytes(topic.to_bytes())
   } else {
-    // a value type indexed is encoded into the topic exactly as it would be
-    // encoded into a word of `data`, so this is the same reader
+    // an indexed value type sits in its topic exactly as it would in a word of
+    // `data`, so this is the same reader
     _decode_value(t, topic.digits(), 0)
   }
 }

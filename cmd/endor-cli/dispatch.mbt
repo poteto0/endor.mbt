@@ -76,9 +76,8 @@ fn dispatch(command : String, args : Array[String]) -> Int {
   guard find_command(command) is Some(entry) else {
     return refuse("endor-cli: unknown subcommand `\{command}`", print_usage)
   }
-  // asked for by name (`help abi`) and asked for by flag (`abi --help`) are the
-  // same question, so it is answered here rather than in each handler: a
-  // subcommand cannot forget to support `--help` if it never had to remember
+  // `help abi` and `abi --help` are the same question, answered here so no
+  // subcommand can forget `--help`
   if args is ["-h" | "--help", ..] {
     (entry.usage)()
     return 0

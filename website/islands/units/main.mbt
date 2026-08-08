@@ -58,8 +58,7 @@ fn View::render(self : View) -> DomNode {
             if self.places() is None {
               "decimals must be a whole number 0…77"
             } else {
-              // a digit finer than the currency can carry, or something that is
-              // not a decimal number at all
+              // finer than the currency can carry, or not a number at all
               "refused — not a decimal this currency can carry"
             }
         }
@@ -68,8 +67,7 @@ fn View::render(self : View) -> DomNode {
     ),
     @ui.computed("as Wei", () => {
       match self.units() {
-        // `Wei::from_bigint` takes whole wei, and this is the only conversion
-        // between the two the SDK ever needs
+        // `Wei::from_bigint` takes whole wei
         Some(units) => "\{@endor.Wei::from_bigint(units).to_bigint()} wei"
         None => @ui.PLACEHOLDER
       }

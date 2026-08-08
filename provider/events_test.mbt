@@ -15,8 +15,8 @@ test "accounts changed decodes the payload" {
   inspect(seen[0].length(), content="2")
   inspect(seen[0][0], content="0x1111111111111111111111111111111111111111")
   inspect(seen[0][1], content="0x2222222222222222222222222222222222222222")
-  // EIP-1193: an empty list is the user revoking the dapp's permission, and
-  // reaches the handler as itself rather than as a dropped payload.
+  // EIP-1193: an empty list is the user revoking permission, and reaches the
+  // handler as itself rather than as a dropped payload
   mock.emit(event="accountsChanged", payload=Json::array([]))
   inspect(seen.length(), content="2")
   inspect(seen[1].length(), content="0")
@@ -72,7 +72,7 @@ test "unsubscribing twice is safe" {
   let other = @provider.on_chain_changed(mock, _ => seen.push("other"))
   let sub = @provider.on_chain_changed(mock, _ => seen.push("sub"))
   sub.unsubscribe()
-  // The second call must not remove somebody else's listener, and must not fail.
+  // the second call must neither fail nor remove anyone else's listener
   sub.unsubscribe()
   mock.emit(event="chainChanged", payload="0x1".to_json())
   debug_inspect(

@@ -152,8 +152,7 @@ test "an indexed string comes back as the hash the topic holds" {
     topics=[@abi.event_topic("Named(string,uint256)"), hash],
     data=@types.Hex::from_string("0x" + word("1")),
   )
-  // the 32 bytes the topic held, which are `keccak256("hello")` and not
-  // `"hello"` — nothing here can turn one into the other
+  // the topic holds `keccak256("hello")`, and nothing can turn it back
   assert_eq(values[0], Bytes(hash.to_bytes()))
   assert_eq(values[1], Uint(1N))
 }

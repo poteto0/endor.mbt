@@ -327,10 +327,8 @@ fn encode_atomic(
           integer_value(value, path=type_name, type_name~),
         ),
       )
-    // `classify_elementary` never returns `@types.AbiType`'s compound variants —
-    // `encode_value` already handles arrays and structs before falling
-    // through to this function — but the match still has to cover them, and
-    // a compound type is no more encodable here than an unknown one.
+    // `classify_elementary` never returns a compound variant — `encode_value`
+    // took arrays and structs already — but the match still has to cover them
     Some(Array(_) | FixedArray(_, _) | Tuple(_)) | None =>
       raise @types.InvalidJson("\{type_name} is not an elementary type")
   }

@@ -5,8 +5,7 @@
 fn parse_quantity(s : String, what~ : String) -> UInt64 raise CodecError {
   let body = strip_0x(s)
   guard body.length() > 0 else { raise InvalidHex("empty \{what}: \{s}") }
-  // `strip_0x` already rejected non-hex digits, so the only remaining failure
-  // is a value too large for 64 bits.
+  // `strip_0x` rejected non-hex digits already: what is left is overflow
   @string.parse_uint64(body, base=16) catch {
     _ => raise InvalidLength("\{what} exceeds 64 bits: \{s}")
   }

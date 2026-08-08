@@ -58,8 +58,8 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 /// }
 /// ```
 pub fn Hex::from_digits(digits : StringView) -> Hex raise CodecError {
-  // the common case — an encoder's own output, or a node's answer — is already
-  // in normal form, and asking that first spares it a second walk to lowercase
+  // an encoder's own output and a node's answer are already in normal form, so
+  // asking first spares them a second walk
   let normal = if @codec.is_lower_hex_digits(digits) {
     digits
   } else {

@@ -8,6 +8,4 @@ import {
   "moonbitlang/async",
 } for "test"
 
-// Inherited from `ffi/js`: `BrowserProvider` wraps the injected JS object.
-
 supported_targets = "js"

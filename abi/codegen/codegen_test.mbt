@@ -212,8 +212,7 @@ test "generate: a state-changing function goes through send" {
 ///|
 test "generate: a parameter the ABI named `from` moves out of the way" {
   let out = @codegen.generate("Erc20", erc20_abi)
-  // `from~` is the sender the template binds, so `transferFrom`'s own `from`
-  // has to be spelled otherwise
+  // `from~` is the sender the template binds, so the ABI's own `from` is renamed
   assert_true(
     out.code.contains(
       (
@@ -587,8 +586,7 @@ test "read: every width and alias the ABI spec allows" {
   // `uint` and `int` with no width are `uint256` / `int256`
   assert_true(out.code.contains("name=\"bare\", outputs=[Uint(256)])"))
   assert_true(out.code.contains("name=\"small\", outputs=[Uint(8)])"))
-  // a signed value is a different `AbiValue` variant, so it gets its own
-  // constructor and its own answer helper
+  // a signed value is its own `AbiValue` variant, constructor and helper
   assert_true(
     out.code.contains(
       (
@@ -633,8 +631,7 @@ test "read: a type no contract can declare stops the whole file" {
 
 ///|
 test "read: a parameter need not be named at all" {
-  // solc omits `name` entirely for an unnamed return value in some versions
-  // and writes `"name": ""` in others; both mean the same thing
+  // some solc versions omit `name`, others write `""`: the same thing
   let out = @codegen.generate(
     "Anon",
     (
@@ -649,9 +646,8 @@ test "read: a parameter need not be named at all" {
 
 ///|
 test "read: a tuple is resolved through its components" {
-  // it is refused as a *parameter* further on, but it has to be read first —
-  // an event of the same shape is generated, and its topic depends on the
-  // components being flattened into the signature
+  // refused as a *parameter* further on, but read first: an event of the same
+  // shape needs the components flattened into its signature
   let out = @codegen.generate(
     "Book",
     (
@@ -998,8 +994,7 @@ test "generate: a call too long for one line is wrapped like moon fmt" {
       ),
     ),
   )
-  // only the wrapping is `moon fmt`'s to decide: a method name longer than the
-  // line is the ABI's own doing, and nothing may shorten it
+  // only the wrapping is `moon fmt`'s: a long method name is the ABI's doing
   for line in out.code.split("\n") {
     assert_true(line.length() <= 80 || line.contains("settle_the_whole"))
   }
@@ -1055,8 +1050,8 @@ test "generate: the members it covers are reported as canonical signatures" {
       #|Transfer(address,address,uint256)
     ),
   )
-  // the constructor is in the document and in neither list: there is nothing
-  // for a preset over a deployed contract to do with it
+  // in the document and in neither list: a preset over a deployed contract has
+  // nothing to do with a constructor
   assert_eq(out.skipped.join("\n"), "")
 }
 
@@ -1298,8 +1293,8 @@ test "read: the artifact shapes every compiler emits" {
         #|{ "abi": [], "evm": { "bytecode": { "object": "6001" } } }
       ),
     ),
-    // `solc --combined-json abi,bin`, whose `abi` is a JSON *string* and whose
-    // contracts are keyed by `File.sol:Name`
+    // `solc --combined-json abi,bin`: `abi` is a JSON *string*, keyed by
+    // `File.sol:Name`
     (
       "combined json",
       (
@@ -1439,8 +1434,7 @@ test "read: a constructor this generator cannot type skips only deploy" {
   assert_eq(out.skipped, [
     "`constructor(bytes32)`: parameter 0 is `bytes32`, which is not generated — so no `deploy` was either; `creation_code()` still is, for `@contract.deploy`",
   ])
-  // the escape hatch the file must not lose: this is precisely the caller who
-  // has to deploy by hand, so the bytes stay
+  // precisely the caller who has to deploy by hand, so the bytes stay
   assert_true(out.code.contains("pub fn Blob::creation_code() -> @types.Hex {"))
   assert_false(out.code.contains("Blob::deploy("))
 }
@@ -1556,8 +1550,7 @@ test "generate: the errors a contract declares are generated" {
       "@contract.Contract::new(address, errors=Vault::errors())",
     ),
   )
-  // an error is not a method: nothing dispatches to it, and nothing was left
-  // out of the file either
+  // an error is not a method: nothing dispatches to it, and nothing was skipped
   assert_eq(out.members, [])
   assert_eq(out.skipped, [])
 }

@@ -92,8 +92,7 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
   let mut abi_out = None
   for raw in text.split("\n") {
     let line = raw.trim_end(chars="\r").to_owned()
-    // the indent is the one thing that needs the line as written; everything
-    // after it is about the content, so the content is trimmed once
+    // the indent needs the line as written; everything after it is content
     let indent = line.length() - line.trim_start(chars=" ").length()
     let text = line.trim().to_owned()
     if text.is_empty() || text.has_prefix("#") {
@@ -115,8 +114,7 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
         match (section, key) {
           ("abi", "in") => abi_in = Some(value)
           ("abi", "out") => abi_out = Some(value)
-          // forward compatibility: a key this CLI has never heard of is not
-          // an error, it is a newer file
+          // a key this CLI has never heard of is a newer file, not an error
           _ => ()
         }
       _ =>

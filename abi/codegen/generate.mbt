@@ -1,32 +1,22 @@
 ///|
 /// A MoonBit source file rendered from an ABI, and what did not fit in it.
-///
-/// `skipped` is the half a caller must not throw away: the generator refuses
-/// to emit a function it cannot type honestly, so a member missing from `code`
-/// has its reason here — and in a comment in `code` itself, for whoever reads
-/// the file later without the CLI's output in front of them.
+/// Read `skipped`: a member missing from `code` has its reason there, and in a
+/// comment at the bottom of `code` itself.
 pub(all) struct Generated {
   /// The generated MoonBit source.
   code : String
   /// The canonical signature of every ABI member that became a method, in the
   /// order they were emitted — `balanceOf(address)`, `Transfer(address,address,uint256)`.
   ///
-  /// This is what the generated file *dispatches to*, which is not something
-  /// its source text answers without being read as MoonBit: a caller checking
-  /// that a preset really covers the interface it was generated from compares
-  /// these, and a caller hashing them gets exactly the selectors the file will
-  /// put on the wire.
+  /// What the generated file dispatches to: compare these to check a preset
+  /// covers the interface it came from, or hash them for the selectors the
+  /// file puts on the wire.
   members : Array[String]
   /// One line per ABI member left out, saying which and why.
   skipped : Array[String]
-  /// Whether the file holds a `deploy`, which is whether the document was an
-  /// artifact carrying creation code this generator would put on the wire.
-  ///
-  /// False for a bare ABI document — there is nothing to deploy, and nothing
-  /// was left out either. False *with* a line in `skipped` for an artifact
-  /// whose bytecode cannot be deployed: unlinked libraries, an interface that
-  /// compiled to none, a constructor taking a type this generator does not
-  /// translate.
+  /// Whether the file holds a `deploy`. False for a bare ABI document, which
+  /// carries no creation code; false *with* a line in `skipped` for an
+  /// artifact whose bytecode cannot be deployed.
   deploys : Bool
 }
 
@@ -49,11 +39,9 @@ pub(all) struct Generated {
 /// dropped, since nothing generated dispatches to them.
 ///
 /// Whatever `error`s the document declares become a `<name>::errors()`, which
-/// `new` hands to the `Contract` — so a call the contract reverts comes back
-/// as a `CustomError` with its name and arguments, rather than as a selector.
-/// Those carry every ABI type rather than only the ones a signature can name:
-/// nothing is passed to an error, so the judgement `scalar` makes does not
-/// apply to one.
+/// `new` hands to the `Contract` — so a reverting call comes back as a
+/// `CustomError` with its name and arguments rather than as a selector. Those
+/// carry every ABI type, since nothing is passed *to* an error.
 ///
 /// `document` is either the JSON array of ABI members or a compiler
 /// **artifact** holding one — `solc --combined-json abi,bin`, solc's standard
@@ -80,26 +68,23 @@ pub fn generate(
   let members = []
   let skipped = []
   let blocks = [preamble(name, errors=!doc.errors.is_empty())]
-  // the template's own methods, so nothing generated may take those names.
-  // `deploy`, `creation_code` and `errors` are reserved whether or not there is
-  // anything to put in them: which members a document generates must not change
-  // when the same ABI is passed again as an artifact
+  // the template's own methods. All reserved whether or not there is anything
+  // to put in them, so passing the same ABI again as an artifact does not
+  // change which members generate.
   let taken = Set::Set(
     ["new", "address", "creation_code", "deploy", "errors"][:],
   )
   if !doc.errors.is_empty() {
     blocks.push(errors_block(name, doc.errors))
   }
-  // the constructor comes first in the file for the same reason it comes first
-  // in the contract's life
+  // the constructor comes first in the file, as in the contract's life
   let mut deploys = false
   match doc.creation_code {
     Absent => ()
     Unusable(reason) => skipped.push("`deploy`: \{reason}")
     Code(code) => {
       // the code goes in whether or not a `deploy` does: a constructor this
-      // generator cannot type is exactly the caller who needs to reach
-      // `@contract.deploy` themselves, and the bytes are what they need for it
+      // generator cannot type is exactly the caller who needs the bytes
       blocks.push(creation_code_block(name, code))
       match deploy_block(name, doc.ctor) {
         Ok(block) => {
@@ -124,11 +109,9 @@ pub fn generate(
       Ok((signature, block)) => {
         members.push(signature)
         blocks.push(block)
-        // an event can lose its decoder and keep its topic — the two are
-        // separate answers about the same member — so this reason is reported
-        // alongside a member that *was* generated. An event with no parameters
-        // has nothing to decode and costs no comment: its topic already says
-        // everything one of its logs carries
+        // an event can lose its decoder and keep its topic, so this reason is
+        // reported alongside a member that *was* generated. One with no
+        // parameters has nothing to decode and costs no comment.
         if !e.inputs.is_empty() {
           match decoder_block(name, e, signature~, taken) {
             Ok(block) => blocks.push(block)
@@ -146,10 +129,8 @@ pub fn generate(
 }
 
 ///|
-/// The `moon.pkg` a generated file needs in its directory. Emitting the source
-/// without it would leave `@contract` and `@provider` unresolved, which is a
-/// compile error rather than a runtime surprise — but still one the caller
-/// should not have to work out from the error message.
+/// The `moon.pkg` a generated file needs in its directory, so `@contract` and
+/// `@provider` resolve.
 ///
 /// ```
 /// inspect(@codegen.moon_pkg().has_prefix("import {"), content="true")
@@ -170,13 +151,10 @@ pub fn moon_pkg() -> String {
 
 ///|
 /// The file's header and the struct every generated method hangs off.
-///
-/// `errors` says whether the document declared any, which is what decides
-/// whether `new` has an `errors()` to hand the contract.
+/// `errors` decides whether `new` has an `errors()` to hand the contract.
 fn preamble(name : String, errors~ : Bool) -> String {
   let declared = if errors { ", errors=\{name}::errors()" } else { "" }
-  // wrapped where `moon fmt` would wrap it, as every other emitted expression
-  // is, so the formatter has nothing left to rewrite
+  // wrapped where `moon fmt` would, so the formatter has nothing to rewrite
   let built = record_expr(
       ["contract: @contract.Contract::new(address\{declared})"],
       indent=2,

@@ -32,8 +32,7 @@ fn View::verdict(self : View) -> Verdict {
   let typed = self.typed.get().trim().to_owned()
   guard typed != "" else { return Empty }
   Address(@endor.Address::from_string(typed)) catch {
-    // the ways a string is not an address, named as `CodecError` names them —
-    // the message each carries says which character or which length was wrong
+    // the ways a string is not an address, as `CodecError` names them
     InvalidHex(what) => Refused("InvalidHex — \{what}")
     InvalidLength(what) => Refused("InvalidLength — \{what}")
     InvalidChecksum(what) => Refused("InvalidChecksum — \{what}")

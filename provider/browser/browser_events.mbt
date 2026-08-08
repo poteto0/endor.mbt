@@ -20,8 +20,8 @@ pub impl @provider.EventSource for BrowserProvider with fn subscribe(
   handler~,
 ) {
   let listener = @js.on(self.eth, event~, handler~)
-  // `removeListener` matches on function identity, so unsubscribing has to hand
-  // back the very handle `on` registered.
+  // `removeListener` matches on function identity, so unsubscribing hands back
+  // the very handle `on` registered
   @provider.Subscription::new(() => {
     @js.remove_listener(self.eth, event~, listener~)
   })

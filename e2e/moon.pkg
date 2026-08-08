@@ -8,14 +8,8 @@ import {
   "poteto0/endor/abi/codegen",
   "poteto0/endor/backend/anvil",
   "poteto0/endor/backend/env",
-  // aliased: `@http` is `provider/http` everywhere else, and this is the
-  // harness, not the transport
   "poteto0/endor/backend/http" @http_backend,
   "moonbitlang/async",
 } for "test"
-
-// Test cases only — the harness lives in `backend/`, so this package publishes
-// no interface at all. `js`-only because the Anvil backend drives
-// `BrowserProvider`. See `docs/e2e.md`.
 
 supported_targets = "js"

@@ -70,8 +70,7 @@ test "Panic(uint256) is decoded with what the code means" {
     @contract.revert_error(reverted(unknown)),
     content="Panic(153: unknown panic code)",
   )
-  // a code no byte can hold is unknown by the same rule, and does not wrap
-  // around onto one that is known
+  // a code no byte can hold is unknown, and does not wrap onto a known one
   let huge = revert_data("Panic", [Uint(256)], [Uint(0x1_0000_0011N)])
   inspect(
     @contract.revert_error(reverted(huge)),

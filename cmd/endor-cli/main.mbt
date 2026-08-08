@@ -15,9 +15,7 @@
 /// ```
 fn main {
   let code = run_for_args(@env.args())
-  // exiting with 0 explicitly would be the same thing, but `@sys.exit` is a
-  // process-level jump: not taking it on the happy path keeps the ordinary run
-  // returning from `main` like anything else
+  // `@sys.exit` is a process-level jump; the happy path just returns
   if code != 0 {
     @sys.exit(code)
   }

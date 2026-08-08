@@ -19,8 +19,8 @@ fn validate_http_url(url : String) -> Bool {
     return false
   }
 
-  // The authority runs to the first delimiter; a `@` means everything read so
-  // far was credentials, and the host starts over after it.
+  // the authority runs to the first delimiter; a `@` means everything so far
+  // was credentials, and the host starts after it
   let host = []
   for c in rest {
     if c is ('/' | '?' | '#') {
@@ -33,8 +33,8 @@ fn validate_http_url(url : String) -> Bool {
   }
   guard host is [first, ..] else { return false }
 
-  // Drop the port. In an IPv6 literal the colons are inside the brackets and
-  // the port follows `]`, so the brackets have to be read first.
+  // drop the port. In an IPv6 literal the colons are inside the brackets and
+  // the port follows `]`, so read the brackets first
   let hostname = if first == '[' {
     guard host.search(']') is Some(close) else { return false }
     host[1:close]

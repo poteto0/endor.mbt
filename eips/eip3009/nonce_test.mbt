@@ -13,7 +13,6 @@ test "draw_nonce" {
     nonce~,
   )
   inspect(auth.nonce().byte_length(), content="32")
-  // drawn rather than derived: a second one is a different authorization,
-  // which is what lets several be in flight at once
+  // drawn rather than derived, so several can be in flight at once
   assert_not_eq(@eip3009.draw_nonce(), nonce)
 }

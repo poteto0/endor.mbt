@@ -1,10 +1,8 @@
 ///|
-/// How one ABI type is spelled on all four sides of a generated call.
-///
-/// The four spellings have to agree or the emitted file does not compile, so
-/// they are decided in one place: an `address` parameter is `@types.Address`
-/// in the signature, `Address` in `inputs`, `Address(x)` in `args`, and read
-/// back by `@contract.address_answer`.
+/// How one ABI type is spelled on all four sides of a generated call. They
+/// have to agree or the emitted file does not compile, so one place decides
+/// them: `address` is `@types.Address`, `Address`, `Address(x)` and
+/// `@contract.address_answer`.
 priv struct Scalar {
   /// The type itself, which `type_literal` spells as the MoonBit source that
   /// goes in `inputs` / `outputs`.
@@ -19,12 +17,8 @@ priv struct Scalar {
 
 ///|
 /// The spellings for an ABI type, or `None` for one this generator will not
-/// translate.
-///
-/// The line is drawn at what has an obvious, lossless MoonBit counterpart.
-/// `bytes` and `bytesN` are left out deliberately even though `Bytes` exists:
-/// the ABI's `bytesN` is fixed-width and MoonBit's `Bytes` is not, so a
-/// generated signature would promise a length it cannot enforce.
+/// translate. The line is drawn at a lossless MoonBit counterpart: `bytesN` is
+/// fixed-width where `Bytes` is not, so it is left out.
 fn scalar(ty : @abi.AbiType) -> Scalar? {
   let (mbt, ctor, answer) = match ty {
     Address => ("@types.Address", "Address", "address_answer")
@@ -38,21 +32,13 @@ fn scalar(ty : @abi.AbiType) -> Scalar? {
 }
 
 ///|
-/// One `AbiType` as MoonBit source, for every type the ABI has rather than only
-/// the ones a generated *signature* can name.
+/// One `AbiType` as MoonBit source, for every type the ABI has — wider than
+/// `scalar`, because a declaration the SDK only reads against (a contract's
+/// `error`s) carries whatever the ABI said.
 ///
-/// The two are different questions: what a call can promise a caller in MoonBit
-/// types is `scalar`'s judgement, while a declaration the SDK only ever reads
-/// data against — a contract's `error`s — carries whatever the ABI said, and
-/// leaving those out would drop exactly the errors that say most about what
-/// went wrong.
-///
-/// It is spelled out here rather than taken from `AbiType`'s derived `Debug`,
-/// which currently renders identically: `"\{ty}"` would make the derived debug
-/// format load-bearing for source that has to compile, so a formatting change
-/// nothing pins would silently emit uncompilable files. `codegen_test.mbt`
-/// asserts the two agree, so "currently renders identically" stays a fact
-/// rather than an assumption.
+/// Spelled out rather than taken from the derived `Debug`, which would make a
+/// formatting change able to emit uncompilable files. `codegen_test.mbt`
+/// asserts the two agree.
 fn type_literal(ty : @abi.AbiType) -> String {
   match ty {
     Address => "Address"
@@ -69,10 +55,8 @@ fn type_literal(ty : @abi.AbiType) -> String {
 }
 
 ///|
-/// The name a generated parameter gets: what Solidity called it, in snake
-/// case, out of the way of everything the template already binds. A parameter
-/// the ABI left unnamed — every argument of `allowance(address,address)` in a
-/// compiled ERC-20 — is `arg0`, `arg1`, … by position.
+/// What Solidity called the parameter, in snake case, out of the way of what
+/// the template already binds. One the ABI left unnamed is `arg0`, `arg1`, …
 fn param_name(param : Param, at~ : Int, taken : Set[String]) -> String {
   let base = snake_case(param.name)
   let base = if is_value_ident(base) { base } else { "arg\{at}" }
@@ -82,12 +66,9 @@ fn param_name(param : Param, at~ : Int, taken : Set[String]) -> String {
 }
 
 ///|
-/// Every parameter of a member as the pair the emitters take — the name it gets
-/// in the generated source and how its type is spelled on all four sides — or
-/// the reason the member cannot be generated at all.
-///
-/// `scope` is what the name has to dodge and is *added to* as it goes, so two
-/// parameters the ABI named the same thing do not come out as one.
+/// Every parameter as the (name, spelling) pair the emitters take, or the
+/// reason the member cannot be generated. `scope` is added to as it goes, so
+/// two parameters of the same name do not come out as one.
 fn scalar_params(
   inputs : Array[Param],
   scope : Set[String],
@@ -107,28 +88,19 @@ fn scalar_params(
 }
 
 ///|
-/// One method, or the reason there is none.
+/// One method, or the reason there is none. `taken` holds the names already
+/// emitted, so a Solidity overload is reported rather than emitted twice.
 ///
-/// `taken` carries the method names already emitted, so a Solidity overload —
-/// two functions of the same name and different parameters, which MoonBit has
-/// no way to spell — is reported rather than emitted twice.
-///
-/// A name MoonBit cannot spell is refused here, where a *parameter* of such a
-/// name is instead renamed by `dodge`. The asymmetry is deliberate: a parameter
-/// name is this generator's to choose — the ABI encodes arguments by position
-/// and nothing on the wire remembers what they were called — while a method
-/// name is what the caller looks up to find the function they mean. Renaming a
-/// `type()` getter to `type_()` would leave a method whose name appears nowhere
-/// in the ABI it came from, which is worse than saying it was not generated.
+/// A method name MoonBit cannot spell is refused, where a *parameter* of such
+/// a name is renamed instead: a parameter name is nowhere on the wire, but a
+/// method name is what the caller looks up in the ABI.
 fn function_block(
   struct_name : String,
   f : AbiFunction,
   taken : Set[String],
 ) -> Result[(String, String), String] {
-  // unreachable by construction — `read_type` already proved every one of
-  // these types can be named, which is the only way `signature` fails. It is
-  // still reported rather than aborted: a generator has no business killing
-  // the process over an invariant it can simply decline to act on.
+  // unreachable — `read_type` already proved every type can be named. Reported
+  // rather than aborted: a generator declines, it does not panic.
   let signature = @abi.signature(name=f.name, inputs=f.inputs.map(p => p.ty)) catch {
     e => return Err("`\{f.name}`: \{e}")
   }
@@ -169,15 +141,12 @@ fn function_block(
 }
 
 ///|
-/// The `///|` marker, doc comment and function declaration through
-/// `provider : P,` — the lines every generated method opens with, whatever it
-/// then does. `reading_block`, `sending_block` and `deploy_block` diverge only
-/// after this point: in what other parameters they add (`from~`, `value?`) and
-/// in how they close the signature.
+/// The lines every generated method opens with, down to `provider : P,`.
+/// `reading_block`, `sending_block` and `deploy_block` diverge after this in
+/// what parameters they add and how they close the signature.
 ///
-/// `receiver` is false for exactly one of them. `deploy` answers with the
-/// contract it created, so there is no `self` to take: it is the one generated
-/// function that is called before there is anything to call it on.
+/// `receiver` is false only for `deploy`, which is called before there is a
+/// contract to call it on.
 fn write_head(
   struct_name : String,
   fn_name : String,
@@ -196,8 +165,7 @@ fn write_head(
     head.write_string("  self : \{struct_name},\n")
   }
   head.write_string("  provider : P,\n")
-  // a write's `from~` precedes the ABI's own parameters, so that a caller
-  // reading the signature sees who signs before what is signed
+  // `from~` before the ABI's own parameters: who signs, then what is signed
   if from {
     head.write_string("  from~ : @types.Address,\n")
   }
@@ -263,9 +231,7 @@ fn sending_block(
     params~,
     receiver=true,
   )
-  // `value?` closes the parameter list rather than joining `from~` ahead of it:
-  // it is optional, and an optional parameter reads as an afterthought because
-  // that is what it is
+  // `value?` closes the list: it is optional, and reads as one
   if f.payable {
     head.write_string("  value? : @types.Wei,\n")
   }
@@ -284,19 +250,15 @@ fn sending_block(
 
 ///|
 /// The `deploy` that sends the creation code, or the reason there is none.
-///
-/// This is the one generated function that is not a call to a contract: it
-/// *makes* one. It is emitted separately from `creation_code_block`, and only
-/// that one is unconditional: a constructor this generator cannot type costs
-/// the `deploy` and must not also cost the literal, since handing those bytes
-/// to `@contract.deploy` by hand is exactly what the caller is left with.
+/// Separate from `creation_code_block`, which is unconditional: a constructor
+/// this generator cannot type costs the `deploy`, not the bytes the caller
+/// then hands to `@contract.deploy` themselves.
 fn deploy_block(
   struct_name : String,
   ctor : AbiConstructor,
 ) -> Result[String, String] {
-  // a constructor has no name; `constructor(uint256)` is how one is written,
-  // and unlike a function's signature nothing hashes it — the arguments go
-  // behind the creation code with no selector in front
+  // a constructor has no name and nothing hashes this: the arguments go behind
+  // the creation code with no selector in front
   let signature = @abi.signature(
     name="constructor",
     inputs=ctor.inputs.map(p => p.ty),
@@ -343,25 +305,12 @@ fn deploy_block(
 ///|
 /// The creation code as the generated file carries it.
 ///
-/// Public, and therefore worth being: `deploy` passes none of
-/// `@contract.deploy`'s waiting knobs (`confirmations`, `timeout`,
-/// `poll_interval`) — restating them here would mean this template holding a
-/// copy of that signature, to drift from it on the next parameter either one
-/// grows. A caller who needs the wait described their own way calls
-/// `@contract.deploy` with this, which is the same deployment with the waiting
-/// left to them.
+/// Public, because `deploy` passes none of `@contract.deploy`'s waiting knobs:
+/// a caller who needs the wait described their own way passes this to it.
 ///
-/// The bytes, not the hex string they were read from (#113). `Hex::from_bytes`
-/// is total where `Hex::from_string` raises, so the generated function cannot
-/// fail — which is what lets it stay a plain `-> @types.Hex` that no caller has
-/// to `catch`, and is why it needs neither the `abort` it used to hold nor a
-/// `raise` to replace it. Generated code is not exempt from "no panics", and it
-/// should not buy its way out with an error nothing can trigger either.
-///
-/// The call is wrapped by `call_expr`'s rule rather than always written on one
-/// line: `moon fmt` breaks the call around a `Bytes` literal it cannot fit,
-/// unlike a string literal, and `codegen-check` holds the generated file to
-/// being already formatted.
+/// A `Bytes` literal, not the hex string it was read from (#113):
+/// `Hex::from_bytes` is total, so the generated function needs no `abort` and
+/// no `raise` nothing can trigger.
 fn creation_code_block(struct_name : String, code : String) -> String {
   (
     $|///|
@@ -375,17 +324,13 @@ fn creation_code_block(struct_name : String, code : String) -> String {
 }
 
 ///|
-/// A `0x`-prefixed hex string as the MoonBit `Bytes` literal holding the same
-/// bytes: `"0x600a"` becomes `b"\\x60\\x0a"`.
-///
-/// Every byte is escaped rather than only the ones that have to be. A creation
-/// code is not prose, so spelling a third of it as ASCII would suggest a
-/// meaning those bytes do not have, and one rule reads more easily than two.
+/// A `0x`-prefixed hex string as the `Bytes` literal holding the same bytes:
+/// `"0x600a"` becomes `b"\\x60\\x0a"`. Every byte is escaped — a creation code is
+/// not prose, and one rule reads more easily than two.
 fn bytes_literal(code : String) -> String {
   let out = StringBuilder::new()
   out.write_string("b\"")
-  // `code` was validated as `0x` + an even number of hex digits before it got
-  // here, so the digits pair up exactly
+  // validated as `0x` + an even number of digits already, so these pair up
   let digits = code[2:]
   for i = 0; i < digits.length(); i = i + 2 {
     out.write_string("\\x")
@@ -397,13 +342,9 @@ fn bytes_literal(code : String) -> String {
 
 ///|
 /// The contract's `error` declarations, as the array `new` hands to
-/// `@contract.Contract`.
-///
-/// This is the one part of an ABI that has nowhere else to be stated: a call
-/// says what it takes and what it returns, but nothing says what it may revert
-/// with, and a revert names its error by a selector alone. With the array in
-/// the file, a failed call comes back as `CustomError` carrying the name and
-/// the decoded arguments; without it, as four bytes.
+/// `@contract.Contract`. A revert names its error by selector alone, so with
+/// this a failed call comes back as a named, decoded `CustomError` — without
+/// it, as four bytes.
 fn errors_block(struct_name : String, errors : Array[AbiErrorDecl]) -> String {
   let out = StringBuilder::new()
   out.write_string(
@@ -433,13 +374,9 @@ fn errors_block(struct_name : String, errors : Array[AbiErrorDecl]) -> String {
 }
 
 ///|
-/// A call, laid out the way `moon fmt` would lay it out: on one line while it
-/// fits inside the 80th column, and one argument per line with a trailing
-/// comma once it does not.
-///
-/// Generated code that `moon fmt` immediately rewrites is generated code that
-/// shows up as a diff in a repository that formats on commit, so the generator
-/// does the wrapping itself rather than leaving it to be done again.
+/// A call laid out the way `moon fmt` would: one line while it fits in 80
+/// columns, one argument per line once it does not. Wrapping it here keeps the
+/// generated file from showing up as a diff the first time it is formatted.
 fn call_expr(
   callee : String,
   args : Array[String],
@@ -461,11 +398,9 @@ fn call_expr(
 }
 
 ///|
-/// A record literal, wrapped by the rule `call_expr` states: one line while it
-/// fits, one field per line with a trailing comma once it does not.
-///
-/// `head` is what stands in front of the brace — a struct name and its `::`, or
-/// nothing at all for a literal whose type is inferred.
+/// A record literal, wrapped by `call_expr`'s rule. `head` is what stands in
+/// front of the brace — a struct name and its `::`, or nothing when the type
+/// is inferred.
 fn record_expr(
   fields : Array[String],
   indent~ : Int,
@@ -489,34 +424,29 @@ fn record_expr(
 ///|
 /// The topic an event's logs carry in `topics[0]`.
 ///
-/// Events survive types that functions do not: what is generated is the
-/// signature's hash, and every ABI type has a canonical name whether or not
-/// this generator can pass one as an argument. Reading one of those logs back
-/// is `decoder_block`, a separate answer about the same member: an event whose
-/// arguments cannot be named keeps its topic, which is what a caller filters a
-/// receipt's logs with before decoding them by hand.
+/// Events survive types functions do not: this generates the signature's hash,
+/// and every ABI type has a canonical name. Reading such a log back is
+/// `decoder_block`'s separate answer, so an event whose arguments cannot be
+/// named still keeps the topic a caller filters logs with.
 fn event_block(
   struct_name : String,
   e : AbiEvent,
   taken : Set[String],
 ) -> Result[(String, String), String] {
-  // as in `function_block`: unreachable, and declined rather than aborted
+  // as in `function_block`: unreachable, declined rather than aborted
   let signature = @abi.signature(name=e.name, inputs=e.inputs.map(p => p.ty)) catch {
     err => return Err("event `\{e.name}`: \{err}")
   }
-  // an anonymous event writes no signature hash, so there is no topic to
-  // generate and nothing that could match one of its logs: its first topic is
-  // already an argument, and nothing in the log says which event it belongs to
+  // an anonymous event writes no signature hash: its first topic is already an
+  // argument, so nothing in the log says which event it is
   guard !e.anonymous else {
     return Err(
       "event `\{signature}`: it is `anonymous`, so its logs carry no `topics[0]` to match or decode",
     )
   }
   let fn_name = snake_case(e.name) + "_topic"
-  // unreachable as things stand — `read_name` has already proved the name is a
-  // Solidity identifier, and no keyword survives a `_topic` suffix. Kept
-  // because it costs a comparison and because the day the suffix changes is
-  // not the day anyone re-derives that argument.
+  // unreachable — no keyword survives a `_topic` suffix. Kept for the day the
+  // suffix changes.
   guard is_value_ident(fn_name) else {
     return Err(
       "event `\{signature}`: its name is not spellable as a MoonBit method",
@@ -545,10 +475,8 @@ fn event_block(
 }
 
 ///|
-/// The parts as a tuple — the types a decoder answers with, or the names it
-/// binds. MoonBit has no one-element tuple, so a single part is itself: `(x)`
-/// is `x`, and a decoder for a one-parameter event answers with that parameter
-/// rather than with a tuple holding it.
+/// The parts as a tuple. MoonBit has no one-element tuple, so a single part is
+/// itself: a one-parameter event decodes to that parameter, not a tuple.
 fn tuple_of(parts : Array[String]) -> String {
   if parts.length() == 1 {
     parts[0]
@@ -559,14 +487,9 @@ fn tuple_of(parts : Array[String]) -> String {
 
 ///|
 /// The method that reads one of this event's logs back as the arguments it was
-/// emitted with, or the reason there is none.
-///
-/// It answers with a tuple of MoonBit values rather than with the
-/// `Array[@abi.AbiValue]` `@abi.decode_log` hands back, which is the whole
-/// difference between the generated decoder and calling that by hand — and the
-/// reason it runs into the same limit every other generated method does: a
-/// parameter this generator cannot name costs the decoder, and the event keeps
-/// its topic regardless.
+/// emitted with, or the reason there is none. It answers with a tuple of
+/// MoonBit values rather than `@abi.decode_log`'s `Array[@abi.AbiValue]`, so a
+/// parameter this generator cannot name costs the decoder — never the topic.
 fn decoder_block(
   struct_name : String,
   e : AbiEvent,
@@ -574,15 +497,13 @@ fn decoder_block(
   taken : Set[String],
 ) -> Result[String, String] {
   let fn_name = "decode_" + snake_case(e.name)
-  // spellable by construction, for `event_block`'s reason: a name that survived
-  // `read_name` survives a prefix too. Taken, though, it can be — a contract
-  // with a `decodeTransfer()` function is generated before any event is
+  // spellable by construction, but takeable: a contract with a
+  // `decodeTransfer()` function is generated before any event is
   guard !taken.contains(fn_name) else {
     return Err("event `\{signature}`: `\{fn_name}` is already taken")
   }
-  // an indexed `string` is the one type this generator can name and still must
-  // not: what the topic holds is the `keccak256` of the value, so a generated
-  // `String` would be a promise the log cannot keep
+  // an indexed `string` is held in the topic as its `keccak256`, so a
+  // generated `String` would be a promise the log cannot keep
   for i, p in e.inputs {
     if p.indexed && p.ty is String {
       return Err(
@@ -640,8 +561,7 @@ fn decoder_block(
       $|
     ),
   )
-  // the message carries the signature, which can be any length, so whether it
-  // fits on the line is not something this template can decide by looking
+  // the signature can be any length, so the wrapping is not decidable here
   out.write_string(
     call_expr(
       "@types.InvalidData",
@@ -663,21 +583,12 @@ fn decoder_block(
 }
 
 ///|
-/// The `inputs` and `args` arguments, or neither for a function that takes no
-/// parameters — `Contract::call` and `send` both default them to empty, so a
-/// generated method says nothing rather than saying `inputs=[], args=[]`.
+/// The `inputs` and `args` arguments, or neither when there are no parameters
+/// — `Contract::call` and `send` default both to empty.
 ///
-/// They come back together because they have to *stay* together: `encode`
-/// pairs them positionally, so the nth type and the nth value are one fact
-/// about the nth parameter and are built from one walk over one list. Returned
-/// as arguments rather than written, because whether a call fits on one line
-/// is decided by `call_expr` after it has all of them.
-///
-/// The types are spelled out at every call site rather than hoisted into a
-/// constant on the struct, because `Contract::call` hashes them into the
-/// selector on each call — a generated method carries its own signature, and a
-/// reader can see which function it dispatches to without following a
-/// reference.
+/// They come back together because `encode` pairs them positionally, and as
+/// arguments rather than written text, because `call_expr` decides the
+/// wrapping once it has them all.
 fn abi_args(params : Array[(String, Scalar)]) -> Array[String] {
   if params.is_empty() {
     return []

@@ -200,15 +200,14 @@ pub async fn[P : @provider.Provider] deploy_reverter(
   provider : P,
   revert_data~ : @types.Hex,
 ) -> @types.Address raise @provider.ProviderError {
-  // both lengths below are a `PUSH1`, which is what bounds the data: the
-  // runtime is the twelve-byte program plus the data it carries
+  // both lengths below are a `PUSH1`, which is what bounds the data
   guard revert_data.byte_length() <= 255 - REVERTER_PROGRAM_BYTES else {
     raise @provider.InvalidConfig(
       "a reverter carries at most \{255 - REVERTER_PROGRAM_BYTES} bytes, got \{revert_data.byte_length()}",
     )
   }
-  // CODECOPY the data out of the runtime into memory, then REVERT with it —
-  // the same shape as the initcode below, ending in `fd` rather than `f3`
+  // CODECOPY the data into memory, then REVERT with it: the initcode's shape,
+  // ending in `fd` rather than `f3`
   let runtime = copy_program(length=revert_data.byte_length(), ending_in="fd") +
     revert_data.digits()
   let data = @types.Hex::from_digits(

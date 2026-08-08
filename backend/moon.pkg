@@ -1,7 +1,3 @@
 import {
   "moonbitlang/async",
 }
-
-// The `Backend` trait itself is backend-agnostic — no FFI, no `js` — so it is
-// the one part of the e2e harness that a future non-browser transport (#19)
-// can reuse unchanged. Implementations live in subpackages.

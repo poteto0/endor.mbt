@@ -308,8 +308,7 @@ pub fn Erc20::decode_transfer(
   ) catch {
     e => raise @contract.Abi(e)
   }
-  // unreachable: `decode_log` answers with the types named just above, or
-  // raises
+  // unreachable: `decode_log` answers with the types named above, or raises
   guard values is [Address(from), Address(to), Uint(value)] else {
     raise @contract.Abi(
       @types.InvalidData(

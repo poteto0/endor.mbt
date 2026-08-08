@@ -64,8 +64,7 @@ async fn View::connect(self : View) -> Unit {
         "EIP-1193 provider"
       },
     )
-    // eth_requestAccounts, with the "no authorized account" case already an
-    // error rather than an empty array to check
+    // eth_requestAccounts, with "no authorized account" already an error
     let addr = @provider.require_account(wallet)
     self.show(wallet, addr)
     self.watch(wallet)
