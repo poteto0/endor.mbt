@@ -29,6 +29,76 @@ pub impl Show for EventParam with fn output(self, logger) {
 }
 
 ///|
+/// An event declaration with everything reading a log needs already worked out:
+/// the canonical signature, the `topics[0]` it hashes to, and which parameters
+/// `data` holds.
+///
+/// None of that depends on the log. A receipt's logs, or the ten thousand a
+/// range scan of `eth_getLogs` answers with, are all read against one
+/// declaration — so the `keccak256` that turns the signature into a topic is
+/// one hash for the batch, not one per log. Build this once, outside the loop,
+/// and `decode_log` on it does no hashing at all.
+///
+/// ```
+/// let transfer = @abi.Event::new(
+///   name="Transfer",
+///   params=[
+///     { ty: Address, indexed: true },
+///     { ty: Address, indexed: true },
+///     { ty: Uint(256), indexed: false },
+///   ],
+/// )
+/// for log in receipt.logs {
+///   let args = transfer.decode_log(topics=log.topics, data=log.data)
+/// }
+/// ```
+pub struct Event {
+  /// The canonical signature, `Transfer(address,address,uint256)`.
+  signature : String
+  /// `keccak256` of that signature — the `topics[0]` every log of this event
+  /// carries, hashed once here.
+  topic0 : @types.Hex
+  /// The parameters as declared, in declaration order.
+  params : Array[EventParam]
+  /// Just the non-indexed ones' types: the block `data` actually holds.
+  in_data : Array[AbiType]
+  /// How many topics after the first a log of this event must carry.
+  indexed : Int
+}
+
+///|
+pub impl Show for Event with fn output(self, logger) {
+  logger.write_string(self.signature)
+}
+
+///|
+/// Work out a declaration's signature, topic and parameter split, once.
+pub fn Event::new(
+  name~ : String,
+  params~ : Array[EventParam],
+) -> Event raise AbiError {
+  // the signature is every parameter, indexed or not — an event is declared
+  // once — while `data` holds only the ones that are not, so both lists come
+  // out of the one walk over the declaration
+  let declared = []
+  let in_data = []
+  for p in params {
+    declared.push(p.ty)
+    if !p.indexed {
+      in_data.push(p.ty)
+    }
+  }
+  let signature = signature(name~, inputs=declared)
+  {
+    signature,
+    topic0: event_topic(signature),
+    params,
+    in_data,
+    indexed: params.length() - in_data.length(),
+  }
+}
+
+///|
 /// Read a log back as the arguments the event was emitted with, in the order
 /// the event declares them.
 ///
@@ -68,6 +138,12 @@ pub impl Show for EventParam with fn output(self, logger) {
 /// }
 /// ```
 ///
+/// This is the convenience spelling, and it works out the signature and its
+/// hash from `name` and `params` on every call. Reading more than one log of
+/// the same event — a receipt's, a range scan's — build an `Event` once and
+/// call `Event::decode_log` on it instead, which is this same decoder with that
+/// work already done.
+///
 /// ## An indexed `string`, `bytes`, array or struct comes back as its hash
 ///
 /// A topic is one 32-byte word, and those types do not fit in one. Solidity
@@ -93,40 +169,42 @@ pub fn decode_log(
   topics~ : Array[@types.Hex],
   data~ : @types.Hex,
 ) -> Array[AbiValue] raise AbiError {
-  // the signature is every parameter, indexed or not — an event is declared
-  // once — while `data` holds only the ones that are not, so both lists come
-  // out of the one walk over the declaration
-  let declared = []
-  let in_data = []
-  for p in params {
-    declared.push(p.ty)
-    if !p.indexed {
-      in_data.push(p.ty)
-    }
-  }
-  let indexed = params.length() - in_data.length()
-  let signature = signature(name~, inputs=declared)
+  Event::new(name~, params~).decode_log(topics~, data~)
+}
+
+///|
+/// Read a log of this event, against a declaration whose signature and topic
+/// are already worked out.
+///
+/// This is `decode_log` with nothing left to hash: the checks and the answer
+/// are exactly the same, and its documentation describes both.
+pub fn Event::decode_log(
+  self : Event,
+  topics~ : Array[@types.Hex],
+  data~ : @types.Hex,
+) -> Array[AbiValue] raise AbiError {
+  let sign = self.signature
   guard topics is [first, .. indexed_topics] else {
-    raise InvalidData("`\{signature}`: the log carries no topics at all")
+    raise InvalidData("`\{sign}`: the log carries no topics at all")
   }
-  guard first == event_topic(signature) else {
+  guard first == self.topic0 else {
     raise InvalidData(
-      "`\{signature}`: topics[0] is \{first}, which is another event",
+      "`\{sign}`: topics[0] is \{first}, which is another event",
     )
   }
-  guard indexed_topics.length() == indexed else {
+  guard indexed_topics.length() == self.indexed else {
     raise InvalidData(
-      "`\{signature}`: \{indexed} indexed parameters, but the log carries \{indexed_topics.length()} topics after the first",
+      "`\{sign}`: \{self.indexed} indexed parameters, but the log carries \{indexed_topics.length()} topics after the first",
     )
   }
   // the non-indexed parameters are one ABI block of their own, laid out as if
   // they were the only parameters the event had — which, as far as `data` is
   // concerned, they are
-  let rest = decode(in_data, data)
+  let rest = decode(self.in_data, data)
   let out = []
   let mut topic = 0
   let mut plain = 0
-  for p in params {
+  for p in self.params {
     if p.indexed {
       out.push(_decode_topic(p.ty, indexed_topics[topic]))
       topic += 1
