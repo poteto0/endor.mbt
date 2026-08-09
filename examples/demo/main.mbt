@@ -293,11 +293,12 @@ fn wei_of_ether(amount : String) -> @endor.Wei? {
 /// prompt; a mistyped checksummed address is caught by `Address::from_string`
 /// rather than by the chain.
 ///
-/// `WalletClient::connect` is what pairs the transport with the account: it
-/// prompts for one and hands back a client that signs as it. The identical
-/// three lines with `@local.LocalAccount` in place of the prompt would sign in
-/// this process instead and broadcast the raw bytes — the send below would not
-/// change.
+/// `WalletClient` is what pairs the transport with the account. The account
+/// here is the one the Connect button already established, so this costs no
+/// second prompt; `WalletClient::connect` is the shortcut for a page that has
+/// not connected yet. Put `@local.LocalAccount` in that slot instead and the
+/// signing happens in this process and the raw bytes are broadcast — the
+/// `send` below would not change.
 ///
 /// No fee is set, so the client works one out from the chain's base fee, and
 /// the wallet may still price it again before showing the prompt.
@@ -320,15 +321,22 @@ async fn WalletView::send(self : WalletView) -> Unit {
     self.status.set("Amount must be a decimal number, e.g. 0.01.")
     return
   }
+  // `accounts` never prompts, so this costs no popup — and it keeps the
+  // Connect button the one thing that establishes the connection
+  let connected = @provider.accounts(wallet) catch { _ => [] }
+  guard connected.get(0) is Some(who) else {
+    self.status.set("Connect the wallet first.")
+    return
+  }
   try {
     self.status.set("Confirm the transaction in the wallet…")
-    let client = @wallet.WalletClient::connect(wallet)
-    let hash = client.send(to~, value~)
+    let account = @wallet.JsonRpcAccount::new(wallet, who)
+    let hash = @wallet.WalletClient::new(wallet, account).send(to~, value~)
     self.tx.set(hash.to_string())
     self.status.set("Broadcast. It still has to be mined.")
     // re-reading right away usually still shows the old balance: the sender is
     // poorer by the value plus the fee only once mined
-    self.resync(wallet, client.address())
+    self.resync(wallet, who)
   } catch {
     @wallet.Provider(@provider.UserRejected) =>
       self.status.set("Transaction rejected in the wallet.")

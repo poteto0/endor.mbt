@@ -31,7 +31,7 @@ pub struct Signature {
 pub fn Signature::r(Self) -> Bytes
 pub fn Signature::recovery_id(Self) -> Int
 pub fn Signature::s(Self) -> Bytes
-pub fn Signature::to_bytes(Self) -> Bytes
+pub fn Signature::to_bytes(Self, v_offset? : Int) -> Bytes
 
 // Type aliases
 

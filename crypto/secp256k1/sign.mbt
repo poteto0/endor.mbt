@@ -5,8 +5,10 @@ const HMAC_BYTES = 32
 
 ///|
 fn hmac_sha256(key : Bytes, message : Bytes) -> Bytes {
-  let mac = @crypto.hmac(@crypto.SHA256::new(), key[:], message[:])
-  Bytes::makei(HMAC_BYTES, i => mac[i])
+  // `hmac` allocates the array and keeps no reference to it, so reading it as
+  // `Bytes` is the identity rather than a copy of every digest.
+  @crypto.hmac(@crypto.SHA256::new(), key[:], message[:])
+  |> FixedArray::unsafe_reinterpret_as_bytes()
 }
 
 ///|
@@ -22,16 +24,21 @@ fn hmac_sha256(key : Bytes, message : Bytes) -> Bytes {
 priv struct Nonces {
   mut key : Bytes
   mut value : Bytes
+  /// Whether a candidate has been handed out yet, and so whether the next
+  /// request has a rejection to stir in first.
+  mut drawn : Bool
 }
 
 ///|
 /// Steps a through e of RFC 6979 §3.2: fold the private key and the digest
 /// into the generator's state.
-fn Nonces::new(scalar : @bigint.BigInt, digest : Bytes) -> Nonces {
-  let seed = scalar.to_octets(length=COORD_BYTES) + bits_to_octets(digest)
+fn Nonces::new(scalar : @bigint.BigInt, digest : @bigint.BigInt) -> Nonces {
+  let seed = scalar.to_octets(length=COORD_BYTES) +
+    digest.to_octets(length=COORD_BYTES)
   let self = {
     key: Bytes::make(HMAC_BYTES, b'\x00'),
     value: Bytes::make(HMAC_BYTES, b'\x01'),
+    drawn: false,
   }
   for separator in [b'\x00', b'\x01'] {
     self.key = hmac_sha256(
@@ -44,28 +51,37 @@ fn Nonces::new(scalar : @bigint.BigInt, digest : Bytes) -> Nonces {
 }
 
 ///|
-/// The next candidate. Step h: the generator is asked again — after being
-/// stirred — for every candidate the caller turns down.
+/// The next candidate. Step h: the generator is stirred again for every
+/// candidate the caller turns down — done here on the way *in*, so a signature
+/// that accepts the first candidate, which is every signature ever produced on
+/// this curve, does not pay for the stir that would have followed it.
 fn Nonces::next(self : Nonces) -> @bigint.BigInt {
+  if self.drawn {
+    self.key = hmac_sha256(self.key, self.value + b"\x00")
+    self.value = hmac_sha256(self.key, self.value)
+  }
+  self.drawn = true
   self.value = hmac_sha256(self.key, self.value)
-  let candidate = self.value
-  self.key = hmac_sha256(self.key, self.value + b"\x00")
-  self.value = hmac_sha256(self.key, self.value)
-  @bigint.BigInt::from_octets(candidate[:])
+  @bigint.BigInt::from_octets(self.value[:])
 }
 
 ///|
 /// The digest as the scalar RFC 6979 hashes over: one conditional subtraction
 /// of the group order, no truncation, since a digest and a scalar are both 256
 /// bits on this curve.
-fn bits_to_octets(digest : Bytes) -> Bytes {
-  let z = match scalar_of_octets(digest) {
-    Some(z) => if z >= group_order { z - group_order } else { z }
-    // A digest of zero is a scalar of zero. Nothing rules it out, and the
-    // generator takes it like any other.
-    None => 0N
+///
+/// A scalar and not the octets RFC 6979 names, because both callers want the
+/// number — serialising it only for the seed to parse it straight back was a
+/// round trip for nothing.
+fn digest_scalar(digest : Bytes) -> @bigint.BigInt {
+  // A digest of zero is a scalar of zero. Nothing rules it out, and the
+  // generator takes it like any other.
+  let z = scalar_of_octets(digest).unwrap_or(0N)
+  if z >= group_order {
+    z - group_order
+  } else {
+    z
   }
-  z.to_octets(length=COORD_BYTES)
 }
 
 ///|
@@ -97,11 +113,8 @@ pub fn PrivateKey::sign(
   guard digest.length() == COORD_BYTES else {
     raise InvalidLength("digest must be \{COORD_BYTES * 8} bits")
   }
-  let z = match scalar_of_octets(bits_to_octets(digest)) {
-    Some(z) => z
-    None => 0N
-  }
-  let nonces = Nonces::new(self.scalar, digest)
+  let z = digest_scalar(digest)
+  let nonces = Nonces::new(self.scalar, z)
   // Step h asks again for a candidate that is out of range, and for the two
   // degenerate signatures. None of the three has ever been seen on this curve;
   // the loop is here because leaving it out is how an implementation signs

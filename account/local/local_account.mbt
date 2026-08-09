@@ -1,12 +1,11 @@
 ///|
-/// What `account_type` answers for this kind of account.
-const ACCOUNT_TYPE : String = @account.LOCAL
-
-///|
-/// The offset EIP-155 added to `v` for a signature that is not a typed
-/// transaction's. `personal_sign` and `eth_signTypedData_v4` both answer with
-/// `27` or `28`; a typed transaction carries the bare parity bit instead,
-/// because its chain id is already one of the signed fields.
+/// The offset `v` carries for a signature that is not a typed transaction's.
+/// `personal_sign` and `eth_signTypedData_v4` both answer with `27` or `28`;
+/// a typed transaction carries the bare parity bit instead, because its chain
+/// id is already one of the signed fields.
+///
+/// The 27 predates EIP-155 — that is the one that made `v` carry a chain id,
+/// and it applies to legacy transactions rather than to these.
 const V_OFFSET = 27
 
 ///|
@@ -22,7 +21,6 @@ const V_OFFSET = 27
 /// something a caller passes in, so an account cannot claim an address its key
 /// does not sign for.
 pub struct LocalAccount {
-  priv account_type : String
   priv priv_key : @secp256k1.PrivateKey
   priv address : @types.Address
 }
@@ -49,14 +47,13 @@ pub fn LocalAccount::new(
   let priv_key = @secp256k1.PrivateKey::from_bytes(priv_key_hex.to_bytes()) catch {
     e => raise @account.AccountError::InvalidPrivateKey(e.to_string())
   }
-  let pub_key = priv_key.public_key()
   // Cannot fail: the key derives its own point, and the address is the tail of
   // a hash of it. Mapped anyway, because a constructor that swallows an error
   // is worse than one that reports an impossible one.
-  let address = @types.Address::from_public_key(pub_key) catch {
+  let address = @types.Address::from_public_key(priv_key.public_key()) catch {
     e => raise @account.AccountError::InvalidPrivateKey(e.to_string())
   }
-  LocalAccount::{ account_type: ACCOUNT_TYPE, priv_key, address }
+  LocalAccount::{ priv_key, address }
 }
 
 ///|
@@ -69,19 +66,7 @@ fn LocalAccount::sign_offset(
   let signature = self.priv_key.sign(digest) catch {
     e => raise @account.AccountError::SigningFailed(e.to_string())
   }
-  let r = signature.r()
-  let s = signature.s()
-  @types.Hex::from_bytes(
-    Bytes::makei(65, i => {
-      if i < 32 {
-        r[i]
-      } else if i < 64 {
-        s[i - 32]
-      } else {
-        (signature.recovery_id() + V_OFFSET).to_byte()
-      }
-    }),
-  )
+  @types.Hex::from_bytes(signature.to_bytes(v_offset=V_OFFSET))
 }
 
 ///|
@@ -151,7 +136,7 @@ pub impl @account.Account for LocalAccount with fn address(self : LocalAccount) 
 
 ///|
 pub impl @account.Account for LocalAccount with fn account_type(
-  self : LocalAccount,
+  _self : LocalAccount,
 ) -> String {
-  self.account_type
+  @account.LOCAL
 }

@@ -204,9 +204,7 @@ pub async fn[P, A : @account.Account] WalletClient::sign_message(
   self : WalletClient[P, A],
   message : String,
 ) -> @types.Hex raise WalletError {
-  self.account.sign_message(@types.Hex::from_utf8(message)) catch {
-    e => raise Account(e)
-  }
+  self.sign_message_bytes(@types.Hex::from_utf8(message))
 }
 
 ///|

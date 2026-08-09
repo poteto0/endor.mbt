@@ -70,31 +70,32 @@ fn write_header(out : Array[Byte], length : Int, offset : Int) -> Unit {
   if length <= 55 {
     out.push((offset + length).to_byte())
   } else {
-    let written = trim(big_endian(length.to_uint64()))
-    out.push((offset + 55 + written.length()).to_byte())
-    out.append(written)
+    // An `Int`, and kept one: a length is a machine word on every backend,
+    // while `UInt64` is a `BigInt` on `js`.
+    let width = byte_width(length.to_uint64())
+    out.push((offset + 55 + width).to_byte())
+    for i = width - 1; i >= 0; i = i - 1 {
+      out.push((length >> (i * 8)).to_byte())
+    }
   }
 }
 
 ///|
-fn big_endian(value : UInt64) -> Array[Byte] {
-  let out = []
-  for shift = 56; shift >= 0; shift = shift - 8 {
-    out.push((value >> shift).to_byte())
+/// How many bytes it takes to spell `value` — none at all for zero, which is
+/// what makes RLP write it as the empty string.
+///
+/// Counting first and writing once is what keeps a small number cheap: the
+/// obvious form, eight bytes then trim, allocates twice and does eight shifts
+/// to encode a nonce that is usually one byte — and on `js` those shifts are
+/// `BigInt` arithmetic.
+fn byte_width(value : UInt64) -> Int {
+  let mut width = 0
+  let mut left = value
+  while left != 0UL {
+    width = width + 1
+    left = left >> 8
   }
-  out
-}
-
-///|
-/// Drop leading zeros. RLP writes a number in the fewest bytes that spell it,
-/// so that one number has one encoding: allowing `0x0001` beside `0x01` would
-/// give a transaction two hashes.
-fn trim(bytes : Array[Byte]) -> Array[Byte] {
-  let mut start = 0
-  while start < bytes.length() && bytes[start] == b'\x00' {
-    start = start + 1
-  }
-  bytes[start:].to_owned()
+  width
 }
 
 ///|
@@ -110,12 +111,20 @@ fn trim(bytes : Array[Byte]) -> Array[Byte] {
 /// )
 /// ```
 pub fn Item::of_uint64(value : UInt64) -> Item {
-  Bytes(Bytes::from_array(trim(big_endian(value))))
+  let width = byte_width(value)
+  Bytes(Bytes::makei(width, i => (value >> ((width - 1 - i) * 8)).to_byte()))
 }
 
 ///|
 /// The same rule for a number too wide for 64 bits — a `Wei` amount, or the
 /// halves of a signature.
 pub fn Item::of_bigint(value : @bigint.BigInt) -> Item {
-  Bytes(Bytes::from_array(trim(value.to_octets(length=32).to_array())))
+  // `to_octets` with no length is already the minimal encoding; the one case
+  // it does not give is zero, which it writes as a zero byte where RLP wants
+  // nothing at all.
+  if value.is_zero() {
+    Bytes(b"")
+  } else {
+    Bytes(value.to_octets())
+  }
 }

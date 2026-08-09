@@ -124,9 +124,15 @@ pub fn UnsignedTransaction::to_request(
 /// envelope, so that a new transaction format needs a new byte rather than a
 /// new way to tell lists apart.
 pub fn UnsignedTransaction::signing_digest(self : UnsignedTransaction) -> Bytes {
-  @keccak.keccak256(
-    Bytes::make(1, EIP1559_TYPE) + @rlp.encode(List(self.fields())),
-  )
+  @keccak.keccak256(envelope(self.fields()))
+}
+
+///|
+/// The EIP-2718 envelope: the type byte, then the RLP of the fields. Both the
+/// digest and the broadcast bytes are this, over different field lists, so the
+/// rule that the byte sits *outside* the RLP lives in one place.
+fn envelope(fields : Array[@rlp.Item]) -> Bytes {
+  Bytes::make(1, EIP1559_TYPE) + @rlp.encode(List(fields))
 }
 
 ///|
@@ -153,7 +159,7 @@ pub fn UnsignedTransaction::encode_signed(
   fields.push(@rlp.Item::of_uint64(y_parity.to_uint64()))
   fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(r[:])))
   fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(s[:])))
-  Hex::from_bytes(Bytes::make(1, EIP1559_TYPE) + @rlp.encode(List(fields)))
+  Hex::from_bytes(envelope(fields))
 }
 
 ///|
