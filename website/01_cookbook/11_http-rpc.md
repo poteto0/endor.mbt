@@ -153,7 +153,7 @@ anything. This is exactly why the two traits are
 
 ## Errors
 
-The same four suberrors as everywhere else, from one more source. A failing
+The same suberrors as everywhere else, from one more source. A failing
 **transport** has a variant per thing that failed — `Transport`, `HttpStatus`,
 `MalformedResponse`, `Timeout`, `Config` — each described, with what is worth
 retrying, in the [Errors guide](/guide/errors/). A JSON-RPC `error` object is

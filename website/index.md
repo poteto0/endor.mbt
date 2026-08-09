@@ -1,6 +1,6 @@
 ---
 title: endor.mbt
-description: An Ethereum SDK for MoonBit — browser wallets over EIP-1193, any node over HTTP.
+description: An Ethereum SDK for MoonBit — typed JSON-RPC, contracts and signing, over a wallet or a node.
 layout: home
 islands:
   - connect
@@ -8,12 +8,14 @@ islands:
 
 # endor.mbt
 
-**An Ethereum SDK for MoonBit.** It wraps the
-[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider that extensions such
-as MetaMask inject as `globalThis.ethereum`, and exposes it as typed, async
-MoonBit functions. Where there is no wallet — a script, a CLI, a server — it
-speaks [JSON-RPC over HTTP](/cookbook/http-rpc/) to a node instead, through the
-same typed helpers.
+**An Ethereum SDK for MoonBit.** Typed, async functions for reading a chain,
+calling contracts through their ABI, and signing. Two choices sit underneath and
+they are independent: **how you reach a chain** — the
+[EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) provider extensions such as
+MetaMask inject as `globalThis.ethereum`, or [JSON-RPC over
+HTTP](/cookbook/http-rpc/) to a node, which works on every backend — and **who
+holds the key** — a wallet that prompts its user, or [a private key in your own
+process](/cookbook/local-account/). The code above them does not change.
 
 ```sh
 moon add poteto0/endor
@@ -71,6 +73,13 @@ installed and on `native` and `wasm` as well as `js`. It adds no FFI:
 `moonbitlang/async`'s HTTP client is `fetch` in a browser and sockets with TLS
 everywhere else.
 
+**Nor to write.** `@wallet.WalletClient` pairs a provider with an account, and
+the account is where signing lives: `JsonRpcAccount` asks the wallet,
+`@local.LocalAccount` holds a private key and signs in this process — secp256k1
+and the transaction encoding are the SDK's own — so a script, a backend or a
+test can spend with nobody to click _approve_. `send`, `sign_message` and
+`sign_typed_data` are the same calls either way.
+
 **FFI in exactly one package.** Every `extern "js"` binding lives in
 `endor/ffi/js`. Everything above it is pure MoonBit and testable against
 `MockProvider`, so the test suite needs no browser.
@@ -91,6 +100,6 @@ never a ceiling.
 
 ## Status
 
-`0.4.0`, published on [mooncakes.io](https://mooncakes.io/docs/poteto0/endor).
+`0.6.0`, published on [mooncakes.io](https://mooncakes.io/docs/poteto0/endor).
 Pre-1.0: the API still moves, and [Versioning](/reference/versioning/) says how
 much and with what warning.

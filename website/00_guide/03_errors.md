@@ -1,6 +1,6 @@
 ---
 title: Errors
-description: Four suberrors, the three questions a dapp asks of any of them, and what is worth retrying.
+description: The suberrors a call can raise, the three questions a dapp asks of any of them, and what is worth retrying.
 islands:
   - address_tool
 ---
@@ -8,8 +8,8 @@ islands:
 # Errors
 
 Nothing in the SDK panics on a wallet-side failure. Everything that can go wrong
-arrives as one of four suberrors, and which one you catch says where the problem
-was. All four are spelled from `@endor`, so catching them costs no extra import.
+arrives as a suberror, and which one you catch says where the problem was. Each
+is spelled from `@endor`, so catching them costs no extra import.
 
 | Suberror               | Raised by                     | Means                                    |
 | ---------------------- | ----------------------------- | ---------------------------------------- |
@@ -17,6 +17,8 @@ was. All four are spelled from `@endor`, so catching them costs no extra import.
 | `@endor.ContractError` | `Contract`, `Erc20`, `deploy` | one of the above, the ABI, or a revert   |
 | `@endor.AbiError`      | `@abi.encode` / `decode`      | a type or a value the ABI cannot carry   |
 | `@endor.CodecError`    | a domain type's constructor   | a string that is not the thing it claims |
+| `@endor.AccountError`  | an `Account` signing          | the key, or the signature it could not produce |
+| `@endor.WalletError`   | `WalletClient`                | the provider's failure, the account's, or a field missing |
 
 ## The three questions
 
@@ -50,7 +52,7 @@ async fn one_handler(wallet : @browser.BrowserProvider) -> Unit {
 
 `message()` never contains a variant name, a URL or a JSON-RPC code, so it is
 safe to render as-is. `"\{e}"` contains all three, so it belongs in a log and
-never in a dialog. Both are on all four suberrors. `ProviderError` and
+never in a dialog. Both are on every suberror. `ProviderError` and
 `ContractError` carry a third, `code()`, giving back the EIP-1193 / EIP-1474
 number when there was one and `None` for the failures that never reached the
 protocol — `AbiError` and `CodecError` never do, so they do not have it.
@@ -286,6 +288,44 @@ fn parse_user_input(typed : String) -> Unit {
 The checksum branch is the one worth wiring to real UI. It is the difference
 between telling somebody they mistyped and sending their money to an address
 nobody holds the key to.
+
+## AccountError and WalletError
+
+Signing has two failures of its own, and they are separate because an account
+and a transport are separate things.
+
+`AccountError` is what an `Account` raises: `InvalidPrivateKey` (material that
+is not a key — the wrong length, or a scalar the curve has no point for),
+`SigningFailed` (a key that is fine and an input that would not sign),
+`NotSupported` and `InvalidAccountType` (the account being asked for something
+the kind of account it is cannot do — a read-only account asked to sign). None
+of them is retryable: a key that is not a key stays one.
+
+`WalletError` is what `@wallet.WalletClient` raises, and it does not flatten
+what it caught. `Provider(e)` and `Account(e)` carry the whole original, so a
+caller that only wants to know whether the user declined still matches on it:
+
+```moonbit
+async fn send_and_read_the_failure(
+  client : @wallet.WalletClient[@browser.BrowserProvider, @wallet.JsonRpcAccount[
+    @browser.BrowserProvider,
+  ]],
+  to : @endor.Address,
+  value : @endor.Wei,
+) -> Unit {
+  try client.send(to~, value~) |> ignore catch {
+    // the wallet's own failure, unchanged and still matchable
+    Provider(UserRejected) => ()
+    // a field the client could neither be given nor work out from the node
+    Incomplete(what) => println("missing: \{what}")
+    e => println(e.message())
+  }
+}
+```
+
+`message()` and `is_retryable()` delegate to whichever error is inside, so the
+three-question handler above works on a `WalletError` without knowing that.
+Neither type has `code()`: only the two that talk to the wire do.
 
 ## Events raise nothing
 
