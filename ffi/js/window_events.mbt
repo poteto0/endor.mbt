@@ -32,6 +32,13 @@ pub fn has_window_events() -> Bool {
 /// both — the JSON text of `detail`, and the object handle. An event carrying
 /// no provider is dropped here, because there is no null `Ethereum` for it to
 /// cross as; *what else* makes a payload usable is not this layer's to say.
+///
+/// `provider` is left out of the string. A wallet's provider object is live —
+/// event handlers holding it back, getters that run — and more than one real
+/// wallet is not serialisable at all, so stringifying the whole detail throws
+/// and takes that wallet's event down with it. It crosses as the handle, which
+/// is the only useful form of it anyway. A detail that still will not stringify
+/// is dropped rather than raised, for the same reason a malformed one is.
 extern "js" fn _on_window_event(
   event : String,
   handler : (String, Ethereum) -> Unit,
@@ -40,7 +47,15 @@ extern "js" fn _on_window_event(
   #|   const listener = (e) => {
   #|     const detail = (e && e.detail) || {}
   #|     if (!detail.provider) return
-  #|     handler(JSON.stringify(detail), detail.provider)
+  #|     let json
+  #|     try {
+  #|       json = JSON.stringify(detail, (key, value) =>
+  #|         key === 'provider' ? undefined : value)
+  #|     } catch {
+  #|       return
+  #|     }
+  #|     if (json === undefined) return
+  #|     handler(json, detail.provider)
   #|   }
   #|   if (typeof globalThis.addEventListener === 'function') {
   #|     globalThis.addEventListener(event, listener)

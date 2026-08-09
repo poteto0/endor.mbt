@@ -55,6 +55,37 @@ extern "js" fn install_announcing_wallets(info_json : String) -> Unit =
   #| }
 
 ///|
+/// The same wallets, but announcing the kind of provider object a real
+/// extension has: one that holds itself, and one whose properties run code that
+/// throws. Neither can be serialised, and neither has to be — the provider
+/// crosses as a handle.
+extern "js" fn install_unserialisable_wallets(info_json : String) -> Unit =
+  #| (infoJson) => {
+  #|   const infos = JSON.parse(infoJson)
+  #|   globalThis.addEventListener('eip6963:requestProvider', () => {
+  #|     infos.forEach((info, at) => {
+  #|       const provider = {
+  #|         request: async ({ method }) =>
+  #|           method === 'eth_chainId' ? '0x' + (at + 1) : null
+  #|       }
+  #|       if (at % 2 === 0) {
+  #|         provider._events = { self: provider }
+  #|       } else {
+  #|         Object.defineProperty(provider, 'state', {
+  #|           enumerable: true,
+  #|           get: () => { throw new Error('not yours to read') }
+  #|         })
+  #|       }
+  #|       globalThis.dispatchEvent(
+  #|         new CustomEvent('eip6963:announceProvider', {
+  #|           detail: { info, provider }
+  #|         })
+  #|       )
+  #|     })
+  #|   })
+  #| }
+
+///|
 /// The `info` two well-behaved wallets announce.
 let two_wallets : String =
   #|[{"uuid":"uuid-a","name":"Wallet A","icon":"data:image/svg+xml,A","rdns":"com.example.a"},
@@ -93,6 +124,18 @@ test "an announcement missing a required field is dropped" {
   let seen = []
   @browser.BrowserProvider::on_announce((info, _) => seen.push(info.rdns)).unsubscribe()
   inspect(seen.join(","), content="com.example.a")
+  uninstall_window_events()
+}
+
+///|
+/// A wallet is not dropped for having a provider object that cannot be turned
+/// into JSON — which is most of them.
+test "an announcement carrying an unserialisable provider is delivered" {
+  install_window_events()
+  install_unserialisable_wallets(two_wallets)
+  let seen = []
+  @browser.BrowserProvider::on_announce((info, _) => seen.push(info.rdns)).unsubscribe()
+  inspect(seen.join(","), content="com.example.a,com.example.b")
   uninstall_window_events()
 }
 
