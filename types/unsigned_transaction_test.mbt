@@ -166,3 +166,22 @@ test "only a parity bit can be encoded" {
     _ => fail("expected fail, but success")
   }
 }
+
+///|
+test "r and s must be 32 bytes each" {
+  let tx = @types.UnsignedTransaction::new(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+  )
+  let word = Bytes::make(31, b'\x01') // 31 bytes instead of 32
+  try tx.encode_signed(r=word, s=word, y_parity=0) |> ignore catch {
+    InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}

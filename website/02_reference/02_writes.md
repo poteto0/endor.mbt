@@ -62,11 +62,16 @@ account holding a key — `@local.LocalAccount` — signs in this process and th
 bytes go out as `eth_sendRawTransaction`. The call is the same either way; see
 [Sign with a local key](../../cookbook/local-account/).
 
-`client.prepare(…)` is the first half on its own: it fills in the chain id, the
-nonce (from the **pending** count), the fee caps and the gas from the node, and
-answers an `@endor.UnsignedTransaction`. That round trip happens even for a
-local key, because a signature commits to those numbers and only the node knows
-them. Anything passed in is used as given and not asked about.
+What is left out is filled in by whoever is going to sign. A wallet holds the
+key and prices the transaction itself, so `send` hands it the request as it
+stands and asks the node for nothing. A local key means this SDK has to decide
+every number before it signs, so that call goes through `prepare` first.
+
+`client.prepare(…)` is that half on its own: it fills in the chain id, the nonce
+(from the **pending** count), the fee caps and the gas from the node, and answers
+an `@endor.UnsignedTransaction`. Anything passed in is used as given and not
+asked about. It is worth calling directly against a wallet too, when the point
+is to pin the numbers down and show them before prompting.
 
 ## Broadcasting something already signed
 

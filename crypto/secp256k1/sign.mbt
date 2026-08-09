@@ -62,7 +62,10 @@ fn Nonces::next(self : Nonces) -> @bigint.BigInt {
   }
   self.drawn = true
   self.value = hmac_sha256(self.key, self.value)
-  @bigint.BigInt::from_octets(self.value[:])
+  // Through `scalar_of_octets` like every other scalar read off bytes here. An
+  // all-zero digest is not a candidate, and the caller turns it down with the
+  // rest of the out-of-range ones.
+  scalar_of_octets(self.value).unwrap_or(0N)
 }
 
 ///|

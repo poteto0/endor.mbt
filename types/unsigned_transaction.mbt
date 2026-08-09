@@ -155,6 +155,9 @@ pub fn UnsignedTransaction::encode_signed(
   guard y_parity == 0 || y_parity == 1 else {
     raise InvalidValue("y parity must be 0 or 1: \{y_parity}")
   }
+  guard r.length() == 32 && s.length() == 32 else {
+    raise InvalidValue("r and s must be 32 bytes each")
+  }
   let fields = self.fields()
   fields.push(@rlp.Item::of_uint64(y_parity.to_uint64()))
   fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(r[:])))

@@ -70,9 +70,7 @@ fn write_header(out : Array[Byte], length : Int, offset : Int) -> Unit {
   if length <= 55 {
     out.push((offset + length).to_byte())
   } else {
-    // An `Int`, and kept one: a length is a machine word on every backend,
-    // while `UInt64` is a `BigInt` on `js`.
-    let width = byte_width(length.to_uint64())
+    let width = length_width(length)
     out.push((offset + 55 + width).to_byte())
     for i = width - 1; i >= 0; i = i - 1 {
       out.push((length >> (i * 8)).to_byte())
@@ -92,6 +90,20 @@ fn byte_width(value : UInt64) -> Int {
   let mut width = 0
   let mut left = value
   while left != 0UL {
+    width = width + 1
+    left = left >> 8
+  }
+  width
+}
+
+///|
+/// The same count for a length rather than a value. Separate because a length
+/// is a machine word on every backend, while `UInt64` is a `BigInt` on `js` —
+/// widening one only to count its bytes is the arithmetic this avoids.
+fn length_width(length : Int) -> Int {
+  let mut width = 0
+  let mut left = length
+  while left != 0 {
     width = width + 1
     left = left >> 8
   }

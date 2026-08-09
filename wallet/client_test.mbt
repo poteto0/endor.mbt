@@ -58,6 +58,19 @@ fn a_block() -> Json {
 }
 
 ///|
+/// The same header without a base fee, which is what a chain that never forked
+/// to London reports — and, with a zero one, what anvil reports too.
+fn a_block_without_base_fee() -> Json {
+  match a_block() {
+    Object(fields) => {
+      fields.remove("baseFeePerGas")
+      Json::object(fields)
+    }
+    other => other
+  }
+}
+
+///|
 fn recipient() -> @types.Address raise {
   @types.Address::from_string(RECIPIENT)
 }
@@ -99,10 +112,9 @@ async test "a json-rpc account hands the transaction to the wallet" {
     let client = @wallet.WalletClient::new(node, account)
     let hash = client.send(to=recipient(), value=@types.Wei::from_ether("1"))
     assert_eq(hash.to_string(), "0x" + "22".repeat(32))
-    assert_eq(
-      node.calls().filter(call => call.0 == "eth_sendRawTransaction").length(),
-      0,
-    )
+    // And nothing was pinned down first: the nonce, the fees and the gas are
+    // the wallet's to decide, so the node was never asked for them.
+    assert_eq(node.calls().map(call => call.0), ["eth_sendTransaction"])
   })
 }
 
@@ -201,6 +213,78 @@ async test "a json-rpc account refuses to sign a transaction alone" {
     } noraise {
       _ => fail("expected fail, but success")
     }
+  })
+}
+
+///|
+/// A head block with no base fee makes `estimate_fees` answer with a flat
+/// price. That is still a price, so the transaction is built rather than
+/// refused: the cap and the tip are both `eth_gasPrice`.
+async test "a chain with no base fee is priced from eth_gasPrice" {
+  @async.with_task_group(_ => {
+    let node = node().on(
+      method_name="eth_getBlockByNumber",
+      response=a_block_without_base_fee(),
+    )
+    let client = @wallet.WalletClient::new(node, local_account())
+    let tx = client.prepare(to=recipient(), value=@types.Wei::from_ether("1"))
+    inspect(
+      tx
+      .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+      .to_json()
+      .stringify(),
+      content=(
+        #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","maxFeePerGas":"0x2540be400","maxPriorityFeePerGas":"0x2540be400"}
+      ),
+    )
+  })
+}
+
+///|
+/// A price the *caller* named flat is a different statement: it asks for a
+/// transaction format this path does not build, so it is refused rather than
+/// quietly turned into a type-`0x02` one.
+async test "a legacy fee the caller named is refused" {
+  @async.with_task_group(_ => {
+    let client = @wallet.WalletClient::new(node(), local_account())
+    let to = recipient()
+    let fee = @types.Fee::Legacy(gas_price=@types.Wei::from_gwei("7"))
+    try client.prepare(to~, fee~) |> ignore catch {
+      Incomplete(_) => ()
+      e => fail("expected Incomplete, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
+
+///|
+/// The wallet, though, can send one — and `send` reaches it without going
+/// through `prepare`, so the flat price arrives as `gasPrice`.
+async test "a legacy fee reaches a wallet as gasPrice" {
+  @async.with_task_group(_ => {
+    let node = node()
+    let client = @wallet.WalletClient::new(
+      node,
+      @wallet.JsonRpcAccount::new(
+        node,
+        @types.Address::from_string(ANVIL_ADDRESS),
+      ),
+    )
+    client.send(
+      to=recipient(),
+      value=@types.Wei::from_ether("1"),
+      fee=Legacy(gas_price=@types.Wei::from_gwei("7")),
+    )
+    |> ignore
+    let (called, params) = node.last_call().unwrap()
+    assert_eq(called, "eth_sendTransaction")
+    inspect(
+      params.stringify(),
+      content=(
+        #|[{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gasPrice":"0x1a13b8600"}]
+      ),
+    )
   })
 }
 
