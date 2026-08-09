@@ -26,9 +26,9 @@ pub impl Show for AccountError
 
 // Traits
 pub(open) trait Account {
-  fn sign_transaction(Self, @types.UnsignedTransaction) -> @types.Hex raise AccountError
-  fn sign_message(Self, @types.Hex) -> @types.Hex raise AccountError
-  fn sign_typed_data(Self, @eip712.TypedData) -> @types.Hex raise AccountError
+  async fn sign_transaction(Self, @types.UnsignedTransaction) -> @types.Hex raise AccountError
+  async fn sign_message(Self, @types.Hex) -> @types.Hex raise AccountError
+  async fn sign_typed_data(Self, @eip712.TypedData) -> @types.Hex raise AccountError
   fn address(Self) -> @types.Address raise AccountError
   fn account_type(Self) -> String
 }

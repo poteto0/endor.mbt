@@ -8,21 +8,21 @@ const ANVIL_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f
 const ANVIL_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 
 ///|
-fn anvil() -> @raw.RawAccount raise {
-  @raw.RawAccount::new(@types.Hex::from_string(ANVIL_KEY))
+fn anvil() -> @local.LocalAccount raise {
+  @local.LocalAccount::new(@types.Hex::from_string(ANVIL_KEY))
 }
 
 ///|
 test "the address comes from the key" {
   assert_eq(anvil().address().to_checksum_string(), ANVIL_ADDRESS)
-  assert_eq(anvil().account_type(), "raw")
+  assert_eq(anvil().account_type(), "local")
 }
 
 ///|
 /// `cast wallet sign --private-key … "hello"`. The `v` is `0x1c`, the offset
 /// form — `27 + 1` — which is what tells a verifier this is not a typed
 /// transaction's bare parity bit.
-test "personal_sign of a text message matches cast" {
+async test "personal_sign of a text message matches cast" {
   assert_eq(
     anvil().sign_message(@types.Hex::from_utf8("hello")).to_string(),
     "0xf16ea9a3478698f695fd1401bfe27e9e4a7e8e3da94aa72b021125e31fa899cc573c48ea3fe1d4ab61a9db10c19032026e3ed2dbccba5a178235ac27f94504311c",
@@ -32,7 +32,7 @@ test "personal_sign of a text message matches cast" {
 ///|
 /// The same prefix over bytes that are not text: `cast wallet sign …
 /// "0xdeadbeef"`, which cast decodes before signing.
-test "personal_sign of raw bytes matches cast" {
+async test "personal_sign of raw bytes matches cast" {
   assert_eq(
     anvil().sign_message(@types.Hex::from_string("0xdeadbeef")).to_string(),
     "0xa114c834af73872c6c9efe918d85b0b1b34a486d10f9011e2630e28417c828c060dbd65cda67e73d52ebb7c555260621dbc1b0b4036acb61086bba091ac3f1641b",
@@ -43,7 +43,7 @@ test "personal_sign of raw bytes matches cast" {
 /// `cast wallet sign --data --from-file`, over the same document written as
 /// JSON. EIP-712 hashes the types and the values separately, so this checks
 /// the digest rule as much as the curve.
-test "typed data matches cast" {
+async test "typed data matches cast" {
   let typed_data = @eip712.TypedData::new(
     @eip712.TypedDataDomain::new(
       name="Endor",
@@ -70,7 +70,7 @@ test "typed data matches cast" {
 ///|
 /// `cast mktx`. Unlike the other two this answers with the whole transaction,
 /// not a signature, and its `v` is the bare parity bit.
-test "a signed transaction matches cast mktx" {
+async test "a signed transaction matches cast mktx" {
   let tx = @types.UnsignedTransaction::new(
     chain_id=@types.ChainId::mainnet(),
     nonce=@types.Quantity::new(0),
@@ -91,7 +91,7 @@ test "a signed transaction matches cast mktx" {
 /// different rule, so the same bytes handed to two of them give two different
 /// signatures — which is exactly what stops a message from being replayed as a
 /// transaction.
-test "each rule signs something different" {
+async test "each rule signs something different" {
   let account = anvil()
   let message = @types.Hex::from_utf8("hello")
   assert_not_eq(
@@ -111,7 +111,7 @@ test "each rule signs something different" {
 test "a key that is not a key is refused" {
   for wrong in ["0x", "0xff", "0x" + "00".repeat(32), "0x" + "ff".repeat(32)] {
     let hex = @types.Hex::from_string(wrong)
-    try @raw.RawAccount::new(hex) |> ignore catch {
+    try @local.LocalAccount::new(hex) |> ignore catch {
       InvalidPrivateKey(_) => ()
       e => fail("expected an invalid key, but not \{e}")
     } noraise {

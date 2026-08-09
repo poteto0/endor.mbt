@@ -1,6 +1,6 @@
 ///|
 /// What `account_type` answers for this kind of account.
-const ACCOUNT_TYPE = "raw"
+const ACCOUNT_TYPE = "local"
 
 ///|
 /// The offset EIP-155 added to `v` for a signature that is not a typed
@@ -21,7 +21,7 @@ const V_OFFSET = 27
 /// The address is derived in the constructor, from the key itself. It is not
 /// something a caller passes in, so an account cannot claim an address its key
 /// does not sign for.
-pub struct RawAccount {
+pub struct LocalAccount {
   priv account_type : String
   priv priv_key : @secp256k1.PrivateKey
   priv address : @types.Address
@@ -31,7 +31,7 @@ pub struct RawAccount {
 /// Read a private key and derive the account it is.
 ///
 /// ```
-/// let account = @raw.RawAccount::new(
+/// let account = @local.LocalAccount::new(
 ///   @types.Hex::from_string(
 ///     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 ///   ),
@@ -41,9 +41,9 @@ pub struct RawAccount {
 ///   content="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
 /// )
 /// ```
-pub fn RawAccount::new(
+pub fn LocalAccount::new(
   priv_key_hex : @types.Hex,
-) -> RawAccount raise @account.AccountError {
+) -> LocalAccount raise @account.AccountError {
   // Both ways a scalar can fail — the wrong width, and a value outside
   // `[1, N)` — are the same thing to a caller who handed over a bad key.
   let priv_key = @secp256k1.PrivateKey::from_bytes(priv_key_hex.to_bytes()) catch {
@@ -56,14 +56,14 @@ pub fn RawAccount::new(
   let address = @types.Address::from_public_key(pub_key) catch {
     e => raise @account.AccountError::InvalidPrivateKey(e.to_string())
   }
-  RawAccount::{ account_type: ACCOUNT_TYPE, priv_key, address }
+  LocalAccount::{ account_type: ACCOUNT_TYPE, priv_key, address }
 }
 
 ///|
 /// Sign a digest and render the 65 bytes a verifier is handed, with the `v`
 /// offset a signature outside a typed transaction carries.
-fn RawAccount::sign_offset(
-  self : RawAccount,
+fn LocalAccount::sign_offset(
+  self : LocalAccount,
   digest : Bytes,
 ) -> @types.Hex raise @account.AccountError {
   let signature = self.priv_key.sign(digest) catch {
@@ -88,7 +88,7 @@ fn RawAccount::sign_offset(
 /// The signed transaction, ready for `eth_sendRawTransaction`.
 ///
 /// ```
-/// let account = @raw.RawAccount::new(
+/// let account = @local.LocalAccount::new(
 ///   @types.Hex::from_string(
 ///     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
 ///   ),
@@ -104,8 +104,8 @@ fn RawAccount::sign_offset(
 /// )
 /// assert_eq(account.sign_transaction(tx).byte_length(), 116)
 /// ```
-pub impl @account.Account for RawAccount with fn sign_transaction(
-  self : RawAccount,
+pub impl @account.Account for LocalAccount with fn sign_transaction(
+  self : LocalAccount,
   tx : @types.UnsignedTransaction,
 ) -> @types.Hex raise @account.AccountError {
   let signature = self.priv_key.sign(tx.signing_digest()) catch {
@@ -124,8 +124,8 @@ pub impl @account.Account for RawAccount with fn sign_transaction(
 /// A `personal_sign` signature: the message under the EIP-191 prefix, which is
 /// what stops a signer from being talked into signing a transaction that was
 /// handed over as text.
-pub impl @account.Account for RawAccount with fn sign_message(
-  self : RawAccount,
+pub impl @account.Account for LocalAccount with fn sign_message(
+  self : LocalAccount,
   message : @types.Hex,
 ) -> @types.Hex raise @account.AccountError {
   self.sign_offset(@eip191.hash_bytes(message.to_bytes()).to_bytes())
@@ -133,8 +133,8 @@ pub impl @account.Account for RawAccount with fn sign_message(
 
 ///|
 /// An `eth_signTypedData_v4` signature over the EIP-712 document.
-pub impl @account.Account for RawAccount with fn sign_typed_data(
-  self : RawAccount,
+pub impl @account.Account for LocalAccount with fn sign_typed_data(
+  self : LocalAccount,
   typed_data : @eip712.TypedData,
 ) -> @types.Hex raise @account.AccountError {
   let digest = typed_data.digest() catch {
@@ -145,11 +145,13 @@ pub impl @account.Account for RawAccount with fn sign_typed_data(
 
 ///|
 /// The address this account's signatures recover to, derived from the key.
-pub impl @account.Account for RawAccount with fn address(self : RawAccount) -> @types.Address {
+pub impl @account.Account for LocalAccount with fn address(self : LocalAccount) -> @types.Address {
   self.address
 }
 
 ///|
-pub impl @account.Account for RawAccount with fn account_type(self : RawAccount) -> String {
+pub impl @account.Account for LocalAccount with fn account_type(
+  self : LocalAccount,
+) -> String {
   self.account_type
 }

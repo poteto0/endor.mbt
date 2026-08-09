@@ -17,19 +17,21 @@
 /// what a node reports back, with a hash and a block already on it, and there
 /// is nothing left to sign about it.
 ///
-/// Implemented here by `@raw.RawAccount`, which holds a private key. A
-/// wallet-backed account is a different shape — every method is a round trip
-/// to the extension, so it is asynchronous and does not fit this trait; that
-/// is `@provider`'s side of the SDK.
+/// Signing is `async` because a wallet-backed account signs by asking the
+/// extension and waiting for the user; one that holds its own key, like
+/// `@local.LocalAccount`, satisfies it without ever awaiting.
+///
+/// The two accessors are not: an address and a kind are properties an account
+/// already knows, whichever sort it is.
 pub(open) trait Account {
   /// The whole signed transaction, as `eth_sendRawTransaction` takes it.
-  fn sign_transaction(self : Self, tx : @types.UnsignedTransaction) -> @types.Hex raise AccountError
+  async fn sign_transaction(self : Self, tx : @types.UnsignedTransaction) -> @types.Hex raise AccountError
 
   /// A `personal_sign` signature over the EIP-191 prefixed message.
-  fn sign_message(self : Self, message : @types.Hex) -> @types.Hex raise AccountError
+  async fn sign_message(self : Self, message : @types.Hex) -> @types.Hex raise AccountError
 
   /// An `eth_signTypedData_v4` signature over the EIP-712 document.
-  fn sign_typed_data(self : Self, typed_data : @eip712.TypedData) -> @types.Hex raise AccountError
+  async fn sign_typed_data(self : Self, typed_data : @eip712.TypedData) -> @types.Hex raise AccountError
 
   /// The address these signatures will recover to.
   fn address(self : Self) -> @types.Address raise AccountError

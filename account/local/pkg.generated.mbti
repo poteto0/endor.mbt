@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "poteto0/endor/account/raw"
+package "poteto0/endor/account/local"
 
 import {
   "poteto0/endor/account",
@@ -12,11 +12,11 @@ import {
 // Errors
 
 // Types and methods
-pub struct RawAccount {
+pub struct LocalAccount {
   // private fields
 }
-pub fn RawAccount::new(@types.Hex) -> Self raise @account.AccountError
-pub impl @account.Account for RawAccount
+pub fn LocalAccount::new(@types.Hex) -> Self raise @account.AccountError
+pub impl @account.Account for LocalAccount
 
 // Type aliases
 
