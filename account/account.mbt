@@ -39,3 +39,18 @@ pub(open) trait Account {
   /// Which kind of account this is, for a caller holding several.
   fn account_type(self : Self) -> String
 }
+
+///|
+/// What `account_type` answers for an account that holds its own key and signs
+/// without leaving the process.
+pub const LOCAL = "local"
+
+///|
+/// What `account_type` answers for an account whose key is behind a JSON-RPC
+/// endpoint — a browser wallet, or a node with the account unlocked.
+///
+/// The distinction is worth a name because one thing turns on it: an account
+/// of this kind cannot hand back a signed transaction. Wallets sign and
+/// broadcast in one step (`eth_sendTransaction`) and most, MetaMask included,
+/// do not implement `eth_signTransaction` at all.
+pub const JSON_RPC = "json-rpc"

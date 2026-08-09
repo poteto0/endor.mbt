@@ -93,6 +93,31 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
 }
 
 ///|
+/// The same transaction as a request to hand a wallet.
+///
+/// A wallet that holds the key fills in nothing here — every field is already
+/// decided — but it signs and broadcasts in one step (`eth_sendTransaction`),
+/// so it has to be asked in the shape that call takes. `from` is the account
+/// the wallet is to sign with, which is the one thing this side does not know.
+pub fn UnsignedTransaction::to_request(
+  self : UnsignedTransaction,
+  from~ : Address,
+) -> TransactionRequest {
+  TransactionRequest::new(
+    from,
+    to?=self.to,
+    value=self.value,
+    data=self.data,
+    gas=self.gas,
+    nonce=self.nonce,
+    fee=Eip1559(
+      max_fee_per_gas=self.max_fee_per_gas,
+      max_priority_fee_per_gas=self.max_priority_fee_per_gas,
+    ),
+  )
+}
+
+///|
 /// What to sign: `keccak256(0x02 || rlp(fields))`.
 ///
 /// The type byte is outside the RLP, which is what EIP-2718 introduced — an

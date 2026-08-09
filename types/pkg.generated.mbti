@@ -295,6 +295,7 @@ pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
 pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
+pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest
 
 pub struct Wei {
   // private fields

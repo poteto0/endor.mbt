@@ -1,6 +1,6 @@
 ///|
 /// What `account_type` answers for this kind of account.
-const ACCOUNT_TYPE = "local"
+const ACCOUNT_TYPE : String = @account.LOCAL
 
 ///|
 /// The offset EIP-155 added to `v` for a signature that is not a typed

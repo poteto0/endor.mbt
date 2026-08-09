@@ -8,6 +8,9 @@ import {
 }
 
 // Values
+pub const JSON_RPC : String = "json-rpc"
+
+pub const LOCAL : String = "local"
 
 // Errors
 pub(all) suberror AccountError {

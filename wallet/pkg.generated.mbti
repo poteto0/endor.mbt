@@ -1,0 +1,45 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/wallet"
+
+import {
+  "moonbitlang/core/debug",
+  "poteto0/endor/account",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/provider",
+  "poteto0/endor/types",
+}
+
+// Values
+
+// Errors
+pub(all) suberror WalletError {
+  Provider(@provider.ProviderError)
+  Account(@account.AccountError)
+  Incomplete(String)
+} derive(Eq, @debug.Debug)
+pub fn WalletError::is_retryable(Self) -> Bool
+pub fn WalletError::message(Self) -> String
+pub impl Show for WalletError
+
+// Types and methods
+pub struct JsonRpcAccount[P] {
+  // private fields
+}
+pub fn[P] JsonRpcAccount::new(P, @types.Address) -> Self[P]
+pub impl[P : @provider.Provider] @account.Account for JsonRpcAccount[P]
+
+pub struct WalletClient[P, A] {
+  // private fields
+}
+pub fn[P, A : @account.Account] WalletClient::address(Self[P, A]) -> @types.Address raise WalletError
+pub fn[P, A] WalletClient::new(P, A) -> Self[P, A]
+pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare(Self[P, A], to? : @types.Address, value? : @types.Wei, data? : @types.Hex, gas? : @types.Quantity, nonce? : @types.Quantity, fee? : @types.Fee) -> @types.UnsignedTransaction raise WalletError
+pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send(Self[P, A], to? : @types.Address, value? : @types.Wei, data? : @types.Hex, gas? : @types.Quantity, nonce? : @types.Quantity, fee? : @types.Fee) -> @types.TxHash raise WalletError
+pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send_transaction(Self[P, A], @types.UnsignedTransaction) -> @types.TxHash raise WalletError
+pub async fn[P, A : @account.Account] WalletClient::sign_message(Self[P, A], String) -> @types.Hex raise WalletError
+pub async fn[P, A : @account.Account] WalletClient::sign_message_bytes(Self[P, A], @types.Hex) -> @types.Hex raise WalletError
+pub async fn[P, A : @account.Account] WalletClient::sign_typed_data(Self[P, A], @eip712.TypedData) -> @types.Hex raise WalletError
+
+// Type aliases
+
+// Traits
