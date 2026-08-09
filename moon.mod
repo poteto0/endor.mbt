@@ -27,6 +27,7 @@ description = "An Ethereum SDK for MoonBit. Currently focused on browser wallets
 
 import {
   "moonbitlang/async@0.20.3",
+  "moonbitlang/x@0.4.49",
 }
 
 options(

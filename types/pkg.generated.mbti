@@ -71,6 +71,7 @@ pub struct Address {
 pub fn Address::array_from_json(Json) -> Array[Self] raise CodecError
 pub fn Address::digits(Self) -> String
 pub fn Address::from_json(Json) -> Self raise CodecError
+pub fn Address::from_public_key(Bytes) -> Self raise CodecError
 pub fn Address::from_string(String) -> Self raise CodecError
 pub fn Address::to_checksum_string(Self) -> String
 pub fn Address::to_json(Self) -> Json
@@ -286,6 +287,15 @@ pub fn TxHash::from_string(String) -> Self raise CodecError
 pub fn TxHash::to_json(Self) -> Json
 pub fn TxHash::to_string(Self) -> String
 pub impl Show for TxHash
+
+pub struct UnsignedTransaction {
+  // private fields
+}
+pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
+pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
+pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
+pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
+pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest
 
 pub struct Wei {
   // private fields

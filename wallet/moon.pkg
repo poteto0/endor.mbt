@@ -1,0 +1,12 @@
+import {
+  "moonbitlang/core/debug",
+  "poteto0/endor/account",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/provider",
+  "poteto0/endor/types",
+}
+
+import {
+  "moonbitlang/async",
+  "poteto0/endor/account/local",
+} for "test"

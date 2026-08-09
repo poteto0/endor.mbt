@@ -3,7 +3,7 @@ import {
   "moonbitlang/core/debug",
   "moonbitlang/core/encoding/utf8",
   "poteto0/endor/types",
-  "poteto0/endor/crypto",
+  "poteto0/endor/crypto/keccak",
   "poteto0/endor/codec",
 }
 

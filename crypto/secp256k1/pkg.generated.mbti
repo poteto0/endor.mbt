@@ -1,0 +1,38 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/crypto/secp256k1"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+pub(all) suberror CurveError {
+  InvalidLength(String)
+  InvalidKey(String)
+} derive(Eq, @debug.Debug)
+pub fn CurveError::is_retryable(Self) -> Bool
+pub fn CurveError::message(Self) -> String
+pub impl Show for CurveError
+
+// Types and methods
+pub struct PrivateKey {
+  // private fields
+}
+pub fn PrivateKey::bytes(Self) -> Bytes
+pub fn PrivateKey::from_bytes(Bytes, strict? : Bool) -> Self raise CurveError
+pub fn PrivateKey::public_key(Self) -> Bytes
+pub fn PrivateKey::sign(Self, Bytes) -> Signature raise CurveError
+
+pub struct Signature {
+  // private fields
+}
+pub fn Signature::r(Self) -> Bytes
+pub fn Signature::recovery_id(Self) -> Int
+pub fn Signature::s(Self) -> Bytes
+pub fn Signature::to_bytes(Self, v_offset? : Int) -> Bytes
+
+// Type aliases
+
+// Traits

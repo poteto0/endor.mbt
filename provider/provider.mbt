@@ -1,12 +1,6 @@
 ///|
-/// The EIP-1193 provider abstraction. A provider performs a single JSON-RPC
-/// call given a method name and a JSON parameter value (usually a JSON array),
-/// returning the decoded JSON result or raising a `ProviderError`.
-///
-/// The method is `async`: the browser implementation (`BrowserProvider`) awaits
-/// the underlying JS Promise, while the in-memory `MockProvider` used by tests
-/// resolves immediately. The typed RPC layer above is therefore fully testable
-/// without a browser.
+/// Abstract interface for a blockchain provider.
+/// Like eip1193, http clients
 ///
 /// ```
 /// // Any `Provider` can be driven by the typed helpers:

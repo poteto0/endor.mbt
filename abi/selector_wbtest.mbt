@@ -22,7 +22,7 @@ test "signatures nobody declared do not grow the table without bound" {
     assert_eq(
       selector(sig),
       @types.Hex::from_bytes(
-        Bytes::makei(SELECTOR_SIZE, j => @crypto.keccak256_string(sig)[j]),
+        Bytes::makei(SELECTOR_SIZE, j => @keccak.keccak256_string(sig)[j]),
       ),
     )
   }

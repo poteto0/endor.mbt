@@ -36,7 +36,7 @@ pub fn TypedData::hash_struct(
 ) -> @types.Hex raise @types.CodecError {
   let cache : Map[String, Bytes] = Map([])
   @types.Hex::from_bytes(
-    @crypto.keccak256(
+    @keccak.keccak256(
       encode_data(self.types, self.primary_type, self.message, cache~),
     ),
   )
@@ -100,7 +100,7 @@ pub fn TypedData::digest(
 ) -> @types.Hex raise @types.CodecError {
   let cache : Map[String, Bytes] = Map([])
   let domain_sep = domain_separator_bytes(self.domain, cache~)
-  let message_hash = @crypto.keccak256(
+  let message_hash = @keccak.keccak256(
     encode_data(self.types, self.primary_type, self.message, cache~),
   )
   // `0x19 0x01` then the two 32-byte hashes
@@ -115,7 +115,7 @@ pub fn TypedData::digest(
       message_hash[i - 2 - @codec.WORD_BYTES]
     }
   })
-  @types.Hex::from_bytes(@crypto.keccak256(signed))
+  @types.Hex::from_bytes(@keccak.keccak256(signed))
 }
 
 ///|
@@ -126,7 +126,7 @@ fn domain_separator_bytes(
   let types : Map[String, Array[TypedDataField]] = Map([
     (DOMAIN_TYPE, domain.fields()),
   ])
-  @crypto.keccak256(encode_data(types, DOMAIN_TYPE, domain.to_json(), cache~))
+  @keccak.keccak256(encode_data(types, DOMAIN_TYPE, domain.to_json(), cache~))
 }
 
 ///|
@@ -207,7 +207,7 @@ fn type_hash(
   types : Map[String, Array[TypedDataField]],
   type_name : String,
 ) -> Bytes raise @types.CodecError {
-  @crypto.keccak256_string(encode_type(types, type_name))
+  @keccak.keccak256_string(encode_type(types, type_name))
 }
 
 ///|
@@ -271,9 +271,9 @@ fn encode_value(
       raise @types.InvalidJson("expected an array for \{type_name}")
     }
     let words = items.map(item => encode_value(types, element, item, cache~))
-    @crypto.keccak256(@codec.concat_words(words))
+    @keccak.keccak256(@codec.concat_words(words))
   } else if types.get(type_name) is Some(_) {
-    @crypto.keccak256(encode_data(types, type_name, value, cache~))
+    @keccak.keccak256(encode_data(types, type_name, value, cache~))
   } else {
     encode_atomic(type_name, value)
   }
@@ -291,12 +291,12 @@ fn encode_atomic(
   match classify_elementary(type_name) {
     Some(String) =>
       match value {
-        String(s) => @crypto.keccak256_string(s)
+        String(s) => @keccak.keccak256_string(s)
         _ => raise @types.InvalidJson("\{type_name} value must be a string")
       }
     Some(Bytes) =>
       match value {
-        String(s) => @crypto.keccak256(@types.Hex::from_string(s).to_bytes())
+        String(s) => @keccak.keccak256(@types.Hex::from_string(s).to_bytes())
         _ => raise @types.InvalidJson("\{type_name} value must be a hex string")
       }
     Some(Bool) =>

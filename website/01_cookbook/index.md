@@ -37,6 +37,7 @@ explains them, so the behaviour and the description are the same thing.
 | [Approve without a transaction](./permit/)   | yes                 | no, not for you |
 | [Read without a wallet](./http-rpc/)         | no — there is none  | no         |
 | [Read many things at once](./batch-reads/)   | no                  | no         |
+| [Sign with a local key](./local-account/)    | no — there is none  | **yes**    |
 
 And the ones that need no wallet at all:
 
@@ -50,10 +51,14 @@ Reads cost nothing and prompt nobody: `eth_call` and the `eth_get*` family are
 evaluated against the node's state and need no signature. Writes are the ones
 that spend money, and they are exactly the ones that open a popup.
 
-That is also why the last recipe needs no wallet at all: [Read without a
+That is also why one recipe needs no wallet to *read*: [Read without a
 wallet](./http-rpc/) points the same typed helpers at a node URL over HTTP,
-which works in a script, a CLI or on a server as well as in a page. It is the
-one page here with no demo on it, and it says why.
+which works in a script, a CLI or on a server as well as in a page.
+
+And one needs no wallet to *write*: [Sign with a local key](./local-account/)
+holds the private key in the process instead, which is what a backend or a test
+does. It spends money with nobody to approve it, so it is the one recipe to
+read the warning on. Neither of those two pages has a demo, and both say why.
 
 <div class="alert alert--warning" role="note">
   <div class="alert__title">About the live demos</div>

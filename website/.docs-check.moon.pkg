@@ -8,7 +8,7 @@
 import {
   "poteto0/endor",
   "poteto0/endor/codec",
-  "poteto0/endor/crypto",
+  "poteto0/endor/crypto/keccak",
   "poteto0/endor/eips/eip712",
   "poteto0/endor/eips/eip3009",
   "poteto0/endor/eips/eip2612",
@@ -16,6 +16,9 @@ import {
   "poteto0/endor/contract",
   "poteto0/endor/contract/erc20",
   "poteto0/endor/contract/multicall",
+  "poteto0/endor/account",
+  "poteto0/endor/account/local",
+  "poteto0/endor/wallet",
   "poteto0/endor/provider",
   "poteto0/endor/provider/browser",
   "poteto0/endor/provider/http",

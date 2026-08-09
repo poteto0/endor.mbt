@@ -10,6 +10,7 @@ pub using @types {
   type BlockTag,
   type CallRequest,
   type TransactionRequest,
+  type UnsignedTransaction,
   type Fee,
   type TxHash,
   type BlockHash,
@@ -45,6 +46,14 @@ pub using @provider {type ProviderError}
 
 ///|
 pub using @contract {type ContractError}
+
+///|
+pub using @account {type AccountError}
+
+///|
+/// A client is a transport and an account joined, so its error is either of
+/// theirs — spelled `@endor.WalletError` for the same reason the other four are.
+pub using @wallet {type WalletError}
 
 ///|
 /// EIP-712 typed data lives in its own package — the document, its validation

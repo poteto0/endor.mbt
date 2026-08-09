@@ -5,15 +5,40 @@ description: personal_sign and eth_signTypedData_v4, and what TypedData refuses 
 
 # Signing
 
-| Function                                  | JSON-RPC method        | Returns      |
-| ----------------------------------------- | ---------------------- | ------------ |
-| `@provider.sign_message(p, who, message)` | `personal_sign`        | `@endor.Hex` |
-| `@provider.sign_typed_data(p, who, doc)`  | `eth_signTypedData_v4` | `@endor.Hex` |
+| Function                                        | JSON-RPC method        | Returns      |
+| ----------------------------------------------- | ---------------------- | ------------ |
+| `@provider.sign_message(p, who, message)`       | `personal_sign`        | `@endor.Hex` |
+| `@provider.sign_message_bytes(p, who, hex)`     | `personal_sign`        | `@endor.Hex` |
+| `@provider.sign_typed_data(p, who, doc)`        | `eth_signTypedData_v4` | `@endor.Hex` |
 
-Both prompt the user — signing is the wallet's job, and the key never leaves it —
-so both raise `UserRejected` (4001) when they decline and `Unauthorized` (4100)
+These prompt the user — signing is the wallet's job, and the key never leaves it —
+so they raise `UserRejected` (4001) when they decline and `Unauthorized` (4100)
 for an account the dapp was never authorized for. The answer is the signature as
 raw `Hex`, 65 bytes of `r ‖ s ‖ v`; the SDK does not recover the signer from it.
+
+`sign_message` takes text and puts its UTF-8 bytes on the wire.
+`sign_message_bytes` takes the bytes directly, for a nonce or a hash that was
+never a string — the wallet shows those as hex, so prefer the first wherever
+the message really is text.
+
+## Or with the key in this process
+
+A wallet is not the only thing that can sign. `@local.LocalAccount` holds a
+private key and signs locally, and `@wallet.WalletClient` pairs either kind of
+account with a transport so the calling code does not change:
+
+| Call                            | With a wallet account         | With a local key                     |
+| ------------------------------- | ----------------------------- | ------------------------------------ |
+| `client.sign_message(text)`     | `personal_sign`, one prompt   | signed here, no round trip           |
+| `client.sign_typed_data(doc)`   | `eth_signTypedData_v4`        | signed here, no round trip           |
+| `client.send(to~, value~)`      | `eth_sendTransaction`         | signed here, `eth_sendRawTransaction`|
+
+Both produce the same 65 bytes over the same digest, and `v` is 27 or 28 either
+way; a verifier cannot tell them apart. The recipe is
+[Sign with a local key](../../cookbook/local-account/).
+
+An account is asynchronous even when it holds its own key, because one that
+does not has to ask and wait. `@local.LocalAccount` simply never awaits.
 
 ## personal_sign
 
@@ -100,14 +125,15 @@ each other is what `TypedData::new` does.
 
 ## The digest
 
-Nothing is hashed locally: the **wallet** computes the digest, which is why
-signing needs no keccak256 here even though `crypto/` has it.
+Where the digest is computed follows the key. Ask a **wallet** to sign and the
+wallet hashes: the calls above hand over the message or the document, not a
+hash. Sign with `@local.LocalAccount` and the SDK hashes — EIP-191 through
+`endor/eips/eip191`, EIP-712 through `endor/eips/eip712`, a transaction through
+`UnsignedTransaction::signing_digest`.
 
-`endor/eips/eip712` does implement the EIP-712 hashing — `encodeType`, `typeHash`,
-`encodeData`, `hashStruct`, `domainSeparator`, `digest` — for the callers that
-need the digest itself. Wiring it into signing is
-[#45](https://github.com/poteto0/endor.mbt/issues/45), and the thing that will
-need it is EIP-1271, not this.
+Both hashing paths are `endor/eips/eip712`'s — `encodeType`, `typeHash`,
+`encodeData`, `hashStruct`, `domainSeparator`, `digest` — and they are public
+for a caller who needs the digest itself, EIP-1271 being the case that does.
 
 ## Documents a standard already fixed
 

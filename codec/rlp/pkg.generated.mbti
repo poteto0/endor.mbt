@@ -1,0 +1,24 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/codec/rlp"
+
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn encode(Item) -> Bytes
+
+// Errors
+
+// Types and methods
+pub(all) enum Item {
+  Bytes(Bytes)
+  List(Array[Item])
+} derive(Eq, @debug.Debug)
+pub fn Item::of_bigint(@bigint.BigInt) -> Self
+pub fn Item::of_uint64(UInt64) -> Self
+
+// Type aliases
+
+// Traits

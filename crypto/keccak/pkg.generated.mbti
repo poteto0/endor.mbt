@@ -1,5 +1,5 @@
 // Generated using `moon info`, DON'T EDIT IT
-package "poteto0/endor/crypto"
+package "poteto0/endor/crypto/keccak"
 
 // Values
 pub fn keccak256(Bytes) -> Bytes

@@ -185,3 +185,70 @@ test "invalid if mixed-case checksum does not match" {
     _ => fail("expected fail, but success")
   }
 }
+
+///|
+/// go-ethereum's `crypto_test.go` test key and the address it derives — the
+/// vector that proves the whole chain, from a private key through the curve
+/// and Keccak-256 to the twenty bytes a node would see.
+test "derives the known address from a private key" {
+  let key = @secp256k1.PrivateKey::from_bytes(
+    @codec.bytes_of_digits(
+      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+    ),
+  )
+  let address = @types.Address::from_public_key(key.public_key())
+  inspect(
+    address.to_string(),
+    content="0x970e8128ab834e8eac17ab8e3812f010678cf791",
+  )
+}
+
+///|
+/// A derived address is checksummed like any other, and is the same value the
+/// parser produces from its own digits.
+test "a derived address is an ordinary address" {
+  let key = @secp256k1.PrivateKey::from_bytes(
+    @codec.bytes_of_digits(
+      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+    ),
+  )
+  let derived = @types.Address::from_public_key(key.public_key())
+  assert_eq(
+    derived,
+    @types.Address::from_string("0x970e8128ab834e8eac17ab8e3812f010678cf791"),
+  )
+  inspect(
+    derived.to_checksum_string(),
+    content="0x970E8128AB834E8EAC17Ab8E3812F010678CF791",
+  )
+}
+
+///|
+/// Only the uncompressed SEC1 form carries both coordinates, so nothing else
+/// names a point this can hash.
+test "rejects anything that is not an uncompressed public key" {
+  let key = @secp256k1.PrivateKey::from_bytes(
+    @codec.bytes_of_digits(
+      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+    ),
+  )
+  let public_key = key.public_key()
+  // The 64 coordinate bytes with the tag already stripped.
+  let untagged = public_key[1:].to_owned()
+  // The right length, the wrong tag: what a compressed key's prefix looks like.
+  let mistagged = Bytes::makei(65, i => {
+    if i == 0 {
+      b'\x02'
+    } else {
+      public_key[i]
+    }
+  })
+  for wrong in [untagged, mistagged, Bytes::new(0)] {
+    try @types.Address::from_public_key(wrong) |> ignore catch {
+      InvalidLength(_) => ()
+      e => fail("expected invalid length, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  }
+}

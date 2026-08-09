@@ -60,6 +60,8 @@ pub async fn[P : Provider] send_transaction(P, @types.TransactionRequest) -> @ty
 
 pub async fn[P : Provider] sign_message(P, @types.Address, String) -> @types.Hex raise ProviderError
 
+pub async fn[P : Provider] sign_message_bytes(P, @types.Address, @types.Hex) -> @types.Hex raise ProviderError
+
 pub async fn[P : Provider] sign_typed_data(P, @types.Address, @eip712.TypedData) -> @types.Hex raise ProviderError
 
 pub async fn[P : Provider] storage_at(P, @types.Address, @types.Hex, block? : @types.BlockTag) -> @types.Hex raise ProviderError
