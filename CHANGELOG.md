@@ -12,7 +12,97 @@ gets fixed rather than kept for compatibility. Every such change is listed under
 **Changed** with what to do about it. From 1.0 onward, the usual SemVer promise
 applies.
 
-## [Unreleased]
+## [0.7.0] - 2026-08-09
+
+### Added
+
+- **A key of your own.** Signing used to mean a wallet: there was nowhere to put
+  a private key and nothing that would use one. `@account.Account` is now the
+  trait for anything that can sign — a transaction, a message, an EIP-712
+  document — and `@local.LocalAccount::new(key)` is one that holds the 32 bytes
+  of a scalar and signs **in this process**, with no prompt and nobody to
+  approve. Underneath it: `endor/crypto/secp256k1` derives the public point and
+  signs (deterministic `k` per RFC 6979, low-`s`, a recovery id),
+  `@types.Address::from_public_key` turns the SEC1 point into an address, and
+  `endor/codec/rlp` with `@types.UnsignedTransaction` encode the EIP-1559
+  transaction that is signed and broadcast as `eth_sendRawTransaction`. This is
+  what lets a script, a backend or a test spend. It is also the danger: a key
+  anything can read is a key anything can sign with, so it belongs in a server
+  and never in a bundle a browser downloads. (#136)
+- `@wallet.WalletClient`, a transport and an account joined, so that where a
+  signature comes from stops being the caller's problem. `send`,
+  `send_transaction`, `sign_message` and `sign_typed_data` are the same calls
+  whichever account it holds: `WalletClient::new(provider, account)` pairs any
+  `Provider` with any `Account`, and `WalletClient::connect(provider)` asks the
+  wallet for its account and pairs that — a `JsonRpcAccount`, which signs by
+  asking the wallet, exactly as before. Every pairing is valid, including the
+  two that are not obvious: an HTTP endpoint with a local key (signed here, sent
+  as a raw transaction) and a browser with one (signed in the page, broadcast
+  through the wallet's transport). `WalletClient::prepare` is what makes a local
+  signature possible at all — the chain id, the nonce, the gas and the EIP-1559
+  fee pair all come from the node when they were not given, since a transaction
+  signed here is signed complete or not at all, and a field that could be
+  neither given nor worked out raises `WalletError::Incomplete`. (#136)
+- `@endor.AccountError` and `@endor.WalletError`, re-exported from the root like
+  the other error types. `WalletError` does not flatten what it caught:
+  `Provider(e)` and `Account(e)` carry the original whole, so a caller that only
+  wants to know whether the user declined still matches `Provider(UserRejected)`
+  on it, and `message()` / `is_retryable()` delegate to whichever is inside.
+  (#136)
+- **EIP-6963 wallet discovery**, for the page with more than one extension
+  installed. `globalThis.ethereum` is one slot and the last wallet to load wins
+  it, which is why a page could ask for MetaMask and get whatever else was
+  there. `BrowserProvider::discover(timeout_ms~)` dispatches
+  `eip6963:requestProvider`, collects what announces itself before the deadline,
+  and answers with a `DiscoveredWallet` per wallet — a `ProviderInfo` (`uuid`,
+  `name`, `icon`, `rdns`) and the `BrowserProvider` to drive it — falling back
+  to the injected one when nothing answers, so a wallet that only injects is
+  still found. `BrowserProvider::on_announce(f)` is the same thing without a
+  deadline, as a `Subscription`: enumeration under EIP-6963 never finishes, and
+  a picker that stays open should keep listening. On a host with no `window`
+  both give up immediately rather than waiting out the timeout. (#82)
+
+### Changed
+
+- **Breaking:** `@crypto.keccak256` is now `@keccak.keccak256`. `crypto/` became
+  a directory of subpackages the way `eips/` is, so that `crypto/keccak` sits
+  beside the new `crypto/secp256k1` rather than the hash being the whole of
+  `crypto`. Import `poteto0/endor/crypto/keccak`; nothing about `keccak256`
+  itself changed. (#136)
+- The module description, the README and the documentation site no longer
+  present this as a browser-wallet SDK with HTTP as an escape hatch. How you
+  reach a chain (an injected wallet, or a node over HTTP) and who holds the key
+  (a wallet, or your own process) are independent choices, and every pairing
+  works — which is what the pages now say.
+- Doc comments were cut back to what a caller needs: what a function answers,
+  when it raises, how it is called. The implementation's own arguments — why a
+  shape was settled on, which alternative was dropped — are gone or folded into
+  a line or two, and `moon.pkg` comments are gone entirely. No code changed.
+  (#115)
+
+### Performance
+
+- **Signature hashes are cached**, so the same `balanceOf(address)` is hashed
+  once rather than once per call — 500 times across a batched read, and once per
+  `ErrorDef` per revert. `@abi.selector` is **80× faster on `js`** and **8× on
+  `native`**; `event_topic` shares the table, since both cuts follow from the
+  canonical signature and nothing else. (#127)
+- `keccak256` does its round arithmetic on 32-bit halves rather than on
+  `UInt64`, which on `js` is a `BigInt` and pays for every shift: **3× faster**.
+  It is under every selector, every topic and every digest. (#123)
+- `@eip712.TypedData` remembers what it has already hashed instead of walking
+  the document again per field: **1.57× on `js`**, **2.28× on `native`**. (#125)
+- `@abi.Event::new` works out the signature, the topic0 and the split between
+  indexed parameters and `data` once, from the declaration; `Event::decode_log`
+  then hashes nothing and builds no string. A batch of logs decodes a median
+  **1.3–1.5× faster** on both backends. The free `decode_log` delegates to it
+  and keeps its old cost, so nothing existing changed. Less than #124 hoped for:
+  per-log keccak was not the bulk of it, and most of the time per log is still
+  unaccounted for. (#124)
+- `Address` no longer recomputes its EIP-55 checksum every time it is printed
+  for debugging. (#126)
+
+## [0.6.0] - 2026-08-08
 
 ### Added
 
@@ -101,107 +191,6 @@ false` bringing `aggregate3` down. An empty batch answers `[]` and asks the
   `{ code, message }` object EIP-1193 and JSON-RPC both carry. It was already
   there privately, behind the event path's `from_json`; a node's `error` member
   needed the same reading, and one mapping is better than two. (#19)
-
-### Changed
-
-- **Breaking:** `ProviderError` gained five variants, and
-  `ProviderError::internal` is deprecated. Nineteen different failures used to
-  flatten into `internal`, which is `Rpc(code=-32603, …)` — so a typo in a URL
-  claimed the node had had an internal error before any request left the
-  process, and telling "unreachable" from "unreadable" meant matching on the
-  message string. Each now says what happened:
-
-  | was `internal(…)`                      | is now                         |
-  | -------------------------------------- | ------------------------------ |
-  | no connection, DNS, TLS, socket closed | `Transport(String)`            |
-  | a status that is not 2xx               | `HttpStatus(code~, url~)`      |
-  | a 2xx body that is not JSON-RPC        | `MalformedResponse(String)`    |
-  | an answer of the wrong type            | `Decode(method_name~, cause~)` |
-  | a URL or an argument that is wrong     | `InvalidConfig(String)`        |
-
-  `Decode` keeps the `CodecError` **as a value** rather than interpolating it
-  into a message, so which field was wrong stays readable by a program. A
-  `catch` that matched every variant by name is no longer exhaustive; add the
-  cases, or a catch-all. (#113)
-
-- **Breaking:** `CodecError` gained `InvalidValue`, and the variants now split
-  on what is wrong with the value rather than on which decoder noticed:
-  `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are about
-  the **form**, `InvalidValue` about the **meaning**. Three checks moved onto it
-  — a number too wide for `uint256` in `@eip2612` / `@eip3009` (was
-  `InvalidLength`), a `Topic::any_of` with no alternatives (was
-  `InvalidLength`), and an EIP-712 document naming a type it never defines (was
-  `InvalidJson`, which read as "you passed broken JSON" for JSON that parsed
-  exactly as written). A `catch` matching all five by name is no longer
-  exhaustive. (#113)
-- **Breaking:** `CodecError` and `AbiError` now print through their derived
-  `Debug`, so their payload is quoted: `InvalidHex("0x0g")` where it used to be
-  `InvalidHex(0x0g)`. Code that compares `"\{e}"` against a literal has to add
-  the quotes; nothing that matches on variants is affected. The point is that
-  the variant list is the only place to edit when one is added. `JsError` gained
-  the `Show` it never had, and every error type now derives `Debug`. (#113)
-- **Breaking:** the `creation_code()` that `endor-cli abi` generates now embeds
-  the creation code as a `Bytes` literal and calls the total
-  `Hex::from_bytes`, so it can neither `abort` — which it used to, on a literal
-  the generator itself had validated — nor raise. Generated code was the one
-  place in the repository that could panic, and buying out of that with an error
-  no caller can trigger would only have moved it. The signature is unchanged
-  (`-> @types.Hex`); regenerate to get the new body. (#113)
-- **Breaking:** a call a contract **reverts** now comes back as what the
-  contract said, not as the node's `"execution reverted"` string.
-  `ContractError` gained three variants — `Revert(reason)` for
-  `Error(string)`, `Panic(code)` for the checks the Solidity compiler inserts
-  (`@contract.panic_reason` says what a code means), and
-  `CustomError(selector~, name~, args~, data~)` for a contract's own
-  `error` — and `ProviderError` gained `Reverted(code~, message~, data~)`,
-  which carries the ABI-encoded revert as it came off the wire. A `catch` that
-  matched every variant by name is no longer exhaustive; add the cases, or a
-  catch-all. Nothing that is _not_ a revert changed shape: `Rpc` and `Abi` mean
-  exactly what they meant.
-  Where the revert data sits in a JSON-RPC error differs per node, so all three
-  places are read (`error.data`, `error.data.data`,
-  `error.data.originalError.data`). A custom error decodes down to its arguments
-  when the contract was given its own declarations —
-  `Contract::new(address, errors~)`, taking `@contract.ErrorDef` values, which
-  `endor-cli abi` now generates as a `<Name>::errors()` from the `error` entries
-  of an ABI document. Without them a custom error still arrives, holding its
-  selector and raw data. The `Erc20` preset declares its own —
-  `@erc20.standard_errors()`, the six [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093)
-  errors an OpenZeppelin v5 token reverts with — so a transfer beyond a balance
-  reads back as `ERC20InsufficientBalance(sender, balance, needed)`. (#80)
-- **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
-  string that is not a decimal amount the target can hold. A `catch` that
-  matched all four by name is no longer exhaustive; add the case, or a
-  catch-all. (#77)
-- **Breaking:** EIP-712 typed data moved out of `types` into its own package,
-  `endor/eips/eip712`: `@types.TypedData` / `TypedDataDomain` / `TypedDataField`
-  are now `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. It
-  sits under `eips/` because an EIP that is a _document to be signed_ is now a
-  family — EIP-3009 below is the second, and each states which document while
-  `eip712` says how any of them is hashed. Every method
-  is unchanged, as is `@endor.TypedData` — the root re-exports the three types
-  from their new home, so a caller that spells them `@endor.…` needs no change.
-  `types` also gained a `codec` layer underneath it (`@codec`): the hex-digit
-  and 32-byte-word arithmetic the ABI encoder and EIP-712 both work in, and the
-  ABI's width and size rules as predicates. `AbiType` / `AbiValue` / `AbiError`
-  stay in `types`, where the domain types are. (#55)
-- **Breaking:** `CodecError` is now `pub(all)`, so a layer above the domain
-  types can raise one — which is what `@eip712` does for a document whose shape
-  does not match what it declares. (#55)
-- **Breaking:** `AbiError` now lives in `types` and is re-exported by `abi`, so
-  `@abi.AbiError` and `@endor.AbiError` both name it and `raise`/`catch` keep
-  working. Only its _constructors_ moved: a caller that raises one itself writes
-  `@types.InvalidData(…)` rather than `@abi.InvalidData(…)`. `AbiType::name`
-  raises it too, in place of `CodecError` — the width and size rules `abi` and
-  EIP-712 both check now have one statement each, in `codec`. (#55)
-- **Breaking:** `TypedData::encode_type` / `TypedData::type_hash` now
-  `raise CodecError`. A type name the document does not define used to panic
-  through an `unwrap`; it now raises `InvalidJson("<name> is not defined")`, the
-  same way `encodeData` already reported it. Callers add `try` / `raise` at the
-  call site. (#56)
-
-### Added
-
 - **The transaction itself**, which `types` had no way to say until now: it had
   `TransactionRequest` (what is about to be sent) and `TransactionReceipt` (what
   mining it cost) and nothing for the state in between.
@@ -350,6 +339,83 @@ topics~, data~)` checks `topics[0]` against the event's own signature hash,
   sends it and `digest()` says what was signed. Building documents is all it
   does: the preset that _sends_ `transferWithAuthorization` is #73, and it will
   read the authorization back through its accessors. (#74)
+
+### Changed
+
+- **Breaking:** `ProviderError` gained five variants, and
+  `ProviderError::internal` is deprecated. Nineteen different failures used to
+  flatten into `internal`, which is `Rpc(code=-32603, …)` — so a typo in a URL
+  claimed the node had had an internal error before any request left the
+  process, and telling "unreachable" from "unreadable" meant matching on the
+  message string. Each now says what happened:
+
+  | was `internal(…)`                      | is now                         |
+  | -------------------------------------- | ------------------------------ |
+  | no connection, DNS, TLS, socket closed | `Transport(String)`            |
+  | a status that is not 2xx               | `HttpStatus(code~, url~)`      |
+  | a 2xx body that is not JSON-RPC        | `MalformedResponse(String)`    |
+  | an answer of the wrong type            | `Decode(method_name~, cause~)` |
+  | a URL or an argument that is wrong     | `InvalidConfig(String)`        |
+
+  `Decode` keeps the `CodecError` **as a value** rather than interpolating it
+  into a message, so which field was wrong stays readable by a program. A
+  `catch` that matched every variant by name is no longer exhaustive; add the
+  cases, or a catch-all. (#113)
+
+- **Breaking:** `CodecError` gained `InvalidValue`, and the variants now split
+  on what is wrong with the value rather than on which decoder noticed:
+  `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are about
+  the **form**, `InvalidValue` about the **meaning**. Three checks moved onto it
+  — a number too wide for `uint256` in `@eip2612` / `@eip3009` (was
+  `InvalidLength`), a `Topic::any_of` with no alternatives (was
+  `InvalidLength`), and an EIP-712 document naming a type it never defines (was
+  `InvalidJson`, which read as "you passed broken JSON" for JSON that parsed
+  exactly as written). A `catch` matching all five by name is no longer
+  exhaustive. (#113)
+- **Breaking:** `CodecError` and `AbiError` now print through their derived
+  `Debug`, so their payload is quoted: `InvalidHex("0x0g")` where it used to be
+  `InvalidHex(0x0g)`. Code that compares `"\{e}"` against a literal has to add
+  the quotes; nothing that matches on variants is affected. The point is that
+  the variant list is the only place to edit when one is added. `JsError` gained
+  the `Show` it never had, and every error type now derives `Debug`. (#113)
+- **Breaking:** the `creation_code()` that `endor-cli abi` generates now embeds
+  the creation code as a `Bytes` literal and calls the total
+  `Hex::from_bytes`, so it can neither `abort` — which it used to, on a literal
+  the generator itself had validated — nor raise. Generated code was the one
+  place in the repository that could panic, and buying out of that with an error
+  no caller can trigger would only have moved it. The signature is unchanged
+  (`-> @types.Hex`); regenerate to get the new body. (#113)
+- **Breaking:** a call a contract **reverts** now comes back as what the
+  contract said, not as the node's `"execution reverted"` string.
+  `ContractError` gained three variants — `Revert(reason)` for
+  `Error(string)`, `Panic(code)` for the checks the Solidity compiler inserts
+  (`@contract.panic_reason` says what a code means), and
+  `CustomError(selector~, name~, args~, data~)` for a contract's own
+  `error` — and `ProviderError` gained `Reverted(code~, message~, data~)`,
+  which carries the ABI-encoded revert as it came off the wire. A `catch` that
+  matched every variant by name is no longer exhaustive; add the cases, or a
+  catch-all. Nothing that is _not_ a revert changed shape: `Rpc` and `Abi` mean
+  exactly what they meant.
+  Where the revert data sits in a JSON-RPC error differs per node, so all three
+  places are read (`error.data`, `error.data.data`,
+  `error.data.originalError.data`). A custom error decodes down to its arguments
+  when the contract was given its own declarations —
+  `Contract::new(address, errors~)`, taking `@contract.ErrorDef` values, which
+  `endor-cli abi` now generates as a `<Name>::errors()` from the `error` entries
+  of an ABI document. Without them a custom error still arrives, holding its
+  selector and raw data. The `Erc20` preset declares its own —
+  `@erc20.standard_errors()`, the six [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093)
+  errors an OpenZeppelin v5 token reverts with — so a transfer beyond a balance
+  reads back as `ERC20InsufficientBalance(sender, balance, needed)`. (#80)
+- **Breaking:** `CodecError` gained a fifth variant, `InvalidDecimal`, for a
+  string that is not a decimal amount the target can hold. A `catch` that
+  matched all four by name is no longer exhaustive; add the case, or a
+  catch-all. (#77)
+
+## [0.5.0] - 2026-08-01
+
+### Added
+
 - A logo: a round green planet with a small grey satellite off its lower right,
   as `website/public/logo.svg`. It is the mark beside the site title in the
   header, the favicon, and the top of the README.
@@ -398,6 +464,35 @@ topics~, data~)` checks `topics[0]` against the event's own signature hash,
   stated: `from_string` is this with the prefix taken off first, so a shortcut
   past the representation is not a shortcut past the rule. `@abi.encode` is the
   caller it exists for. (#54)
+
+### Changed
+
+- **Breaking:** EIP-712 typed data moved out of `types` into its own package,
+  `endor/eips/eip712`: `@types.TypedData` / `TypedDataDomain` / `TypedDataField`
+  are now `@eip712.…`, and `sign_typed_data` takes an `@eip712.TypedData`. It
+  sits under `eips/` because an EIP that is a _document to be signed_ is now a
+  family — EIP-3009 below is the second, and each states which document while
+  `eip712` says how any of them is hashed. Every method
+  is unchanged, as is `@endor.TypedData` — the root re-exports the three types
+  from their new home, so a caller that spells them `@endor.…` needs no change.
+  `types` also gained a `codec` layer underneath it (`@codec`): the hex-digit
+  and 32-byte-word arithmetic the ABI encoder and EIP-712 both work in, and the
+  ABI's width and size rules as predicates. `AbiType` / `AbiValue` / `AbiError`
+  stay in `types`, where the domain types are. (#55)
+- **Breaking:** `CodecError` is now `pub(all)`, so a layer above the domain
+  types can raise one — which is what `@eip712` does for a document whose shape
+  does not match what it declares. (#55)
+- **Breaking:** `AbiError` now lives in `types` and is re-exported by `abi`, so
+  `@abi.AbiError` and `@endor.AbiError` both name it and `raise`/`catch` keep
+  working. Only its _constructors_ moved: a caller that raises one itself writes
+  `@types.InvalidData(…)` rather than `@abi.InvalidData(…)`. `AbiType::name`
+  raises it too, in place of `CodecError` — the width and size rules `abi` and
+  EIP-712 both check now have one statement each, in `codec`. (#55)
+- **Breaking:** `TypedData::encode_type` / `TypedData::type_hash` now
+  `raise CodecError`. A type name the document does not define used to panic
+  through an `unwrap`; it now raises `InvalidJson("<name> is not defined")`, the
+  same way `encodeData` already reported it. Callers add `try` / `raise` at the
+  call site. (#56)
 
 ### Fixed
 
@@ -465,7 +560,9 @@ topics~, data~)` checks `topics[0]` against the event's own signature hash,
 - MetaMask connection via the EIP-1193 provider standard
 - Basic read methods
 
-[Unreleased]: https://github.com/poteto0/endor.mbt/compare/v0.4.0...HEAD
+[0.7.0]: https://github.com/poteto0/endor.mbt/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/poteto0/endor.mbt/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/poteto0/endor.mbt/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/poteto0/endor.mbt/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/poteto0/endor.mbt/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/poteto0/endor.mbt/compare/v0.1.0...v0.2.0

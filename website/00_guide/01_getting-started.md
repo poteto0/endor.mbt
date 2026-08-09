@@ -11,7 +11,11 @@ description: Install poteto0/endor, import what you need, and read an address.
 moon add poteto0/endor
 ```
 
-Then import the packages you need in your `moon.pkg`:
+Then import the packages you need in your `moon.pkg`. Which ones depends on how
+you reach a chain — an injected wallet, or a node over HTTP. This page takes the
+wallet first, because it is what the demos on this site drive; **Not in a
+browser?** below is the other one, and neither is more the real thing than the
+other.
 
 ```
 import {
@@ -38,9 +42,8 @@ needs no such line.
 
 ## Not in a browser?
 
-A wallet is needed to sign, not to read. If what you are writing is a script, a
-CLI or a server, import the HTTP transport instead of the browser one and point
-it at a node:
+If what you are writing is a script, a CLI or a server, import the HTTP
+transport instead of the browser one and point it at a node:
 
 ```
 import {
@@ -61,6 +64,12 @@ No `supported_targets` line for this one either: `@endpoint` is written against
 on `native` and `wasm`. [Read without a wallet](/cookbook/http-rpc/) is the rest
 of it — headers for a hosted node, what HTTP cannot serve, and how to plug in
 your own HTTP client.
+
+An endpoint has no user to prompt, so signing there is the account's job rather
+than the transport's: `@wallet.WalletClient` pairs the provider with an
+`@local.LocalAccount` holding a private key, and `send` signs here and
+broadcasts as `eth_sendRawTransaction`. [Sign with a local
+key](/cookbook/local-account/) is that page, warning included.
 
 ## The first call
 

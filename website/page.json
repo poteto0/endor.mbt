@@ -1,5 +1,5 @@
 {
   "title": "endor.mbt",
-  "description": "An Ethereum SDK for MoonBit — browser wallets over EIP-1193, any node over HTTP.",
+  "description": "An Ethereum SDK for MoonBit — typed JSON-RPC, contracts and signing, over a wallet or a node.",
   "layout": "home"
 }

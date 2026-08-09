@@ -11,7 +11,7 @@
 
 name = "poteto0/endor"
 
-version = "0.6.0"
+version = "0.7.0"
 
 readme = "README.mbt.md"
 
@@ -19,11 +19,20 @@ repository = "https://github.com/poteto0/endor.mbt"
 
 license = "MIT"
 
-keywords = [ "ethereum", "metamask", "wallet", "eip-1193", "dapp", "web3" ]
+keywords = [
+  "ethereum",
+  "web3",
+  "dapp",
+  "json-rpc",
+  "abi",
+  "eip-712",
+  "wallet",
+  "eip-1193",
+]
 
 preferred_target = "js"
 
-description = "An Ethereum SDK for MoonBit. Currently focused on browser wallets via the EIP-1193 provider standard."
+description = "An Ethereum SDK for MoonBit: typed JSON-RPC reads, contracts through their ABI, and signing — over a browser wallet, a node over HTTP, or a private key held in your own process."
 
 import {
   "moonbitlang/async@0.20.3",
