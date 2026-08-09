@@ -1,0 +1,34 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/account"
+
+import {
+  "moonbitlang/core/debug",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/types",
+}
+
+// Values
+
+// Errors
+pub(all) suberror AccountError {
+  NotSupported(String)
+  InvalidAccountType(String)
+  InvalidPrivateKey(String)
+  SigningFailed(String)
+} derive(Eq, @debug.Debug)
+pub fn AccountError::is_retryable(Self) -> Bool
+pub fn AccountError::message(Self) -> String
+pub impl Show for AccountError
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+pub(open) trait Account {
+  fn sign_transaction(Self, @types.UnsignedTransaction) -> @types.Hex raise AccountError
+  fn sign_message(Self, @types.Hex) -> @types.Hex raise AccountError
+  fn sign_typed_data(Self, @eip712.TypedData) -> @types.Hex raise AccountError
+  fn address(Self) -> @types.Address raise AccountError
+  fn account_type(Self) -> String
+}

@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "poteto0/endor/account/raw"
+
+import {
+  "poteto0/endor/account",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/types",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct RawAccount {
+  // private fields
+}
+pub fn RawAccount::new(@types.Hex) -> Self raise @account.AccountError
+pub impl @account.Account for RawAccount
+
+// Type aliases
+
+// Traits

@@ -5,6 +5,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "poteto0/endor/crypto/keccak",
   "poteto0/endor/codec",
+  "poteto0/endor/codec/rlp",
 }
 
 import {

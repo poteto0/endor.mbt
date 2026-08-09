@@ -1,0 +1,9 @@
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+}
+
+import {
+  "moonbitlang/core/bigint",
+  "poteto0/endor/codec",
+} for "test"
