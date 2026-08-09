@@ -97,5 +97,5 @@ pub fn hash_bytes(message : Bytes) -> @types.Hex {
       message[i - prefix.length()]
     }
   })
-  @types.Hex::from_bytes(@crypto.keccak256(signed))
+  @types.Hex::from_bytes(@keccak.keccak256(signed))
 }

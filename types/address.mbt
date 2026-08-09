@@ -7,7 +7,7 @@
 /// (nibble) of the hash is `>= 8`; the decimal digits, having no case, simply
 /// stay as they are and carry no part of the check code.
 fn eip55_body(lower_body : String) -> String {
-  let hash = @crypto.keccak256_string(lower_body)
+  let hash = @keccak.keccak256_string(lower_body)
   let out = StringBuilder::new()
   for i, c in lower_body.iter2() {
     let byte = hash[i / 2].to_int()
@@ -39,6 +39,42 @@ pub fn Address::from_string(s : String) -> Address raise CodecError {
   guard body == lower || body == lower.to_upper() || body == eip55_body(lower) else {
     raise InvalidChecksum("address fails its EIP-55 checksum: \{s}")
   }
+  Address::{ inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
+}
+
+///|
+/// The address a secp256k1 public key derives: the last 20 bytes of the
+/// Keccak-256 of its two coordinates.
+///
+/// Takes the uncompressed SEC1 form — the `0x04` tag byte followed by the 64
+/// bytes of `x` and `y`, which is what `@secp256k1.PrivateKey::public_key`
+/// hands back. The tag is what says the coordinates are there in full, so it
+/// is checked and then hashed over, exactly as Ethereum defines the
+/// derivation.
+///
+/// It lives here rather than beside the curve because `Address` is this
+/// package's type and the layers only point one way: `crypto/secp256k1` knows
+/// nothing about addresses.
+///
+/// ```
+/// let key = @secp256k1.PrivateKey::from_bytes(
+///   @codec.bytes_of_digits(
+///     "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+///   ),
+/// )
+/// let address = @types.Address::from_public_key(key.public_key())
+/// inspect(address.to_string(), content="0x970e8128ab834e8eac17ab8e3812f010678cf791")
+/// ```
+pub fn Address::from_public_key(public_key : Bytes) -> Address raise CodecError {
+  guard public_key.length() == 65 && public_key[0] == b'\x04' else {
+    raise InvalidLength(
+      "public key must be 65 uncompressed bytes tagged 0x04: \{public_key.length()} bytes",
+    )
+  }
+  let hash = @keccak.keccak256(public_key[1:].to_owned())
+  // Built rather than parsed: the digits come out of a hash, so there is no
+  // form to validate and no checksum casing to prove.
+  let lower = @codec.digits_of_bytes(hash[12:].to_owned())
   Address::{ inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
 }
 

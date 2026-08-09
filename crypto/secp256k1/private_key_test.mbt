@@ -1,9 +1,7 @@
 ///|
-/// go-ethereum's `crypto_test.go` test key, and the address it derives.
+/// go-ethereum's `crypto_test.go` test key. The address it derives is pinned
+/// where `Address` lives, in `types`.
 const TEST_PRIV = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
-
-///|
-const TEST_ADDR = "970e8128ab834e8eac17ab8e3812f010678cf791"
 
 ///|
 /// The two ends of the range a key can be in.
@@ -11,17 +9,6 @@ const KEY_ONE = "000000000000000000000000000000000000000000000000000000000000000
 
 ///|
 const KEY_LAST = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
-
-///|
-/// The address a public key derives: the last 20 bytes of the Keccak-256 of the
-/// coordinates, with the SEC1 tag byte left off. It is `types` that owns
-/// `Address`, and `types` is built on this package, so the derivation is spelled
-/// out here rather than reached for.
-fn address_of(key : @secp256k1.PrivateKey) -> String {
-  let public_key = key.public_key()
-  let hash = @crypto.keccak256(public_key[1:].to_owned())
-  @codec.digits_of_bytes(hash[12:].to_owned())
-}
 
 ///|
 /// Assert that `bytes` is turned away, and with which complaint.
@@ -38,9 +25,11 @@ fn rejects(
 }
 
 ///|
-test "public key derives the known address" {
+/// The tagged SEC1 form is what a caller hashes into an address.
+test "the public key is 65 bytes tagged 0x04" {
   let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(TEST_PRIV))
-  assert_eq(address_of(key), TEST_ADDR)
+  assert_eq(key.public_key().length(), 65)
+  assert_eq(key.public_key()[0], b'\x04')
 }
 
 ///|

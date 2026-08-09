@@ -69,7 +69,7 @@ fn signature_hash(signature : String) -> SignatureHash {
     hashes.clear()
   }
   hashes.get_or_init(signature, () => {
-    let hash = @crypto.keccak256_string(signature)
+    let hash = @keccak.keccak256_string(signature)
     {
       selector: @types.Hex::from_bytes(
         Bytes::makei(SELECTOR_SIZE, i => hash[i]),

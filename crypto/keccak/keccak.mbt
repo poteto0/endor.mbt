@@ -209,7 +209,7 @@ fn Keccak::absorb(self : Keccak, block : Bytes, from : Int) -> Unit {
 /// ```mbt check
 /// test "doc: test keccak256" {
 ///   assert_eq(
-///     @crypto.keccak256(b"abc"),
+///     @keccak.keccak256(b"abc"),
 ///     b"\x4e\x03\x65\x7a\xea\x45\xa9\x4f\xc7\xd4\x7b\xa8\x26\xc8\xd6\x67\xc0\xd1\xe6\xe3\x3a\x64\xa0\x36\xec\x44\xf5\x8f\xa1\x2d\x6c\x45",
 ///   )
 /// }
@@ -263,7 +263,7 @@ fn _sponge(input : Bytes, pad : Byte) -> Bytes {
 ///
 /// ```mbt check
 /// test "doc: keccack string" {
-///   let selector = @crypto.keccak256_string("transfer(address,uint256)")[0:4]
+///   let selector = @keccak.keccak256_string("transfer(address,uint256)")[0:4]
 ///   assert_eq(selector, b"\xa9\x05\x9c\xbb"[:])
 /// }
 /// ```
