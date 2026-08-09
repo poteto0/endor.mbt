@@ -53,6 +53,34 @@ answering with something else is caught here rather than by whichever RPC is
 handed the value later. It says the transaction was **broadcast**. It can still
 be dropped or replaced, and what it actually did is in its receipt.
 
+## Or let a client hold the pairing
+
+`send_transaction` above is the transport call: it names the sender every time,
+and it only works when the endpoint holds the key. A `WalletClient` pairs the
+transport with an account once, and then knows who is signing:
+
+```moonbit
+async fn tip_via_client(
+  browser_wallet : @browser.BrowserProvider,
+  to : @endor.Address,
+) -> Unit {
+  try {
+    let client = @wallet.WalletClient::connect(browser_wallet) // eth_requestAccounts
+    let hash = client.send(to~, value=@endor.Wei::from_int(1000))
+    println("broadcast as \{hash}")
+  } catch {
+    @wallet.Provider(UserRejected) => println("the user declined")
+    e => println("error: \{e}")
+  }
+}
+```
+
+`connect` prompts for the account and hands back a client that signs as it, so
+there is no `from` to pass and no place to pass the wrong one. The same client
+built over a key in this process — see
+[Sign with a local key](/cookbook/local-account/) — signs without a wallet and
+broadcasts the raw bytes instead, and the `send` above does not change.
+
 ## Amounts are wei
 
 `Wei::from_int(1000)` is a thousand wei, which is nothing at all. One ether is

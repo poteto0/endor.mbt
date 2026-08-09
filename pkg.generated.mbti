@@ -2,10 +2,12 @@
 package "poteto0/endor"
 
 import {
+  "poteto0/endor/account",
   "poteto0/endor/contract",
   "poteto0/endor/eips/eip712",
   "poteto0/endor/provider",
   "poteto0/endor/types",
+  "poteto0/endor/wallet",
 }
 
 // Values
@@ -20,6 +22,8 @@ pub using @types {type AbiError}
 pub using @types {type AbiType}
 
 pub using @types {type AbiValue}
+
+pub using @account {type AccountError}
 
 pub using @types {type Address}
 
@@ -74,6 +78,10 @@ pub using @eip712 {type TypedData}
 pub using @eip712 {type TypedDataDomain}
 
 pub using @eip712 {type TypedDataField}
+
+pub using @types {type UnsignedTransaction}
+
+pub using @wallet {type WalletError}
 
 pub using @types {type Wei}
 

@@ -9,9 +9,11 @@ One function asks the wallet to sign and broadcast, and it is the only one on
 this site that spends the user's money. The other, further down, broadcasts a
 transaction somebody else already signed and paid for.
 
-| Function                            | JSON-RPC method       | Returns          |
-| ----------------------------------- | --------------------- | ---------------- |
-| `@provider.send_transaction(p, req)` | `eth_sendTransaction` | `@endor.TxHash` |
+| Function                                  | JSON-RPC method          | Returns         |
+| ----------------------------------------- | ------------------------ | --------------- |
+| `@provider.send_transaction(p, req)`      | `eth_sendTransaction`    | `@endor.TxHash` |
+| `@provider.send_raw_transaction(p, hex)`  | `eth_sendRawTransaction` | `@endor.TxHash` |
+| `client.send(to~, value~)`                | whichever the account needs | `@endor.TxHash` |
 
 ```moonbit
 async fn send(
@@ -38,6 +40,33 @@ still be dropped or replaced, and what it actually did is in its receipt.
 
 Leaving `to` out is how a transaction **deploys** the contract in `data`. That is
 [`@contract.deploy`](./abi/#deploying) with the encoding done for you.
+
+## Or through a client
+
+`send_transaction` is the transport call: it names the sender on every use, and
+it only reaches a key the endpoint itself holds. `@wallet.WalletClient` pairs a
+transport with an account once and picks the route from the account:
+
+```moonbit
+async fn send_via_client(
+  browser_wallet : @browser.BrowserProvider,
+  to : @endor.Address,
+) -> @endor.TxHash raise {
+  let client = @wallet.WalletClient::connect(browser_wallet)
+  client.send(to~, value=@endor.Wei::from_int(1000))
+}
+```
+
+An account behind a wallet takes the `eth_sendTransaction` path above. An
+account holding a key — `@local.LocalAccount` — signs in this process and the
+bytes go out as `eth_sendRawTransaction`. The call is the same either way; see
+[Sign with a local key](../../cookbook/local-account/).
+
+`client.prepare(…)` is the first half on its own: it fills in the chain id, the
+nonce (from the **pending** count), the fee caps and the gas from the node, and
+answers an `@endor.UnsignedTransaction`. That round trip happens even for a
+local key, because a signature commits to those numbers and only the node knows
+them. Anything passed in is used as given and not asked about.
 
 ## Broadcasting something already signed
 

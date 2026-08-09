@@ -239,3 +239,38 @@ async test "the transport's error survives" {
     }
   })
 }
+
+///|
+/// `connect` is the three lines a dapp would otherwise write: prompt, wrap,
+/// pair. What it returns signs as whichever account the wallet named.
+async test "connect prompts and pairs in one call" {
+  @async.with_task_group(_ => {
+    let node = node().on(
+      method_name="eth_requestAccounts",
+      response=Json::array([Json::string(ANVIL_ADDRESS.to_lower())]),
+    )
+    let client = @wallet.WalletClient::connect(node)
+    assert_eq(client.address().to_checksum_string(), ANVIL_ADDRESS)
+    assert_eq(node.last_call().unwrap().0, "eth_requestAccounts")
+    // and it is the wallet that will sign, not this process
+    let hash = client.send(to=recipient(), value=@types.Wei::from_ether("1"))
+    assert_eq(hash.to_string(), "0x" + "22".repeat(32))
+  })
+}
+
+///|
+/// A user who declines the connection gets the provider's own error back.
+async test "a declined connection is UserRejected" {
+  @async.with_task_group(_ => {
+    let node = @provider.MockProvider::new().on_error(
+      method_name="eth_requestAccounts",
+      error=@provider.UserRejected,
+    )
+    try @wallet.WalletClient::connect(node) |> ignore catch {
+      Provider(UserRejected) => ()
+      e => fail("expected UserRejected, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}

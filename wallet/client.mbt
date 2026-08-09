@@ -38,6 +38,37 @@ pub fn[P, A] WalletClient::new(provider : P, account : A) -> WalletClient[P, A] 
 }
 
 ///|
+/// Prompt the wallet behind `provider` for an account, and pair it with the
+/// same transport.
+///
+/// The one call a dapp needs: `eth_requestAccounts` runs here, so the user is
+/// asked to connect, and what comes back is a client that signs as whichever
+/// account they picked. Wallets gate that prompt behind a user gesture, so
+/// call it from a click and not on load.
+///
+/// A declined prompt arrives as `Provider(UserRejected)`.
+///
+/// The address is fixed at the moment of connecting. The SDK holds no current
+/// account, so a user who switches accounts in the extension afterwards is not
+/// followed — subscribe to `@provider.on_accounts_changed` and connect again.
+///
+/// ```
+/// async fn connect_and_pay(
+///   to : @types.Address,
+/// ) -> @types.TxHash raise Error {
+///   let wallet = @browser.BrowserProvider::require()
+///   let client = @wallet.WalletClient::connect(wallet)
+///   client.send(to~, value=@types.Wei::from_ether("0.01"))
+/// }
+/// ```
+pub async fn[P : @provider.Provider] WalletClient::connect(
+  provider : P,
+) -> WalletClient[P, JsonRpcAccount[P]] raise WalletError {
+  let who = @provider.require_account(provider) catch { e => raise Provider(e) }
+  WalletClient::new(provider, JsonRpcAccount::new(provider, who))
+}
+
+///|
 /// The account this client signs as.
 pub fn[P, A : @account.Account] WalletClient::address(
   self : WalletClient[P, A],

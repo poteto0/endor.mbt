@@ -287,45 +287,51 @@ fn wei_of_ether(amount : String) -> @endor.Wei? {
 ///|
 /// Send the amount in the form to the address in the form.
 ///
-/// The whole point of the button: `send_transaction` prompts the wallet, and
+/// The whole point of the button: `WalletClient::send` prompts the wallet, and
 /// what comes back is a `TxHash` — broadcast, not yet mined. Both fields are
 /// parsed into domain types *before* the wallet is touched, so a typo costs no
 /// prompt; a mistyped checksummed address is caught by `Address::from_string`
 /// rather than by the chain.
 ///
-/// No fee is set, which is `Fee::Auto`: the wallet prices the transaction, and
-/// on any post-London chain that means EIP-1559.
+/// `WalletClient::connect` is what pairs the transport with the account: it
+/// prompts for one and hands back a client that signs as it. The identical
+/// three lines with `@local.LocalAccount` in place of the prompt would sign in
+/// this process instead and broadcast the raw bytes — the send below would not
+/// change.
+///
+/// No fee is set, so the client works one out from the chain's base fee, and
+/// the wallet may still price it again before showing the prompt.
 async fn WalletView::send(self : WalletView) -> Unit {
+  // out of the `try` below, so that block catches only the client's errors
+  let wallet = @browser.BrowserProvider::require() catch {
+    _ => {
+      self.clear(status="MetaMask not detected — install it and reload.")
+      return
+    }
+  }
+  // both fields parsed before the wallet is touched, so a typo costs no prompt
+  let to = @endor.Address::from_string(self.to_input.get().trim().to_owned()) catch {
+    _ => {
+      self.status.set("Recipient is not a valid address.")
+      return
+    }
+  }
+  guard wei_of_ether(self.amount_input.get()) is Some(value) else {
+    self.status.set("Amount must be a decimal number, e.g. 0.01.")
+    return
+  }
   try {
-    let wallet = @browser.BrowserProvider::require()
-    guard @provider.accounts(wallet).get(0) is Some(from) else {
-      self.status.set("Connect the wallet first.")
-      return
-    }
-    let to = @endor.Address::from_string(self.to_input.get().trim().to_owned()) catch {
-      _ => {
-        self.status.set("Recipient is not a valid address.")
-        return
-      }
-    }
-    guard wei_of_ether(self.amount_input.get()) is Some(value) else {
-      self.status.set("Amount must be a decimal number, e.g. 0.01.")
-      return
-    }
     self.status.set("Confirm the transaction in the wallet…")
-    let hash = @provider.send_transaction(
-      wallet,
-      @endor.TransactionRequest::new(from, to~, value~),
-    )
+    let client = @wallet.WalletClient::connect(wallet)
+    let hash = client.send(to~, value~)
     self.tx.set(hash.to_string())
     self.status.set("Broadcast. It still has to be mined.")
     // re-reading right away usually still shows the old balance: the sender is
     // poorer by the value plus the fee only once mined
-    self.show(wallet, from)
+    self.resync(wallet, client.address())
   } catch {
-    NotInstalled =>
-      self.clear(status="MetaMask not detected — install it and reload.")
-    UserRejected => self.status.set("Transaction rejected in the wallet.")
+    @wallet.Provider(@provider.UserRejected) =>
+      self.status.set("Transaction rejected in the wallet.")
     e => self.status.set("Error: \{e}")
   }
 }
