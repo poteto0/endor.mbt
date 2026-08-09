@@ -8,6 +8,7 @@ using @element {
   input,
   text,
   text_dyn,
+  for_each,
   events,
   render_to,
   type DomNode,
@@ -33,6 +34,10 @@ struct WalletView {
   /// yet.
   to_input : @signals.Signal[String]
   amount_input : @signals.Signal[String]
+  /// What EIP-6963 answered the last time the page asked, for the picker to
+  /// draw. Empty until the user asks, and empty again once they have picked —
+  /// the SDK does not remember the choice, and neither does this list.
+  wallets : @signals.Signal[Array[@browser.DiscoveredWallet]]
   /// The event subscriptions this page holds while connected. The SDK keeps no
   /// state, so the page is what turns "the wallet changed" into new signal
   /// values — and what stops listening again.
@@ -53,6 +58,7 @@ fn WalletView::new() -> WalletView {
     tx: signal(PLACEHOLDER),
     to_input: signal(""),
     amount_input: signal(""),
+    wallets: signal([]),
     watching: [],
   }
 }
@@ -207,13 +213,76 @@ async fn WalletView::connect(self : WalletView) -> Unit {
   self.clear(status="Waiting for the wallet…")
   try {
     let wallet = @browser.BrowserProvider::require()
-    self.provider_name.set(
-      if wallet.is_metamask() {
-        "MetaMask"
-      } else {
-        "EIP-1193 provider"
-      },
-    )
+    self.connect_with(wallet, name=injected_name(wallet))
+  } catch {
+    @provider.NotInstalled(_) =>
+      self.clear(status="MetaMask not detected — install it and reload.")
+    e => self.clear(status="Error: \{e}")
+  }
+}
+
+///|
+/// What to call a wallet that never announced itself: `globalThis.ethereum`
+/// carries no name, so all the page has to go on is whether it says MetaMask.
+fn injected_name(wallet : @browser.BrowserProvider) -> String {
+  if wallet.is_metamask() {
+    "MetaMask"
+  } else {
+    "EIP-1193 provider"
+  }
+}
+
+///|
+/// Ask EIP-6963 which wallets are installed, rather than taking whichever one
+/// won the injection race.
+///
+/// `discover` waits out its deadline and answers with what announced; when
+/// nothing did, the one entry is `globalThis.ethereum` with no `info` on it.
+/// The list goes straight into a signal, so the picker below is drawn from
+/// exactly what the SDK returned.
+async fn WalletView::detect_wallets(self : WalletView) -> Unit {
+  self.status.set("Asking installed wallets to announce themselves…")
+  let found = @browser.BrowserProvider::discover()
+  self.wallets.set(found)
+  self.status.set(
+    match found.length() {
+      0 => "No wallet at all — install one and reload."
+      1 => "One wallet. Pick it to connect."
+      n => "\{n} wallets. Pick one to connect."
+    },
+  )
+}
+
+///|
+/// Connect to the wallet the user picked out of the EIP-6963 list.
+///
+/// `wallet.provider` is a `BrowserProvider` like any other, so everything past
+/// this line is the same code the plain connect button runs.
+async fn WalletView::connect_to(
+  self : WalletView,
+  wallet : @browser.DiscoveredWallet,
+) -> Unit {
+  let name = match wallet.info {
+    Some(info) => info.name
+    None => injected_name(wallet.provider)
+  }
+  self.clear(status="Waiting for \{name}…")
+  // the choice is not remembered: the list is drawn again the next time the
+  // user asks, which is what the SDK being stateless costs and buys
+  self.wallets.set([])
+  self.connect_with(wallet.provider, name~)
+}
+
+///|
+/// Everything past "which provider": ask for an account, publish it, and start
+/// watching the wallet.
+async fn WalletView::connect_with(
+  self : WalletView,
+  wallet : @browser.BrowserProvider,
+  name~ : String,
+) -> Unit {
+  try {
+    self.provider_name.set(name)
     let addr = @provider.require_account(wallet)
     self.show(wallet, addr)
     self.watch(wallet)
@@ -226,8 +295,6 @@ async fn WalletView::connect(self : WalletView) -> Unit {
       },
     )
   } catch {
-    NotInstalled =>
-      self.clear(status="MetaMask not detected — install it and reload.")
     UserRejected => self.clear(status="Request rejected in the wallet.")
     e => self.clear(status="Error: \{e}")
   }
@@ -534,6 +601,31 @@ fn wallet_card() -> DomNode {
       on=events().click(_ => @js.spawn(() => view.connect())),
     ) <| [
       text("Connect wallet"),
+    ],
+    p(class="hint") <| [
+      text("…or pick one, when more than one is installed:"),
+    ],
+    div(class="wallets") <| [
+      button(
+        class="chain",
+        on=events().click(_ => @js.spawn(() => view.detect_wallets())),
+      ) <| [
+        text("Detect wallets (EIP-6963)"),
+      ],
+      // redrawn from the signal, so the buttons are whatever announced itself
+      for_each(() => view.wallets.get(), (wallet, _) => {
+        button(
+          class="chain",
+          on=events().click(_ => @js.spawn(() => view.connect_to(wallet))),
+        ) <| [
+          text(
+            match wallet.info {
+              Some(info) => info.name
+              None => "Injected wallet"
+            },
+          ),
+        ]
+      }),
     ],
     p(class="hint") <| [
       text("Send the chain's native currency:"),

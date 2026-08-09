@@ -17,9 +17,9 @@ sends the chain's native currency, and switches the wallet between chains. It
 exercises the typed RPC path:
 
 ```
-@browser.BrowserProvider::require  ->  @provider.request_accounts  ->  @provider.balance / @provider.chain_id
-                                   ->  @provider.send_transaction
-                                   ->  @provider.switch_or_add_chain
+@browser.BrowserProvider::require   ->  @provider.request_accounts  ->  @provider.balance / @provider.chain_id
+@browser.BrowserProvider::discover  ->  @provider.send_transaction
+                                    ->  @provider.switch_or_add_chain
 ```
 
 The UI is rendered from MoonBit with [luna.mbt](https://github.com/mizchi/luna.mbt):
@@ -56,6 +56,26 @@ installed and click **Connect wallet**. The card fills in with:
 - **Chain id** — decimal and hex, e.g. `1 (0x1)`
 - **Last tx** — the hash of the last transaction this page sent, once there is
   one
+
+### Picking a wallet
+
+`globalThis.ethereum` is whichever extension won the race to inject itself, so
+with two wallets installed **Connect wallet** does not let the user choose.
+**Detect wallets (EIP-6963)** does: it calls
+`@browser.BrowserProvider::discover`, which asks every installed wallet to
+announce itself and answers with what did — each entry a `ProviderInfo` (name,
+`rdns`, icon) and the `BrowserProvider` that goes with it. One button per
+answer appears; clicking one connects through *that* provider, and everything
+past the choice is the same code the plain connect button runs.
+
+A wallet that announces nothing is not left out: when no announcement arrives,
+`discover` falls back to the injected provider, which shows up as a single
+**Injected wallet** button. The list is dropped once a wallet is picked —
+the SDK remembers no choice, and neither does the page.
+
+`discover` is a deadline over a stream: enumeration has no end, since a wallet
+can be woken after the page is up. `@browser.BrowserProvider::on_announce` is
+the subscription underneath it, for a page that wants the list to keep up.
 
 ### Sending
 

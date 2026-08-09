@@ -42,6 +42,54 @@ async fn connect() -> Unit {
 `BrowserProvider::get` is the same lookup answering `None`, for a page that
 wants to render a "install a wallet" state rather than handle an error.
 
+## Two wallets installed
+
+`globalThis.ethereum` is whichever extension won the race to inject itself: with
+two wallets installed, which one `require()` hands back is not yours to decide.
+[EIP-6963](https://eips.ethereum.org/EIPS/eip-6963) is the way out — the page
+dispatches `eip6963:requestProvider`, and every wallet answers with its own
+provider and a description of itself.
+
+```moonbit
+async fn choose() -> Unit {
+  // waits ~300ms for wallets to answer, then reports what did
+  for wallet in @browser.BrowserProvider::discover() {
+    match wallet.info {
+      // an announced wallet: `rdns` is the identity to key on, `name` and
+      // `icon` are what to draw
+      Some(info) => println("\{info.name} (\{info.rdns})")
+      // the legacy `globalThis.ethereum`, which announced nothing and so names
+      // itself nowhere
+      None => println("injected wallet")
+    }
+  }
+}
+```
+
+Each `wallet.provider` is a `BrowserProvider` like any other, so the account and
+chain calls above work unchanged once the user has picked one. Nothing is
+remembered: the SDK is stateless, and which wallet the user chose is the page's
+to hold.
+
+`discover` answers an empty array only when there is no wallet at all — when
+nothing announces but something is injected, the injection is what comes back,
+so a page written against EIP-6963 still works with a wallet that only injects.
+
+Enumeration has no real end: a wallet can be woken after the page is up and will
+announce itself then. `discover`'s deadline is a convenience for drawing a
+picker once; subscribe instead when the list should keep up.
+
+```moonbit
+fn watch_wallets() -> @provider.Subscription {
+  @browser.BrowserProvider::on_announce((info, _provider) => println(
+    "\{info.name} appeared",
+  ))
+}
+```
+
+The handle unsubscribes the same way [every other
+subscription](/cookbook/events/) does.
+
 ## Prompting, and not prompting
 
 There are two ways to ask who is connected, and the difference is a popup:

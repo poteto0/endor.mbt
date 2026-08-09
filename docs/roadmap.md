@@ -41,7 +41,7 @@ unsubscribe ハンドルとして公開することで満たす — 購読側で
 | **M4** | メッセージ署名 — `personal_sign`、`eth_signTypedData_v4`（済）               | [#14](https://github.com/poteto0/endor.mbt/issues/14) |
 | **M5** | チェーン切替 — 4902 → `addEthereumChain` フォールバックまで含めて包む        | [#15](https://github.com/poteto0/endor.mbt/issues/15) |
 | **M6** | プロバイダイベント — `accountsChanged` / `chainChanged` / `disconnect`（済） | [#16](https://github.com/poteto0/endor.mbt/issues/16) |
-| **M7** | EIP-6963 — 複数の injected provider を列挙する                               | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
+| **M7** | EIP-6963 — 複数の injected provider を列挙する（済）                         | [#17](https://github.com/poteto0/endor.mbt/issues/17) |
 
 M1 を M2 より先に置いてあるのは意図的。`eth_call` は署名も承認 UI も要らないので
 `MockProvider` だけで完結して検証でき、かつ L1 への足場になる。
