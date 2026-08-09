@@ -14,6 +14,24 @@ let group_order : @bigint.BigInt = @bigint.BigInt::from_string(
 )
 
 ///|
+/// Half the group order, rounded down: the line an `s` has to be under for a
+/// signature to be the canonical one of its pair. See `Signature`.
+let half_group_order : @bigint.BigInt = (group_order - 1N) / 2N
+
+///|
+/// `a * b` in the scalar field — modulo the group order, not the field order.
+/// Signatures live here; coordinates live in the other one.
+fn mul_mod_n(a : @bigint.BigInt, b : @bigint.BigInt) -> @bigint.BigInt {
+  a * b % group_order
+}
+
+///|
+/// `a^-1` in the scalar field, by Fermat, as in `Point::to_affine`.
+fn invert_mod_n(a : @bigint.BigInt) -> @bigint.BigInt {
+  a.pow(group_order - 2N, modulus=group_order)
+}
+
+///|
 /// The x coordinate of the base point G.
 let base_x : @bigint.BigInt = @bigint.BigInt::from_string(
   "79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798",
