@@ -81,7 +81,7 @@ info-check: info
 archive-check:
   #!/usr/bin/env bash
   set -euo pipefail
-  ships=$'CHANGELOG.md\nLICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\ncodec\neips\nabi\ncontract\nprovider\nffi'
+  ships=$'CHANGELOG.md\nLICENSE\nREADME.md\nREADME.mbt.md\nendor.mbt\nmoon.mod\nmoon.pkg\npkg.generated.mbti\ntypes\ncrypto\ncodec\neips\nabi\naccount\ncontract\nprovider\nffi'
   # the file list goes to stderr, interleaved with progress and diagnostic
   # lines. Keep only what can be an archive path — a warning's box-drawing
   # gutter has no spaces either, and once read as a path it fails the check
