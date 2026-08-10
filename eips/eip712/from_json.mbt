@@ -1,27 +1,12 @@
 ///|
 /// Read back the `{ types, primaryType, domain, message }` document
-/// `eth_signTypedData_v4` takes — `to_json`'s inverse, and the way in for
-/// anything that *receives* a document rather than building one: a payload a
-/// wallet is asking about, or an adapter whose own seam is `Json` so that it
-/// depends on this package in one place.
+/// `eth_signTypedData_v4` takes — `to_json`'s inverse, for code that *receives*
+/// a document rather than building one.
 ///
-/// It ends in `TypedData::new`, so what it accepts is what that accepts: the
-/// document is validated, not merely parsed.
-///
-/// Three things the wire spells that the struct does not:
-///
-/// - **`EIP712Domain` in `types`.** Some producers declare it, some leave it to
-///   be derived. It is accepted and dropped — but only when it says exactly
-///   what `domain` derives, same fields in the same order, since that order is
-///   part of the hash and a document holding two answers would sign one of them
-///   and display the other.
-/// - **A member nothing declares.** Refused, in the document and in `domain`
-///   alike: `chainID` for `chainId` parses perfectly well, drops the field, and
-///   changes every signature. The message is already this strict in
-///   `TypedData::new`.
-/// - **`chainId` as a string.** EIP-712 spells it as a number and `to_json`
-///   emits one, but wallets pass `"1"` and `"0x1"` around too, so all three
-///   read.
+/// It ends in `TypedData::new`, so parsing a document validates it. Three
+/// things the wire spells that the struct does not: `EIP712Domain` in `types`,
+/// accepted and dropped once it agrees with the domain it is derived from; a
+/// member nothing declares, refused; and `chainId` as a string.
 ///
 /// ```mbt check
 /// test "doc: typed data from json" {
@@ -35,24 +20,25 @@
 /// }
 /// ```
 pub fn TypedData::from_json(j : Json) -> TypedData raise @types.CodecError {
-  let doc = json_object(j, what="typed data")
-  only_members(
-    doc,
-    ["types", "primaryType", "domain", "message"],
-    what="typed data",
-  )
-  let domain = domain_from_json(
-    required_member(doc, "domain", what="typed data"),
-  )
-  let types = types_from_json(
-    required_member(doc, "types", what="typed data"),
-    domain,
-  )
-  let primary_type = json_string(
-    required_member(doc, "primaryType", what="typed data"),
-    what="typed data primaryType",
-  )
-  let message = required_member(doc, "message", what="typed data")
+  let what = "typed data"
+  let doc = json_object(j, what~)
+  only_members(doc, ["types", "primaryType", "domain", "message"], what~)
+  let domain = domain_from_json(required_member(doc, "domain", what~))
+  let types = types_from_json(required_member(doc, "types", what~))
+  // the entry the document may carry and the one the domain derives are the
+  // same type: it is dropped, but only once the two agree, since the field
+  // order is part of the hash and a document holding two answers would sign
+  // one of them and display the other
+  if types.get(DOMAIN_TYPE) is Some(declared) {
+    guard declared == domain.fields() else {
+      raise @types.InvalidValue(
+        "\{DOMAIN_TYPE} does not match the domain it is derived from",
+      )
+    }
+    types.remove(DOMAIN_TYPE)
+  }
+  let primary_type = string_member(doc, "primaryType", what~)
+  let message = required_member(doc, "message", what~)
   TypedData::new(domain, primary_type~, types~, message~)
 }
 
@@ -85,25 +71,17 @@ fn domain_from_json(j : Json) -> TypedDataDomain raise @types.CodecError {
 }
 
 ///|
-/// Decode the `types` object, dropping the derived `EIP712Domain` entry once it
-/// has been checked against the domain it must agree with.
+/// Decode the `types` object, `EIP712Domain` included: what to do with that
+/// entry is `from_json`'s, since only it holds the domain to compare against.
 fn types_from_json(
   j : Json,
-  domain : TypedDataDomain,
 ) -> Map[String, Array[TypedDataField]] raise @types.CodecError {
   let types : Map[String, Array[TypedDataField]] = Map([])
   for name, entry in json_object(j, what="typed data types") {
+    let what = "type \{name}"
     let fields = []
-    for f in json_array(entry, what="type \{name}") {
-      fields.push(field_from_json(f, type_name=name))
-    }
-    if name == DOMAIN_TYPE {
-      guard fields == domain.fields() else {
-        raise @types.InvalidValue(
-          "\{DOMAIN_TYPE} does not match the domain it is derived from",
-        )
-      }
-      continue
+    for f in json_array(entry, what~) {
+      fields.push(field_from_json(f, what="\{what} field"))
     }
     types[name] = fields
   }
@@ -114,14 +92,13 @@ fn types_from_json(
 /// Decode one `{ name, type }` member of a type definition.
 fn field_from_json(
   j : Json,
-  type_name~ : String,
+  what~ : String,
 ) -> TypedDataField raise @types.CodecError {
-  let what = "\{type_name} field"
   let members = json_object(j, what~)
   only_members(members, ["name", "type"], what~)
   TypedDataField::new(
-    json_string(required_member(members, "name", what~), what="\{what} name"),
-    json_string(required_member(members, "type", what~), what="\{what} type"),
+    string_member(members, "name", what~),
+    string_member(members, "type", what~),
   )
 }
 
@@ -136,7 +113,9 @@ fn chain_id_from_json(j : Json) -> @types.ChainId raise @types.CodecError {
     type_name="uint256",
   )
   guard @codec.fits_uint(n, bits=64) else {
-    raise @types.InvalidValue("typed data domain chainId does not fit: \{n}")
+    raise @types.InvalidValue(
+      "typed data domain chainId does not fit uint64: \{n}",
+    )
   }
   @types.ChainId::new(n.to_uint64())
 }
@@ -158,6 +137,17 @@ fn json_array(j : Json, what~ : String) -> Array[Json] raise @types.CodecError {
     raise @types.InvalidJson("\{what} must be an array")
   }
   items
+}
+
+///|
+/// A member that has to be there and has to be a string: `primaryType`, and
+/// each half of a `{ name, type }` field.
+fn string_member(
+  members : Map[String, Json],
+  name : String,
+  what~ : String,
+) -> String raise @types.CodecError {
+  json_string(required_member(members, name, what~), what="\{what} \{name}")
 }
 
 ///|
