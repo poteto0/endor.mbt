@@ -11,17 +11,31 @@ const KEY_ONE = "000000000000000000000000000000000000000000000000000000000000000
 const KEY_LAST = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364140"
 
 ///|
-/// Assert that `bytes` is turned away, and with which complaint.
+/// Assert that `run` turns `what` away, and with which complaint. Every
+/// negative test in this package is this shape: the call has to raise, and the
+/// error has to be the exact one named.
+fn raises(
+  what : String,
+  expected : @secp256k1.CurveError,
+  run : () -> Unit raise @secp256k1.CurveError,
+) -> Unit raise {
+  try run() catch {
+    e => assert_eq(e, expected)
+  } noraise {
+    _ => fail("expected \{expected} for \{what}")
+  }
+}
+
+///|
+/// Assert that `bytes` is not a private key, and with which complaint.
 fn rejects(
   bytes : Bytes,
   expected : @secp256k1.CurveError,
   strict? : Bool = true,
 ) -> Unit raise {
-  try @secp256k1.PrivateKey::from_bytes(bytes, strict~) |> ignore catch {
-    e => assert_eq(e, expected)
-  } noraise {
-    _ => fail("expected \{expected} for \{bytes}")
-  }
+  raises("\{bytes}", expected, () => {
+    @secp256k1.PrivateKey::from_bytes(bytes, strict~) |> ignore
+  })
 }
 
 ///|
@@ -111,10 +125,21 @@ test "the error reads without naming the curve" {
     @secp256k1.InvalidKey("zero").message(),
     "That is not a valid private key.",
   )
+  // The length complaint is raised for a key, a digest and a signature alike,
+  // so it names none of them.
   assert_eq(
     @secp256k1.InvalidLength("need 256 bits").message(),
-    "That private key is the wrong length.",
+    "That value is the wrong length.",
+  )
+  assert_eq(
+    @secp256k1.InvalidSignature("r is zero").message(),
+    "That is not a valid signature.",
   )
   assert_false(@secp256k1.InvalidKey("zero").is_retryable())
+  assert_false(@secp256k1.InvalidSignature("r is zero").is_retryable())
   inspect(@secp256k1.InvalidKey("zero"), content="InvalidKey(\"zero\")")
+  inspect(
+    @secp256k1.InvalidSignature("r is zero"),
+    content="InvalidSignature(\"r is zero\")",
+  )
 }

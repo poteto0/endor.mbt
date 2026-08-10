@@ -1,4 +1,8 @@
 ///|
+/// go-ethereum's `crypto_test.go` test key, whose address is pinned below.
+const TEST_PRIV = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
+
+///|
 /// Address normalizes to lowercase.
 test "can normalize address" {
   inspect(
@@ -191,11 +195,7 @@ test "invalid if mixed-case checksum does not match" {
 /// vector that proves the whole chain, from a private key through the curve
 /// and Keccak-256 to the twenty bytes a node would see.
 test "derives the known address from a private key" {
-  let key = @secp256k1.PrivateKey::from_bytes(
-    @codec.bytes_of_digits(
-      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
-    ),
-  )
+  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(TEST_PRIV))
   let address = @types.Address::from_public_key(key.public_key())
   inspect(
     address.to_string(),
@@ -207,11 +207,7 @@ test "derives the known address from a private key" {
 /// A derived address is checksummed like any other, and is the same value the
 /// parser produces from its own digits.
 test "a derived address is an ordinary address" {
-  let key = @secp256k1.PrivateKey::from_bytes(
-    @codec.bytes_of_digits(
-      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
-    ),
-  )
+  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(TEST_PRIV))
   let derived = @types.Address::from_public_key(key.public_key())
   assert_eq(
     derived,
@@ -227,11 +223,7 @@ test "a derived address is an ordinary address" {
 /// Only the uncompressed SEC1 form carries both coordinates, so nothing else
 /// names a point this can hash.
 test "rejects anything that is not an uncompressed public key" {
-  let key = @secp256k1.PrivateKey::from_bytes(
-    @codec.bytes_of_digits(
-      "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
-    ),
-  )
+  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(TEST_PRIV))
   let public_key = key.public_key()
   // The 64 coordinate bytes with the tag already stripped.
   let untagged = public_key[1:].to_owned()
@@ -250,5 +242,47 @@ test "rejects anything that is not an uncompressed public key" {
     } noraise {
       _ => fail("expected fail, but success")
     }
+  }
+}
+
+///|
+/// go-ethereum's `TestSign`: its test key, the `keccak256("foo")` it signs and
+/// the 65 bytes it produces are all geth's, and the address is pinned above
+/// from geth too. Recovery has to close that loop without either side of it
+/// being something this repository chose.
+test "the geth signature recovers the geth address" {
+  let signature = @secp256k1.Signature::from_bytes(
+    @codec.bytes_of_digits(
+      "d155e94305af7e07dd8c32873e5c03cb95c9e05960ef85be9c07f671da58c737" +
+      "18c19adc397a211aa9e87e519e2038c5a3b658618db335f74f800b8e0cfeef44" +
+      "01",
+    ),
+  )
+  let digest = @keccak.keccak256(b"foo")
+  let signer = @types.Address::recover(digest, signature)
+  assert_eq(
+    signer,
+    @types.Address::from_string("0x970e8128ab834e8eac17ab8e3812f010678cf791"),
+  )
+}
+
+///|
+/// A signature that recovers nothing raises the curve's error and not the
+/// codec's: the bytes this derives from never reach the address parser.
+test "a signature that recovers nothing raises a curve error" {
+  let signature = @secp256k1.Signature::from_bytes(
+    @codec.bytes_of_digits(
+      "0000000000000000000000000000000000000000000000000000000000000005" +
+      "0000000000000000000000000000000000000000000000000000000000000001" +
+      "00",
+    ),
+  )
+  try
+    @types.Address::recover(@keccak.keccak256(b"foo"), signature) |> ignore
+  catch {
+    e =>
+      assert_eq(e, @secp256k1.InvalidSignature("r is no point's x coordinate"))
+  } noraise {
+    _ => fail("expected fail, but success")
   }
 }

@@ -4,6 +4,7 @@ package "poteto0/endor/types"
 import {
   "moonbitlang/core/bigint",
   "moonbitlang/core/debug",
+  "poteto0/endor/crypto/secp256k1",
 }
 
 // Values
@@ -73,6 +74,7 @@ pub fn Address::digits(Self) -> String
 pub fn Address::from_json(Json) -> Self raise CodecError
 pub fn Address::from_public_key(Bytes) -> Self raise CodecError
 pub fn Address::from_string(String) -> Self raise CodecError
+pub fn Address::recover(Bytes, @secp256k1.Signature) -> Self raise @secp256k1.CurveError
 pub fn Address::to_checksum_string(Self) -> String
 pub fn Address::to_json(Self) -> Json
 pub fn Address::to_string(Self) -> String

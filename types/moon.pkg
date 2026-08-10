@@ -4,10 +4,7 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/core/encoding/utf8",
   "poteto0/endor/crypto/keccak",
+  "poteto0/endor/crypto/secp256k1",
   "poteto0/endor/codec",
   "poteto0/endor/codec/rlp",
 }
-
-import {
-  "poteto0/endor/crypto/secp256k1",
-} for "test"

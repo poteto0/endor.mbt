@@ -48,10 +48,7 @@ pub fn PrivateKey::from_bytes(
   let (x, y) = scalar_base_mult(scalar)
   // Encode once: the point never changes, and the tagged bytes are the only
   // form anything asks for.
-  let public_key = b"\x04" +
-    x.to_octets(length=COORD_BYTES) +
-    y.to_octets(length=COORD_BYTES)
-  { scalar, public_key }
+  { scalar, public_key: uncompressed(x, y) }
 }
 
 ///|

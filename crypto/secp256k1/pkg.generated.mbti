@@ -11,6 +11,7 @@ import {
 pub(all) suberror CurveError {
   InvalidLength(String)
   InvalidKey(String)
+  InvalidSignature(String)
 } derive(Eq, @debug.Debug)
 pub fn CurveError::is_retryable(Self) -> Bool
 pub fn CurveError::message(Self) -> String
@@ -28,7 +29,9 @@ pub fn PrivateKey::sign(Self, Bytes) -> Signature raise CurveError
 pub struct Signature {
   // private fields
 }
+pub fn Signature::from_bytes(Bytes, v_offset? : Int) -> Self raise CurveError
 pub fn Signature::r(Self) -> Bytes
+pub fn Signature::recover(Self, Bytes) -> Bytes raise CurveError
 pub fn Signature::recovery_id(Self) -> Int
 pub fn Signature::s(Self) -> Bytes
 pub fn Signature::to_bytes(Self, v_offset? : Int) -> Bytes

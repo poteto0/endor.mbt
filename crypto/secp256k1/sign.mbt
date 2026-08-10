@@ -88,6 +88,20 @@ fn digest_scalar(digest : Bytes) -> @bigint.BigInt {
 }
 
 ///|
+/// `digest_scalar` for a digest that came off a caller rather than out of a
+/// hash function: the exact 32 bytes first, then the scalar.
+///
+/// Both public entry points that take a digest — signing and recovery — want
+/// the same check and then the same reduction, and the complaint has to read
+/// the same from either.
+fn digest_scalar_checked(digest : Bytes) -> @bigint.BigInt raise CurveError {
+  guard digest.length() == COORD_BYTES else {
+    raise InvalidLength("digest must be \{COORD_BYTES * 8} bits")
+  }
+  digest_scalar(digest)
+}
+
+///|
 /// Sign a 32-byte digest.
 ///
 /// The nonce is derived from the key and the digest by RFC 6979, so signing
@@ -113,10 +127,7 @@ pub fn PrivateKey::sign(
   self : PrivateKey,
   digest : Bytes,
 ) -> Signature raise CurveError {
-  guard digest.length() == COORD_BYTES else {
-    raise InvalidLength("digest must be \{COORD_BYTES * 8} bits")
-  }
-  let z = digest_scalar(digest)
+  let z = digest_scalar_checked(digest)
   let nonces = Nonces::new(self.scalar, z)
   // Step h asks again for a candidate that is out of range, and for the two
   // degenerate signatures. None of the three has ever been seen on this curve;
