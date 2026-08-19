@@ -40,6 +40,18 @@ applies.
   — reaches the raw contract, error table and all, for a function neither
   spells. `Erc20::transfer_topic()` and `Erc20::decode_transfer(log)` take no
   token, so they stay on `@erc20` alone. (#73, #144)
+- **Stablecoin calls a contract wallet can sign.** The four EIP-3009 / EIP-2612
+  submissions each have a second form on `@stablecoin.Stablecoin` —
+  `transfer_with_authorization_1271`, `receive_with_authorization_1271`,
+  `cancel_authorization_1271` and `permit_1271` — which send the
+  `bytes signature` overload FiatTokenV2_2, the implementation USDC runs today,
+  added beside the `(v, r, s)` one. A smart contract wallet has no private key, so
+  what it answers is not 65 bytes of ECDSA and the plain calls refuse it; the
+  token can verify it through
+  [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271), and now the SDK can send
+  it. Which form goes out is the caller's to choose rather than guessed from a
+  length: a token older than V2_2 does not carry these selectors and reverts.
+  (#145)
 - `@endor.TypedData::from_json`, the inverse of `to_json`: the
   `{ types, primaryType, domain, message }` document read back into a validated
   value. Building one was possible and reading one was not, so code that

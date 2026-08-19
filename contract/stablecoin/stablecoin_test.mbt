@@ -447,3 +447,173 @@ async test "the delegated calls are the ERC-20 ones" {
     inspect(sender(sent), content="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
   })
 }
+
+///|
+/// A signature a contract answered with: not 65 bytes, not an ECDSA pair, and
+/// nothing this SDK can check — the token asks the signer itself.
+fn contract_signature() -> @types.Hex {
+  @types.Hex::from_string("0xdeadbeef") catch {
+    e => abort("bad test signature: \{e}")
+  }
+}
+
+///|
+/// The four V2_2 selectors, spelled out so a change to the argument list shows
+/// up here rather than as a revert on chain.
+test "the bytes overloads are FiatTokenV2_2's four selectors" {
+  inspect(
+    @abi.selector(
+      "transferWithAuthorization(address,address,uint256,uint256,uint256,bytes32,bytes)",
+    ),
+    content=(
+      #|0xcf092995
+    ),
+  )
+  inspect(
+    @abi.selector(
+      "receiveWithAuthorization(address,address,uint256,uint256,uint256,bytes32,bytes)",
+    ),
+    content=(
+      #|0x88b7ab63
+    ),
+  )
+  inspect(
+    @abi.selector("cancelAuthorization(address,bytes32,bytes)"),
+    content=(
+      #|0xb7b72899
+    ),
+  )
+  inspect(
+    @abi.selector("permit(address,address,uint256,uint256,bytes)"),
+    content=(
+      #|0x9fd5a6cf
+    ),
+  )
+}
+
+///|
+/// The contract wallet's half: the same six members of the authorization, and
+/// the signature after them as `bytes` rather than as `(v, r, s)`.
+async test "transfer_with_authorization_1271 sends the signature as bytes" {
+  @async.with_task_group(_ => {
+    let wallet = sending()
+    let _ = @stablecoin.Stablecoin::new(token()).transfer_with_authorization_1271(
+      wallet,
+      submitter=relayer(),
+      authorization=authorization(),
+      signature=contract_signature(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    inspect(
+      calldata(wallet),
+      content=(
+        #|0xcf092995000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000003635c9adc5dea000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000007735940000000000000000000000000000000000000000000000000000000000000000ff00000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000004deadbeef00000000000000000000000000000000000000000000000000000000
+      ),
+    )
+  })
+}
+
+///|
+async test "receive_with_authorization_1271 differs only in the selector" {
+  @async.with_task_group(_ => {
+    let wallet = sending()
+    let _ = @stablecoin.Stablecoin::new(token()).receive_with_authorization_1271(
+      wallet,
+      submitter=payee(),
+      authorization=authorization(),
+      signature=contract_signature(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    inspect(
+      calldata(wallet)[:10].to_owned(),
+      content=(
+        #|0x88b7ab63
+      ),
+    )
+  })
+}
+
+///|
+async test "cancel_authorization_1271 sends the signature as bytes" {
+  @async.with_task_group(_ => {
+    let wallet = sending()
+    let cancellation = @eip3009.CancelAuthorization::new(
+      authorizer=holder(),
+      nonce=nonce(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    let _ = @stablecoin.Stablecoin::new(token()).cancel_authorization_1271(
+      wallet,
+      submitter=holder(),
+      cancellation~,
+      signature=contract_signature(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    inspect(
+      calldata(wallet),
+      content=(
+        #|0xb7b72899000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb9226600000000000000000000000000000000000000000000000000000000000000ff00000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000004deadbeef00000000000000000000000000000000000000000000000000000000
+      ),
+    )
+  })
+}
+
+///|
+async test "permit_1271 sends the signature as bytes" {
+  @async.with_task_group(_ => {
+    let wallet = sending()
+    let permit = @eip2612.Permit::new(
+      owner=holder(),
+      spender=payee(),
+      value=1000,
+      nonce=0,
+      deadline=2000000000,
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    let _ = @stablecoin.Stablecoin::new(token()).permit_1271(
+      wallet,
+      submitter=payee(),
+      permit~,
+      signature=contract_signature(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    inspect(
+      calldata(wallet),
+      content=(
+        #|0x9fd5a6cf000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000003e8000000000000000000000000000000000000000000000000000000007735940000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000000004deadbeef00000000000000000000000000000000000000000000000000000000
+      ),
+    )
+  })
+}
+
+///|
+/// An EOA's 65 bytes go through the bytes form too — the token unpacks them
+/// itself. What the caller chooses is the selector, never the SDK by length.
+async test "the bytes form takes a 65-byte signature as it is" {
+  @async.with_task_group(_ => {
+    let wallet = sending()
+    let _ = @stablecoin.Stablecoin::new(token()).transfer_with_authorization_1271(
+      wallet,
+      submitter=relayer(),
+      authorization=authorization(),
+      signature=signature(),
+    ) catch {
+      e => fail("unexpected error: \{e}")
+    }
+    let sent = calldata(wallet)
+    inspect(
+      sent[:10].to_owned(),
+      content=(
+        #|0xcf092995
+      ),
+    )
+    // the 65 bytes, unchanged and right where the offset points
+    inspect(sent.contains(signature().to_string()[2:]), content="true")
+  })
+}

@@ -279,7 +279,38 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization(
     submitter~,
     name="transferWithAuthorization",
     authorization~,
-    signature~,
+    tail=vrs_tail(signature),
+  )
+}
+
+///|
+/// The same transfer, for a signature a *contract* made —
+/// `transferWithAuthorization(…,bytes)`.
+///
+/// FiatTokenV2_2 — what USDC runs today — added a second spelling of each of
+/// these calls that takes the signature as `bytes` and, when the signer is a
+/// contract, asks it to vouch for the signature itself
+/// ([EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)). That is the only way
+/// a smart contract wallet can hold these tokens: it has no private key, so
+/// what it answers is not a 65-byte `(v, r, s)` and the other form refuses it
+/// here.
+///
+/// Which form to send is the caller's to say rather than this package's to
+/// guess from a length: a token older than V2_2 does not carry this selector at
+/// all, and the call reverts. An EOA's signature works under either.
+pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_1271(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  authorization~ : @eip3009.Authorization,
+  signature~ : @types.Hex,
+) -> @types.TxHash raise @contract.ContractError {
+  self.submit(
+    provider,
+    submitter~,
+    name="transferWithAuthorization",
+    authorization~,
+    tail=bytes_tail(signature),
   )
 }
 
@@ -304,19 +335,40 @@ pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization(
     submitter~,
     name="receiveWithAuthorization",
     authorization~,
-    signature~,
+    tail=vrs_tail(signature),
   )
 }
 
 ///|
-/// Both transfers, which take the same nine arguments under two names.
+/// The same receive, for a signature a contract made —
+/// `receiveWithAuthorization(…,bytes)`. See
+/// `transfer_with_authorization_1271`: V2_2 and later only.
+pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization_1271(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  authorization~ : @eip3009.Authorization,
+  signature~ : @types.Hex,
+) -> @types.TxHash raise @contract.ContractError {
+  self.submit(
+    provider,
+    submitter~,
+    name="receiveWithAuthorization",
+    authorization~,
+    tail=bytes_tail(signature),
+  )
+}
+
+///|
+/// Both transfers under both spellings: the six members of the authorization
+/// are the same everywhere, and only the signature after them differs.
 async fn[P : @provider.Provider] Stablecoin::submit(
   self : Stablecoin,
   provider : P,
   submitter~ : @types.Address,
   name~ : String,
   authorization~ : @eip3009.Authorization,
-  signature~ : @types.Hex,
+  tail~ : SignatureTail,
 ) -> @types.TxHash raise @contract.ContractError {
   let contract = self.contract()
   contract.send(
@@ -330,9 +382,7 @@ async fn[P : @provider.Provider] Stablecoin::submit(
       Uint(256),
       Uint(256),
       FixedBytes(32),
-      Uint(8),
-      FixedBytes(32),
-      FixedBytes(32),
+      ..tail.inputs,
     ],
     args=[
       Address(authorization.from()),
@@ -341,7 +391,7 @@ async fn[P : @provider.Provider] Stablecoin::submit(
       Uint(authorization.valid_after()),
       Uint(authorization.valid_before()),
       Bytes(authorization.nonce().to_bytes()),
-      ..signature_parts(signature),
+      ..tail.args,
     ],
   )
 }
@@ -360,16 +410,42 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(
   cancellation~ : @eip3009.CancelAuthorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
+  self.cancel(provider, submitter~, cancellation~, tail=vrs_tail(signature))
+}
+
+///|
+/// The same cancellation, for a signature a contract made —
+/// `cancelAuthorization(address,bytes32,bytes)`. See
+/// `transfer_with_authorization_1271`: V2_2 and later only.
+pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization_1271(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  cancellation~ : @eip3009.CancelAuthorization,
+  signature~ : @types.Hex,
+) -> @types.TxHash raise @contract.ContractError {
+  self.cancel(provider, submitter~, cancellation~, tail=bytes_tail(signature))
+}
+
+///|
+/// The cancellation under both spellings.
+async fn[P : @provider.Provider] Stablecoin::cancel(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  cancellation~ : @eip3009.CancelAuthorization,
+  tail~ : SignatureTail,
+) -> @types.TxHash raise @contract.ContractError {
   let contract = self.contract()
   contract.send(
     provider,
     from=submitter,
     name="cancelAuthorization",
-    inputs=[Address, FixedBytes(32), Uint(8), FixedBytes(32), FixedBytes(32)],
+    inputs=[Address, FixedBytes(32), ..tail.inputs],
     args=[
       Address(cancellation.authorizer()),
       Bytes(cancellation.nonce().to_bytes()),
-      ..signature_parts(signature),
+      ..tail.args,
     ],
   )
 }
@@ -389,32 +465,67 @@ pub async fn[P : @provider.Provider] Stablecoin::permit(
   permit~ : @eip2612.Permit,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
+  self.send_permit(provider, submitter~, permit~, tail=vrs_tail(signature))
+}
+
+///|
+/// The same approval, for a signature a contract made —
+/// `permit(address,address,uint256,uint256,bytes)`. See
+/// `transfer_with_authorization_1271`: V2_2 and later only.
+pub async fn[P : @provider.Provider] Stablecoin::permit_1271(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  permit~ : @eip2612.Permit,
+  signature~ : @types.Hex,
+) -> @types.TxHash raise @contract.ContractError {
+  self.send_permit(provider, submitter~, permit~, tail=bytes_tail(signature))
+}
+
+///|
+/// The approval under both spellings.
+async fn[P : @provider.Provider] Stablecoin::send_permit(
+  self : Stablecoin,
+  provider : P,
+  submitter~ : @types.Address,
+  permit~ : @eip2612.Permit,
+  tail~ : SignatureTail,
+) -> @types.TxHash raise @contract.ContractError {
   let contract = self.contract()
   contract.send(
     provider,
     from=submitter,
     name="permit",
-    inputs=[
-      Address,
-      Address,
-      Uint(256),
-      Uint(256),
-      Uint(8),
-      FixedBytes(32),
-      FixedBytes(32),
-    ],
+    inputs=[Address, Address, Uint(256), Uint(256), ..tail.inputs],
     args=[
       Address(permit.owner()),
       Address(permit.spender()),
       Uint(permit.value()),
       Uint(permit.deadline()),
-      ..signature_parts(signature),
+      ..tail.args,
     ],
   )
 }
 
 ///|
-/// The `(v, r, s)` triple every one of these calls ends with, split out of the
+/// What one of these calls ends with: the signature, and the types it is
+/// spelled under. Everything before it is the same in either form.
+priv struct SignatureTail {
+  inputs : Array[@types.AbiType]
+  args : Array[@types.AbiValue]
+}
+
+///|
+/// The signature as `bytes`, whatever it is — the V2_2 form, where the token
+/// checks it itself and a contract's answer is as good as an EOA's. Nothing is
+/// validated here because there is nothing to validate against: only the signer
+/// knows what shape its own `isValidSignature` takes.
+fn bytes_tail(signature : @types.Hex) -> SignatureTail {
+  { inputs: [Bytes], args: [Bytes(signature.to_bytes())] }
+}
+
+///|
+/// The `(v, r, s)` triple the V2 form ends with, split out of the
 /// 65 bytes a wallet answers with.
 ///
 /// The split is checked rather than sliced: `r` and `s` in range and `s` the
@@ -424,9 +535,9 @@ pub async fn[P : @provider.Provider] Stablecoin::permit(
 ///
 /// `v` is `27` or `28`. A wallet that answers `0` or `1` is spelling the same
 /// signature the way a typed transaction does, and is read as such.
-fn signature_parts(
+fn vrs_tail(
   signature : @types.Hex,
-) -> Array[@types.AbiValue] raise @contract.ContractError {
+) -> SignatureTail raise @contract.ContractError {
   let bytes = signature.to_bytes()
   guard bytes.length() == 65 else {
     raise @contract.Abi(
@@ -440,11 +551,14 @@ fn signature_parts(
     InvalidLength(why) | InvalidKey(why) | InvalidSignature(why) =>
       raise @contract.Abi(@types.InvalidData("signature: \{why}"))
   }
-  [
-    Uint(BigInt::from_int(parsed.recovery_id() + V_OFFSET)),
-    Bytes(parsed.r()),
-    Bytes(parsed.s()),
-  ]
+  {
+    inputs: [Uint(8), FixedBytes(32), FixedBytes(32)],
+    args: [
+      Uint(BigInt::from_int(parsed.recovery_id() + V_OFFSET)),
+      Bytes(parsed.r()),
+      Bytes(parsed.s()),
+    ],
+  }
 }
 
 ///|

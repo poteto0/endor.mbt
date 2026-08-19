@@ -27,6 +27,7 @@ pub async fn[P : @provider.Provider] Stablecoin::approve(Self, P, from~ : @types
 pub async fn[P : @provider.Provider] Stablecoin::authorization_state(Self, P, authorizer~ : @types.Address, nonce~ : @types.Hex) -> Bool raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::balance_of(Self, P, @types.Address) -> @bigint.BigInt raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(Self, P, submitter~ : @types.Address, cancellation~ : @eip3009.CancelAuthorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
+pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization_1271(Self, P, submitter~ : @types.Address, cancellation~ : @eip3009.CancelAuthorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
 pub fn Stablecoin::contract(Self) -> @contract.Contract
 pub async fn[P : @provider.Provider] Stablecoin::decimals(Self, P) -> Int raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::domain(Self, P, chain_id? : @types.ChainId) -> @eip712.TypedDataDomain raise @contract.ContractError
@@ -35,12 +36,15 @@ pub async fn[P : @provider.Provider] Stablecoin::name(Self, P) -> String raise @
 pub fn Stablecoin::new(@types.Address) -> Self
 pub async fn[P : @provider.Provider] Stablecoin::nonces(Self, P, @types.Address) -> @bigint.BigInt raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::permit(Self, P, submitter~ : @types.Address, permit~ : @eip2612.Permit, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
+pub async fn[P : @provider.Provider] Stablecoin::permit_1271(Self, P, submitter~ : @types.Address, permit~ : @eip2612.Permit, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization(Self, P, submitter~ : @types.Address, authorization~ : @eip3009.Authorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
+pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization_1271(Self, P, submitter~ : @types.Address, authorization~ : @eip3009.Authorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::symbol(Self, P) -> String raise @contract.ContractError
 pub fn Stablecoin::token(Self) -> @erc20.Erc20
 pub async fn[P : @provider.Provider] Stablecoin::total_supply(Self, P) -> @bigint.BigInt raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::transfer(Self, P, from~ : @types.Address, to~ : @types.Address, amount~ : @bigint.BigInt) -> @types.TxHash raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization(Self, P, submitter~ : @types.Address, authorization~ : @eip3009.Authorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
+pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_1271(Self, P, submitter~ : @types.Address, authorization~ : @eip3009.Authorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::version(Self, P) -> String raise @contract.ContractError
 
 // Type aliases
