@@ -36,19 +36,17 @@ pub fn Stablecoin::new(address : @types.Address) -> Stablecoin {
 }
 
 ///|
-/// The same token as an `@erc20.Erc20` — for handing to something that takes
-/// one. Everything it can do a `Stablecoin` can do too, so reaching for this to
-/// make a call is never necessary.
-///
-/// The two share one `Contract`: this is the token itself, not a second view of
-/// its address.
+/// The token as an `@erc20.Erc20` — for handing to something that takes one.
+/// Every call it answers this answers too, so reaching for it to *make* a call
+/// is never necessary. The event helpers are the exception: `transfer_topic()`
+/// and `decode_transfer(log)` take no token, so they live only there.
 pub fn Stablecoin::token(self : Stablecoin) -> @erc20.Erc20 {
   self.erc20
 }
 
 ///|
-/// The contract both halves are sent against.
-fn Stablecoin::contract(self : Stablecoin) -> @contract.Contract {
+/// The token as a plain contract — for a function this preset does not spell.
+pub fn Stablecoin::contract(self : Stablecoin) -> @contract.Contract {
   self.erc20.contract()
 }
 
@@ -59,7 +57,7 @@ pub fn Stablecoin::address(self : Stablecoin) -> @types.Address {
 }
 
 ///|
-/// The token's name — `name()`.
+/// The token's name — `name()`. See `@erc20.Erc20::name`.
 pub async fn[P : @provider.Provider] Stablecoin::name(
   self : Stablecoin,
   provider : P,
@@ -68,7 +66,7 @@ pub async fn[P : @provider.Provider] Stablecoin::name(
 }
 
 ///|
-/// The token's ticker — `symbol()`.
+/// The token's ticker — `symbol()`. See `@erc20.Erc20::symbol`.
 pub async fn[P : @provider.Provider] Stablecoin::symbol(
   self : Stablecoin,
   provider : P,
@@ -78,7 +76,8 @@ pub async fn[P : @provider.Provider] Stablecoin::symbol(
 
 ///|
 /// How many decimal places the token's amounts carry — `decimals()`. 18 for
-/// JPYC, 6 for USDC; it is not safe to assume either.
+/// JPYC, 6 for USDC; it is not safe to assume either. See
+/// `@erc20.Erc20::decimals`.
 pub async fn[P : @provider.Provider] Stablecoin::decimals(
   self : Stablecoin,
   provider : P,
@@ -87,7 +86,7 @@ pub async fn[P : @provider.Provider] Stablecoin::decimals(
 }
 
 ///|
-/// How many units exist — `totalSupply()`.
+/// How many units exist — `totalSupply()`. See `@erc20.Erc20::total_supply`.
 pub async fn[P : @provider.Provider] Stablecoin::total_supply(
   self : Stablecoin,
   provider : P,
@@ -96,7 +95,8 @@ pub async fn[P : @provider.Provider] Stablecoin::total_supply(
 }
 
 ///|
-/// How many units `owner` holds — `balanceOf(address)`.
+/// How many units `owner` holds — `balanceOf(address)`. See
+/// `@erc20.Erc20::balance_of`.
 pub async fn[P : @provider.Provider] Stablecoin::balance_of(
   self : Stablecoin,
   provider : P,
@@ -107,7 +107,7 @@ pub async fn[P : @provider.Provider] Stablecoin::balance_of(
 
 ///|
 /// How much of `owner`'s balance `spender` may still move —
-/// `allowance(address,address)`.
+/// `allowance(address,address)`. See `@erc20.Erc20::allowance`.
 pub async fn[P : @provider.Provider] Stablecoin::allowance(
   self : Stablecoin,
   provider : P,
@@ -118,8 +118,8 @@ pub async fn[P : @provider.Provider] Stablecoin::allowance(
 }
 
 ///|
-/// `owner`'s permit counter — `nonces(address)`, what a `@eip2612.Permit` is
-/// signed against and what `permit` spends.
+/// `owner`'s permit counter — `nonces(address)`. What a `@eip2612.Permit` is
+/// signed against and what `permit` spends; see `@erc20.Erc20::nonces`.
 pub async fn[P : @provider.Provider] Stablecoin::nonces(
   self : Stablecoin,
   provider : P,
@@ -131,7 +131,7 @@ pub async fn[P : @provider.Provider] Stablecoin::nonces(
 ///|
 /// The EIP-712 domain the token verifies signatures under —
 /// `DOMAIN_SEPARATOR()`. The hash on its own; `domain` is the whole domain,
-/// already checked against it.
+/// already checked against it. See `@erc20.Erc20::domain_separator`.
 pub async fn[P : @provider.Provider] Stablecoin::domain_separator(
   self : Stablecoin,
   provider : P,
@@ -144,6 +144,7 @@ pub async fn[P : @provider.Provider] Stablecoin::domain_separator(
 ///
 /// The half that pays for itself: `from` signs *and* sends. Its counterpart is
 /// `transfer_with_authorization`, where those are two different accounts.
+/// See `@erc20.Erc20::transfer`.
 pub async fn[P : @provider.Provider] Stablecoin::transfer(
   self : Stablecoin,
   provider : P,
@@ -157,7 +158,7 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer(
 ///|
 /// Let `spender` move up to `amount` of `from`'s units —
 /// `approve(address,uint256)`. `permit` is the same allowance signed rather
-/// than sent.
+/// than sent. See `@erc20.Erc20::approve`.
 pub async fn[P : @provider.Provider] Stablecoin::approve(
   self : Stablecoin,
   provider : P,
@@ -243,10 +244,9 @@ pub async fn[P : @provider.Provider] Stablecoin::authorization_state(
   authorizer~ : @types.Address,
   nonce~ : @types.Hex,
 ) -> Bool raise @contract.ContractError {
+  let contract = self.contract()
   @contract.bool_answer(
-    self
-    .contract()
-    .call(
+    contract.call(
       provider,
       name="authorizationState",
       inputs=[Address, FixedBytes(32)],
@@ -318,9 +318,8 @@ async fn[P : @provider.Provider] Stablecoin::submit(
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self
-  .contract()
-  .send(
+  let contract = self.contract()
+  contract.send(
     provider,
     from=submitter,
     name~,
@@ -361,9 +360,8 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(
   cancellation~ : @eip3009.CancelAuthorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self
-  .contract()
-  .send(
+  let contract = self.contract()
+  contract.send(
     provider,
     from=submitter,
     name="cancelAuthorization",
@@ -391,9 +389,8 @@ pub async fn[P : @provider.Provider] Stablecoin::permit(
   permit~ : @eip2612.Permit,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self
-  .contract()
-  .send(
+  let contract = self.contract()
+  contract.send(
     provider,
     from=submitter,
     name="permit",

@@ -53,9 +53,9 @@ JPYC has 18 decimals and USDC has 6, so `decimals()` is a read, never an
 assumption.
 
 `token()` hands out the same token as an `@erc20.Erc20`, for passing to
-something that takes one — the two share one contract. The `Transfer` log
-helpers stay on `@erc20.Erc20`: `transfer_topic()` and `decode_transfer(log)`
-take no token, so there is nothing for a preset to delegate.
+something that takes one. The `Transfer` log helpers stay there:
+`transfer_topic()` and `decode_transfer(log)` take no token, so there is nothing
+for a preset to delegate.
 
 ## The domain, read off the token
 

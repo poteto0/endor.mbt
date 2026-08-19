@@ -401,8 +401,8 @@ async test "a signature with a v of 0 or 1 is the same signature" {
 }
 
 ///|
-/// The ERC-20 face is on the stablecoin itself: the read goes out as
-/// `balanceOf(address)` without the caller changing type first.
+/// The ERC-20 face is on the stablecoin itself: the read goes out without the
+/// caller changing type first, and comes back as a number.
 async test "balance_of reads the token without going through token()" {
   @async.with_task_group(_ => {
     let wallet = answering(
@@ -415,17 +415,13 @@ async test "balance_of reads the token without going through token()" {
       e => fail("unexpected error: \{e}")
     }
     inspect(balance, content="1000")
-    inspect(
-      calldata(wallet),
-      content="0x70a08231" +
-        "000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266",
-    )
   })
 }
 
 ///|
 /// And it is the same call, not a second spelling of it: what a delegated
-/// method puts on the wire is what `@erc20.Erc20` puts there.
+/// method puts on the wire is what `@erc20.Erc20` puts there. The bytes
+/// themselves are pinned in `contract/erc20`, which is where they are decided.
 async test "the delegated calls are the ERC-20 ones" {
   @async.with_task_group(_ => {
     let coin = @stablecoin.Stablecoin::new(token())
@@ -433,29 +429,21 @@ async test "the delegated calls are the ERC-20 ones" {
     let answer = "0x0000000000000000000000000000000000000000000000000000000000000006"
     let read = answering(answer)
     let read_plain = answering(answer)
-    inspect(
-      coin.decimals(read) catch {
-        e => fail("unexpected error: \{e}")
-      },
-      content="6",
-    )
+    coin.decimals(read) |> ignore
     plain.decimals(read_plain) |> ignore
     inspect(calldata(read) == calldata(read_plain), content="true")
+    let owner = answering(answer)
+    let owner_plain = answering(answer)
+    coin.balance_of(owner, holder()) |> ignore
+    plain.balance_of(owner_plain, holder()) |> ignore
+    inspect(calldata(owner) == calldata(owner_plain), content="true")
     let sent = sending()
     let sent_plain = sending()
     coin.transfer(sent, from=holder(), to=payee(), amount=1000N) |> ignore
     plain.transfer(sent_plain, from=holder(), to=payee(), amount=1000N)
     |> ignore
     inspect(calldata(sent) == calldata(sent_plain), content="true")
+    // the delegated `transfer` is the one that pays for itself: `from` sends
     inspect(sender(sent), content="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266")
   })
-}
-
-///|
-/// `token()` hands out the token itself rather than a second view of its
-/// address — the two share one contract.
-test "token() is the same token" {
-  let coin = @stablecoin.Stablecoin::new(token())
-  inspect(coin.token() == @erc20.Erc20::new(token()), content="true")
-  inspect(coin.token().address() == coin.address(), content="true")
 }

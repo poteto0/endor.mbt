@@ -27,6 +27,7 @@ pub async fn[P : @provider.Provider] Stablecoin::approve(Self, P, from~ : @types
 pub async fn[P : @provider.Provider] Stablecoin::authorization_state(Self, P, authorizer~ : @types.Address, nonce~ : @types.Hex) -> Bool raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::balance_of(Self, P, @types.Address) -> @bigint.BigInt raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(Self, P, submitter~ : @types.Address, cancellation~ : @eip3009.CancelAuthorization, signature~ : @types.Hex) -> @types.TxHash raise @contract.ContractError
+pub fn Stablecoin::contract(Self) -> @contract.Contract
 pub async fn[P : @provider.Provider] Stablecoin::decimals(Self, P) -> Int raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::domain(Self, P, chain_id? : @types.ChainId) -> @eip712.TypedDataDomain raise @contract.ContractError
 pub async fn[P : @provider.Provider] Stablecoin::domain_separator(Self, P) -> @types.Hex raise @contract.ContractError

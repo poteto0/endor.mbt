@@ -78,8 +78,8 @@ pub fn Erc20::address(self : Erc20) -> @types.Address {
 
 ///|
 /// The token as a plain contract — for a function this preset does not spell,
-/// and for a preset built on top of ERC-20 to share rather than stand up a
-/// second `Contract` at the same address.
+/// and what a preset built on top of ERC-20 sends against rather than standing
+/// up its own at the same address.
 pub fn Erc20::contract(self : Erc20) -> @contract.Contract {
   self.contract
 }
