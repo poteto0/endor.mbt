@@ -1,0 +1,17 @@
+import {
+  "moonbitlang/core/bigint",
+  "moonbitlang/core/debug",
+  "poteto0/endor/contract",
+  "poteto0/endor/contract/erc20",
+  "poteto0/endor/crypto/secp256k1",
+  "poteto0/endor/eips/eip2612",
+  "poteto0/endor/eips/eip3009",
+  "poteto0/endor/eips/eip712",
+  "poteto0/endor/types",
+  "poteto0/endor/provider",
+}
+
+import {
+  "moonbitlang/async",
+  "poteto0/endor/abi",
+} for "test"

@@ -176,6 +176,9 @@ SDK builds it, and each answers with the same `@endor.TypedData` this page signs
 | `endor/eips/eip3009` | the transfer a holder signs and somebody else submits    | [Transfer without gas](../../cookbook/gasless-transfer/)     |
 | `endor/eips/eip2612` | `Permit` — the real one: an ERC-20 approval, signed      | [Approve without a transaction](../../cookbook/permit/)      |
 
+Both are documents, not transactions: sending what was signed is
+`@stablecoin.Stablecoin` — [Move a stablecoin](../../cookbook/stablecoin/).
+
 Reach for one of those before writing the document by hand. A standard's
 document is fixed member for member, and a member misspelled or reordered
 produces a signature that verifies as nothing.

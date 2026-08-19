@@ -38,6 +38,7 @@ explains them, so the behaviour and the description are the same thing.
 | [Read without a wallet](./http-rpc/)         | no — there is none  | no         |
 | [Read many things at once](./batch-reads/)   | no                  | no         |
 | [Sign with a local key](./local-account/)    | no — there is none  | **yes**    |
+| [Move a stablecoin](./stablecoin/)           | no — you submit     | **yes**    |
 
 And the ones that need no wallet at all:
 

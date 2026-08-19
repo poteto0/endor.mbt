@@ -25,8 +25,8 @@ by the standard rather than written by you.
 
 The other half needs a *spender* — a contract that takes the signature and calls
 `permit` before pulling the tokens — and this site has none to point at. The
-SDK's side of that, an ERC-20 preset that sends `permit`, is
-[#73](https://github.com/poteto0/endor.mbt/issues/73).
+SDK's side of that is `@stablecoin.Stablecoin::permit`: [Move a
+stablecoin](../stablecoin/).
 
   </div>
 </div>

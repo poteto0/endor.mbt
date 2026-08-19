@@ -16,6 +16,23 @@ applies.
 
 ### Added
 
+- **The submitter's half of a stablecoin.** `@stablecoin.Stablecoin` — the
+  package is `poteto0/endor/contract/stablecoin` — is `@erc20.Erc20` plus the
+  calls that *send* what a holder signed: `transfer_with_authorization`,
+  `receive_with_authorization` and `cancel_authorization` for EIP-3009, and
+  `permit` for EIP-2612. `eips/eip3009` and `eips/eip2612` built those documents
+  and reached no node, so the other half of every one of those recipes was
+  calldata a caller assembled by hand. `submitter~` is who pays for the
+  transaction, which for EIP-3009 is never the account whose units move. Also
+  `authorization_state`, the read that says whether a nonce is already spent
+  before anybody pays to find out, and `Stablecoin::domain`, which reads
+  `name()` and `version()` off the token and checks the result against its own
+  `DOMAIN_SEPARATOR()` — the domain being wrong is silent otherwise, and is the
+  way a signature comes out unusable after the user has approved it. The
+  `(v, r, s)` split is checked rather than sliced: a signature the token's
+  `ecrecover` would refuse is refused here, for the price of no transaction.
+  [Move a stablecoin](https://endor.poteto-mahiro.com/cookbook/stablecoin/) is
+  both halves, with JPYC as the example. (#73)
 - `@endor.TypedData::from_json`, the inverse of `to_json`: the
   `{ types, primaryType, domain, message }` document read back into a validated
   value. Building one was possible and reading one was not, so code that
