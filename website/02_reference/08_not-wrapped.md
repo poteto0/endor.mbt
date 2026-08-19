@@ -16,6 +16,9 @@ typed helper.
 to the wallet and lets it hash — which is correct for signing.
 [#45](https://github.com/poteto0/endor.mbt/issues/45) is about the case that
 needs the digest locally, which is EIP-1271 contract signature verification.
+`@stablecoin.Stablecoin`'s `_1271` methods are the other side of that: they
+*send* a contract's signature to a token that verifies it, and verify nothing
+themselves.
 
 **`newHeads` subscription to speed up receipt waiting.**
 [#42](https://github.com/poteto0/endor.mbt/issues/42). `wait_for_receipt` polls.

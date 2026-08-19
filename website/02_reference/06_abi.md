@@ -136,11 +136,15 @@ have `contract()`, the `@contract.Contract` underneath — already carrying
 | `receive_with_authorization(…)`            | `receiveWithAuthorization(...)` — submitter must be `to` |
 | `cancel_authorization(p, submitter~, cancellation~, signature~)` | `cancelAuthorization(...)`        |
 | `permit(p, submitter~, permit~, signature~)` | `permit(...)`                                        |
+| `…_1271(…)` — the same four                | the `bytes signature` overload FiatTokenV2_2 added     |
 | `authorization_state(p, authorizer~, nonce~)` | reads whether the nonce is spent                    |
 | `domain(p, chain_id?)`                     | reads `name()` / `version()`, checked against `DOMAIN_SEPARATOR()` |
 
 `submitter` is who sends the transaction and pays for it, which for EIP-3009 is
-never the account whose units move. The documents themselves are
+never the account whose units move. The `_1271` methods send the second
+selector FiatTokenV2_2 gave each of those four, which takes the signature as
+`bytes` so a contract wallet's can go through — the caller's to choose, since a
+token older than V2_2 does not carry them. The documents themselves are
 `endor/eips/eip3009` and `endor/eips/eip2612`, which reach no node: [Move a
 stablecoin](../../cookbook/stablecoin/) is both halves.
 

@@ -179,9 +179,42 @@ and this call moves it, so a second permit signed against the same one is
 worthless. That is the opposite of EIP-3009's nonce, which is 32 random bytes
 and lets several authorizations be in flight at once.
 
+## When the signer is a contract
+
+A smart contract wallet — Safe and the rest — has no private key, so what it
+answers is not a 65-byte `(v, r, s)`, and every call above refuses it before
+sending anything. FiatTokenV2_2, what USDC runs today, gave each of the four
+calls a second selector that takes the signature as `bytes` and asks the signing
+contract itself whether it is good
+([EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)). Those are the `_1271`
+methods:
+
+```moonbit
+async fn[P : @provider.Provider] relay_from_a_safe(
+  p : P,
+  relayer : @endor.Address,
+  authorization : @eip3009.Authorization,
+  signature : @endor.Hex,
+) -> @endor.TxHash raise {
+  jpyc().transfer_with_authorization_1271(
+    p, submitter=relayer, authorization~, signature~,
+  )
+}
+```
+
+`receive_with_authorization_1271`, `cancel_authorization_1271` and `permit_1271`
+are the other three. Everything before the signature is identical; only its type
+on the wire changes.
+
+Which form to send is yours to say, not something the SDK guesses from a length:
+**a token older than V2_2 does not carry these selectors at all**, and the call
+reverts. An EOA's 65 bytes go through either form, so the plain methods stay the
+safe default and `_1271` is what you reach for when the signer is a contract —
+or when you know the token is V2_2 and would rather let it do the unpacking.
+
 ## A signature that cannot work is refused here
 
-All four calls end in the same `(v, r, s)`, split out of the 65 bytes a wallet
+The four plain calls end in the same `(v, r, s)`, split out of the 65 bytes a wallet
 answers with. Anything that is not a signature — the wrong length, an `s` in the
 high half that the token's `ecrecover` would reject — raises before a
 transaction exists, rather than costing gas to fail on chain. A `v` of `0` or
