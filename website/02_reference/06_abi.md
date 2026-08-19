@@ -116,6 +116,28 @@ takes the scale as an argument for that reason. Reading is four `eth_call`s that
 nothing; `transfer` and `approve` sign, so they prompt and answer with a `TxHash`
 whose success is in the receipt.
 
+## The stablecoin preset
+
+`@stablecoin.Stablecoin` — the package is `poteto0/endor/contract/stablecoin` —
+is that preset plus the two extensions that make a token a stablecoin: EIP-3009,
+which lets a holder sign a transfer for somebody else to submit, and EIP-2612,
+which does the same for an approval. `token()` reaches the ERC-20 half, which is
+not repeated.
+
+| Call                                       | Sends                                                  |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `transfer_with_authorization(p, submitter~, authorization~, signature~)` | `transferWithAuthorization(...)`  |
+| `receive_with_authorization(…)`            | `receiveWithAuthorization(...)` — submitter must be `to` |
+| `cancel_authorization(p, submitter~, cancellation~, signature~)` | `cancelAuthorization(...)`        |
+| `permit(p, submitter~, permit~, signature~)` | `permit(...)`                                        |
+| `authorization_state(p, authorizer~, nonce~)` | reads whether the nonce is spent                    |
+| `domain(p, chain_id?)`                     | reads `name()` / `version()`, checked against `DOMAIN_SEPARATOR()` |
+
+`submitter` is who sends the transaction and pays for it, which for EIP-3009 is
+never the account whose units move. The documents themselves are
+`endor/eips/eip3009` and `endor/eips/eip2612`, which reach no node: [Move a
+stablecoin](../../cookbook/stablecoin/) is both halves.
+
 ## Encoding on its own
 
 `@abi` is the encoding underneath, usable without a provider:

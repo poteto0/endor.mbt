@@ -26,7 +26,7 @@ are delivered to callbacks and nowhere else.
 | [Chains](./chains/)                 | `switch_chain`, `add_chain`, `switch_or_add_chain`, `ChainParams` |
 | [Signing](./signing/)               | `sign_message`, `sign_typed_data`, `TypedData` validation         |
 | [Events](./events/)                 | the three EIP-1193 events, `Subscription`, `EventSource`          |
-| [ABI and contracts](./abi/)         | `encode` / `decode`, `Contract`, `Erc20`, `Multicall3`, `deploy`  |
+| [ABI and contracts](./abi/)         | `encode` / `decode`, `Contract`, `Erc20`, `Stablecoin`, `Multicall3`, `deploy` |
 | [Escape hatch](./escape-hatch/)     | `Provider::request`, and decoding what it answers                 |
 | [Not wrapped yet](./not-wrapped/)   | what is missing, and where it sits in the plan                    |
 | [Versioning](./versioning/)         | what counts as a breaking change while this is `0.x`              |
@@ -51,6 +51,7 @@ Errors are documented once, in the guide: [Errors](/guide/errors/).
 | `endor/contract`         | `Contract` — typed calls over the ABI layer — `PreparedCall` and `deploy`                                   |
 | `endor/contract/erc20`   | `Erc20`, the preset over `Contract` for the standard token interface                                        |
 | `endor/contract/multicall` | `Multicall3` — many prepared calls, one `eth_call`, one block                                             |
+| `endor/contract/stablecoin` | `Stablecoin` — `Erc20` plus the EIP-3009 and EIP-2612 calls a submitter sends                            |
 | `endor/account`          | the `Account` trait — sign a transaction, a message, typed data — and `AccountError`                        |
 | `endor/account/local`    | `LocalAccount` — a private key held in this process, signing with no prompt                                 |
 | `endor/wallet`           | `WalletClient`, a provider paired with an account, and `JsonRpcAccount`, the account a wallet holds         |

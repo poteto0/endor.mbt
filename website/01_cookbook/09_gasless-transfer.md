@@ -21,9 +21,8 @@ what `eips/eip3009` builds.
 
 Every other recipe here carries a widget you can click. This one does not: the
 other half of the transfer needs a _submitter_ — a service holding gas, willing
-to relay yours — and this site has none. The SDK's side of that, an ERC-20
-preset sending `transferWithAuthorization`, is
-[#73](https://github.com/poteto0/endor.mbt/issues/73).
+to relay yours — and this site has none. The SDK's side of that is
+`contract/stablecoin`: [Move a stablecoin](../stablecoin/).
 
   </div>
 </div>
@@ -176,23 +175,12 @@ async fn cancel(
 
 ## What the submitter needs
 
-The SDK does not send the transaction yet ([#73](https://github.com/poteto0/endor.mbt/issues/73)),
-but everything it will need is readable off the authorization — the six members
+The two things a relayer is handed: the authorization, which says what was
+agreed, and the signature, which says who agreed to it. Between them they are
+the nine arguments
 `transferWithAuthorization(from, to, value, validAfter, validBefore, nonce, v, r, s)`
-takes, less the signature, which is the wallet's answer:
-
-```moonbit
-fn call_arguments(auth : @eip3009.Authorization) -> Array[@abi.AbiValue] {
-  [
-    Address(auth.from()),
-    Address(auth.to()),
-    Uint(auth.value()),
-    Uint(auth.valid_after()),
-    Uint(auth.valid_before()),
-    Bytes(auth.nonce().to_bytes()),
-  ]
-}
-```
+takes, and `@stablecoin.Stablecoin` is what sends them — [Move a
+stablecoin](../stablecoin/).
 
 And if you are verifying rather than submitting,
 `auth.transfer_typed_data(domain).digest()` is what the signature was made over —
