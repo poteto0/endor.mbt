@@ -55,7 +55,8 @@ assumption.
 `token()` hands out the same token as an `@erc20.Erc20`, for passing to
 something that takes one. The `Transfer` log helpers stay there:
 `transfer_topic()` and `decode_transfer(log)` take no token, so there is nothing
-for a preset to delegate.
+for a preset to delegate. EIP-3009's own logs are read here — see
+[Which nonce the receipt burned](#which-nonce-the-receipt-burned).
 
 ## The domain, read off the token
 
@@ -104,6 +105,44 @@ took it is in the receipt, and `@erc20.Erc20::decode_transfer` reads the
 `receive_with_authorization` is the same call for the document built by
 `receive_typed_data`, and the token requires its submitter to be the recipient.
 The two are not interchangeable in either direction: the name is in the hash.
+
+## Which nonce the receipt burned
+
+The transfer tells you how much moved. It does not tell you *which*
+authorization moved it — and a relayer submitting several at once has several
+`Transfer` logs in the same block and nothing to match them against. The token
+writes `AuthorizationUsed(authorizer, nonce)` for exactly that, and this reads
+it:
+
+```moonbit
+fn burned(
+  receipt : @endor.TransactionReceipt,
+) -> Array[(@endor.Address, @endor.Hex)] raise {
+  let token = jpyc()
+  // one hash, not one per log
+  let topic = @stablecoin.Stablecoin::authorization_used_topic()
+  let out = []
+  for log in receipt.logs {
+    if log.address == token.address() &&
+      log.topics.get(0) is Some(t) &&
+      t == topic {
+      out.push(@stablecoin.Stablecoin::decode_authorization_used(log))
+    }
+  }
+  out
+}
+```
+
+A receipt holds the logs of every contract the transaction touched, so matching
+`topics[0]` is not optional — a log of another event is refused rather than
+decoded into plausible nonsense. Both parameters are `indexed`, so the whole
+event is in the topics and `data` is empty.
+
+`authorization_canceled_topic()` and `decode_authorization_canceled(log)` are
+the same pair for `AuthorizationCanceled`, which is the one worth watching: a
+cancellation writes no `Transfer` at all, so that log is the only thing in the
+receipt saying the nonce is dead rather than pending. (One `n` in `Canceled` —
+the hash is of the token's spelling.)
 
 ## Before paying for it
 

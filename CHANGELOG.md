@@ -52,6 +52,18 @@ applies.
   it. Which form goes out is the caller's to choose rather than guessed from a
   length: a token older than V2_2 does not carry these selectors and reverts.
   (#145)
+- **Reading EIP-3009 back out of a receipt.**
+  `@stablecoin.Stablecoin::authorization_used_topic()` /
+  `decode_authorization_used(log)` and
+  `authorization_canceled_topic()` / `decode_authorization_canceled(log)` answer
+  `(authorizer, nonce)` for the two logs FiatToken writes. Submitting was
+  possible and reading the result was not: a `transferWithAuthorization` also
+  writes a `Transfer`, so *how much moved* was already readable, but a relayer
+  sending several authorizations at once had no way to say which nonce each one
+  burned — which is what an EIP-3009 nonce being random rather than a counter is
+  for. The cancellation is the one with no `Transfer` beside it at all, so its
+  log is the only record in the receipt that a nonce is dead rather than
+  pending. (#146)
 - `@endor.TypedData::from_json`, the inverse of `to_json`: the
   `{ types, primaryType, domain, message }` document read back into a validated
   value. Building one was possible and reading one was not, so code that
