@@ -38,8 +38,10 @@ pub fn Stablecoin::new(address : @types.Address) -> Stablecoin {
 ///|
 /// The token as an `@erc20.Erc20` — for handing to something that takes one.
 /// Every call it answers this answers too, so reaching for it to *make* a call
-/// is never necessary. The event helpers are the exception: `transfer_topic()`
-/// and `decode_transfer(log)` take no token, so they live only there.
+/// is never necessary. The ERC-20 event helpers are the exception:
+/// `transfer_topic()` and `decode_transfer(log)` take no token, so they live
+/// only there. EIP-3009's own logs are read here, with
+/// `authorization_used_topic()` and the rest.
 pub fn Stablecoin::token(self : Stablecoin) -> @erc20.Erc20 {
   self.erc20
 }
@@ -459,6 +461,105 @@ async fn[P : @provider.Provider] Stablecoin::submit_cancellation(
       ..tail.args,
     ],
   )
+}
+
+///|
+/// `topics[0]` of the log a submitted authorization writes —
+/// `AuthorizationUsed(address,bytes32)`. What a receipt's logs are matched
+/// against to find which authorizations went through.
+pub fn Stablecoin::authorization_used_topic() -> @types.Hex {
+  authorization_used.topic0
+}
+
+///|
+/// One `AuthorizationUsed` log, read back as `(authorizer, nonce)`.
+///
+/// The nonce is what a submitter cannot get any other way: a
+/// `transferWithAuthorization` also writes a `Transfer`, so *how much moved* is
+/// readable already, but a relayer that sent several at once has no way to tell
+/// those transfers apart. Both parameters are `indexed`, so `data` is empty. A
+/// log of another event raises `Abi`.
+///
+/// ```
+/// fn burned(
+///   receipt : @endor.TransactionReceipt,
+///   token : @endor.Address,
+/// ) -> Array[(@endor.Address, @endor.Hex)] raise @contract.ContractError {
+///   let topic = @stablecoin.Stablecoin::authorization_used_topic()
+///   let out = []
+///   for log in receipt.logs {
+///     if log.address == token && log.topics.get(0) is Some(t) && t == topic {
+///       out.push(@stablecoin.Stablecoin::decode_authorization_used(log))
+///     }
+///   }
+///   out
+/// }
+/// ```
+pub fn Stablecoin::decode_authorization_used(
+  log : @types.Log,
+) -> (@types.Address, @types.Hex) raise @contract.ContractError {
+  decode_authorization_log(log, authorization_used)
+}
+
+///|
+/// `topics[0]` of the log a cancellation writes —
+/// `AuthorizationCanceled(address,bytes32)`. One `n` in `Canceled`: the
+/// signature is hashed as the token spells it, not as English does.
+pub fn Stablecoin::authorization_canceled_topic() -> @types.Hex {
+  authorization_canceled.topic0
+}
+
+///|
+/// One `AuthorizationCanceled` log, read back as `(authorizer, nonce)`.
+///
+/// See `decode_authorization_used`, whose shape this is. A cancellation writes
+/// no `Transfer` beside it, so this log is the only record in the receipt that
+/// the nonce is dead rather than pending.
+pub fn Stablecoin::decode_authorization_canceled(
+  log : @types.Log,
+) -> (@types.Address, @types.Hex) raise @contract.ContractError {
+  decode_authorization_log(log, authorization_canceled)
+}
+
+///|
+/// Either of the two logs, against a declaration already worked out.
+fn decode_authorization_log(
+  log : @types.Log,
+  event : @abi.Event,
+) -> (@types.Address, @types.Hex) raise @contract.ContractError {
+  let values = event.decode_log(topics=log.topics, data=log.data) catch {
+    e => raise @contract.Abi(e)
+  }
+  // unreachable: `decode_log` answers with the declared types, or raises
+  guard values is [Address(authorizer), Bytes(nonce)] else {
+    raise @contract.Abi(
+      @types.InvalidData("\{event} did not decode as its own types"),
+    )
+  }
+  (authorizer, @types.Hex::from_bytes(nonce))
+}
+
+///|
+/// The two declarations, worked out once rather than per log: the topic and the
+/// decoder both read them, so the signature is spelled in one place, and a
+/// receipt's worth of logs costs no signature building at all.
+let authorization_used : @abi.Event = authorization_event("AuthorizationUsed")
+
+///|
+let authorization_canceled : @abi.Event = authorization_event(
+  "AuthorizationCanceled",
+)
+
+///|
+/// EIP-3009 declares the two with the same parameters, both `indexed`, so only
+/// the name differs. The `abort` is unreachable: two elementary types.
+fn authorization_event(name : String) -> @abi.Event {
+  @abi.Event::new(name~, params=[
+    { ty: Address, indexed: true },
+    { ty: FixedBytes(32), indexed: true },
+  ]) catch {
+    e => abort("\{name}(address,bytes32) is not an event: \{e}")
+  }
 }
 
 ///|

@@ -126,9 +126,10 @@ of the table above is on it as well — `name`, `symbol`, `decimals`,
 `total_supply`, `balance_of`, `allowance`, `transfer`, `approve`, `nonces` and
 `domain_separator` all delegate to `@erc20.Erc20`. `token()` hands out the same
 token as an `@erc20.Erc20` for passing to something that takes one, and the
-`Transfer` log helpers stay there, since they take no token. Both presets also
-have `contract()`, the `@contract.Contract` underneath — already carrying
-`standard_errors()` — for a function neither of them spells.
+`Transfer` log helpers stay there, since they take no token — EIP-3009's own two
+logs are read here instead. Both presets also have `contract()`, the
+`@contract.Contract` underneath — already carrying `standard_errors()` — for a
+function neither of them spells.
 
 | Call                                       | Sends                                                  |
 | ------------------------------------------ | ------------------------------------------------------ |
@@ -139,14 +140,17 @@ have `contract()`, the `@contract.Contract` underneath — already carrying
 | `…_1271(…)` — the same four                | the `bytes signature` overload FiatTokenV2_2 added     |
 | `authorization_state(p, authorizer~, nonce~)` | reads whether the nonce is spent                    |
 | `domain(p, chain_id?)`                     | reads `name()` / `version()`, checked against `DOMAIN_SEPARATOR()` |
+| `authorization_used_topic()` / `decode_authorization_used(log)` | `AuthorizationUsed` → `(authorizer, nonce)` |
+| `authorization_canceled_topic()` / `decode_authorization_canceled(log)` | `AuthorizationCanceled`, the same pair |
 
 `submitter` is who sends the transaction and pays for it, which for EIP-3009 is
 never the account whose units move. The `_1271` methods send the second
 selector FiatTokenV2_2 gave each of those four, which takes the signature as
 `bytes` so a contract wallet's can go through — the caller's to choose, since a
-token older than V2_2 does not carry them. The documents themselves are
-`endor/eips/eip3009` and `endor/eips/eip2612`, which reach no node: [Move a
-stablecoin](../../cookbook/stablecoin/) is both halves.
+token older than V2_2 does not carry them. The last two rows are the read side:
+which nonce a receipt burned, which a `Transfer` log does not say. The documents
+themselves are `endor/eips/eip3009` and `endor/eips/eip2612`, which reach no
+node: [Move a stablecoin](../../cookbook/stablecoin/) is both halves.
 
 ## Encoding on its own
 

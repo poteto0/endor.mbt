@@ -613,3 +613,98 @@ async test "the bytes form takes a 65-byte signature as it is" {
     inspect(calldata(wallet).contains(eoa.to_string()[2:]), content="true")
   })
 }
+
+///|
+/// A log of `token`, with the topics and data given.
+fn log(topics : Array[@types.Hex], data : @types.Hex) -> @types.Log {
+  {
+    address: token(),
+    topics,
+    data,
+    block_number: 1,
+    block_hash: @types.BlockHash::from_string("0x" + "11".repeat(32)) catch {
+      e => abort("bad test hash: \{e}")
+    },
+    transaction_hash: @types.TxHash::from_string("0x" + "22".repeat(32)) catch {
+      e => abort("bad test hash: \{e}")
+    },
+    transaction_index: 0,
+    log_index: 0,
+    removed: false,
+  }
+}
+
+///|
+/// The two topics a receipt's logs are matched against. `Canceled` has one `n`
+/// — the hash is of the token's spelling, so this is worth pinning.
+test "the EIP-3009 topics are the events' own" {
+  inspect(
+    @stablecoin.Stablecoin::authorization_used_topic(),
+    content=(
+      #|0x98de503528ee59b575ef0c0a2576a82497bfc029a5685b209e9ec333479b10a5
+    ),
+  )
+  inspect(
+    @stablecoin.Stablecoin::authorization_canceled_topic(),
+    content=(
+      #|0x1cdd46ff242716cdaa72d159d339a485b3438398348d68f09d7c8c0a59353d81
+    ),
+  )
+}
+
+///|
+/// A log of one of the two events: the holder in a topic, the nonce in the
+/// next, and — both being `indexed` — nothing in `data` at all.
+fn authorization_log(topic : @types.Hex) -> @types.Log {
+  log([topic, word(holder().to_string()[2:]), nonce()], hex("0x"))
+}
+
+///|
+/// A padded word, from the digits that are not padding.
+fn word(digits : StringView) -> @types.Hex {
+  hex("0x" + "0".repeat(64 - digits.length()) + digits.to_owned())
+}
+
+///|
+/// Both parameters are `indexed`, so the whole event is in the topics and
+/// `data` is empty — the case the ERC-20 helpers never hit.
+test "decode_authorization_used reads the nonce out of the topics" {
+  let (authorizer, used) = @stablecoin.Stablecoin::decode_authorization_used(
+    authorization_log(@stablecoin.Stablecoin::authorization_used_topic()),
+  )
+  assert_eq(authorizer, holder())
+  assert_eq(used, nonce())
+}
+
+///|
+/// The cancellation writes no `Transfer`, so this log is the only thing in the
+/// receipt saying the nonce is dead rather than pending.
+test "decode_authorization_canceled reads the burned nonce" {
+  let (authorizer, burned) = @stablecoin.Stablecoin::decode_authorization_canceled(
+    authorization_log(@stablecoin.Stablecoin::authorization_canceled_topic()),
+  )
+  assert_eq(authorizer, holder())
+  assert_eq(burned, nonce())
+}
+
+///|
+/// The two events differ only in their name, and a receipt holds the logs of
+/// every contract the transaction touched — so a `canceled` log, and a
+/// `Transfer` from the same submission, both have to be refused rather than
+/// decoded into plausible nonsense.
+test "the decoders refuse a log that is not their own" {
+  for
+    other in [
+      authorization_log(@stablecoin.Stablecoin::authorization_canceled_topic()),
+      log([@erc20.Erc20::transfer_topic()], hex("0x")),
+    ] {
+    try
+      @stablecoin.Stablecoin::decode_authorization_used(other) |> ignore
+    catch {
+      Abi(_) => ()
+      e => fail("unexpected error: \{e}")
+    } noraise {
+      _ => fail("expected \{other.topics[0]} to be refused")
+    }
+  }
+}
