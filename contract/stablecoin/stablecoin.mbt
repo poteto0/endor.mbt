@@ -258,7 +258,8 @@ pub async fn[P : @provider.Provider] Stablecoin::authorization_state(
 }
 
 ///|
-/// Submit a signed authorization — `transferWithAuthorization(...)`.
+/// Submit a signed authorization —
+/// `transferWithAuthorization(…,uint8,bytes32,bytes32)`.
 ///
 /// `submitter` is who sends the transaction and pays the gas, and is *not* the
 /// account whose units move: that one is `authorization.from()`, and it signed
@@ -274,7 +275,7 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization(
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.submit(
+  self.submit_authorization(
     provider,
     submitter~,
     name="transferWithAuthorization",
@@ -305,7 +306,7 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_127
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.submit(
+  self.submit_authorization(
     provider,
     submitter~,
     name="transferWithAuthorization",
@@ -316,7 +317,7 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_127
 
 ///|
 /// Submit a signed authorization the recipient claims —
-/// `receiveWithAuthorization(...)`.
+/// `receiveWithAuthorization(…,uint8,bytes32,bytes32)`.
 ///
 /// The same transfer, except that the token also requires `submitter` to be
 /// `authorization.to()`. That is what makes the payment and the recipient's
@@ -330,7 +331,7 @@ pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization(
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.submit(
+  self.submit_authorization(
     provider,
     submitter~,
     name="receiveWithAuthorization",
@@ -350,7 +351,7 @@ pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization_1271
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.submit(
+  self.submit_authorization(
     provider,
     submitter~,
     name="receiveWithAuthorization",
@@ -362,7 +363,7 @@ pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization_1271
 ///|
 /// Both transfers under both spellings: the six members of the authorization
 /// are the same everywhere, and only the signature after them differs.
-async fn[P : @provider.Provider] Stablecoin::submit(
+async fn[P : @provider.Provider] Stablecoin::submit_authorization(
   self : Stablecoin,
   provider : P,
   submitter~ : @types.Address,
@@ -410,7 +411,12 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(
   cancellation~ : @eip3009.CancelAuthorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.cancel(provider, submitter~, cancellation~, tail=vrs_tail(signature))
+  self.submit_cancellation(
+    provider,
+    submitter~,
+    cancellation~,
+    tail=vrs_tail(signature),
+  )
 }
 
 ///|
@@ -424,12 +430,17 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization_1271(
   cancellation~ : @eip3009.CancelAuthorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.cancel(provider, submitter~, cancellation~, tail=bytes_tail(signature))
+  self.submit_cancellation(
+    provider,
+    submitter~,
+    cancellation~,
+    tail=bytes_tail(signature),
+  )
 }
 
 ///|
 /// The cancellation under both spellings.
-async fn[P : @provider.Provider] Stablecoin::cancel(
+async fn[P : @provider.Provider] Stablecoin::submit_cancellation(
   self : Stablecoin,
   provider : P,
   submitter~ : @types.Address,
@@ -465,7 +476,7 @@ pub async fn[P : @provider.Provider] Stablecoin::permit(
   permit~ : @eip2612.Permit,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.send_permit(provider, submitter~, permit~, tail=vrs_tail(signature))
+  self.submit_permit(provider, submitter~, permit~, tail=vrs_tail(signature))
 }
 
 ///|
@@ -479,12 +490,12 @@ pub async fn[P : @provider.Provider] Stablecoin::permit_1271(
   permit~ : @eip2612.Permit,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.send_permit(provider, submitter~, permit~, tail=bytes_tail(signature))
+  self.submit_permit(provider, submitter~, permit~, tail=bytes_tail(signature))
 }
 
 ///|
 /// The approval under both spellings.
-async fn[P : @provider.Provider] Stablecoin::send_permit(
+async fn[P : @provider.Provider] Stablecoin::submit_permit(
   self : Stablecoin,
   provider : P,
   submitter~ : @types.Address,

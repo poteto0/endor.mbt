@@ -44,10 +44,13 @@ fn authorization() -> @eip3009.Authorization {
 
 ///|
 fn nonce() -> @types.Hex {
-  @types.Hex::from_string(
-    "0x00000000000000000000000000000000000000000000000000000000000000ff",
-  ) catch {
-    e => abort("bad test nonce: \{e}")
+  hex("0x00000000000000000000000000000000000000000000000000000000000000ff")
+}
+
+///|
+fn hex(s : String) -> @types.Hex {
+  @types.Hex::from_string(s) catch {
+    e => abort("bad test hex: \{e}")
   }
 }
 
@@ -452,14 +455,13 @@ async test "the delegated calls are the ERC-20 ones" {
 /// A signature a contract answered with: not 65 bytes, not an ECDSA pair, and
 /// nothing this SDK can check — the token asks the signer itself.
 fn contract_signature() -> @types.Hex {
-  @types.Hex::from_string("0xdeadbeef") catch {
-    e => abort("bad test signature: \{e}")
-  }
+  hex("0xdeadbeef")
 }
 
 ///|
-/// The four V2_2 selectors, spelled out so a change to the argument list shows
-/// up here rather than as a revert on chain.
+/// The four signatures V2_2 declares beside the `(v, r, s)` ones, and what they
+/// hash to. The calldata below pins the same four bytes through the code; this
+/// is what says which signature they are.
 test "the bytes overloads are FiatTokenV2_2's four selectors" {
   inspect(
     @abi.selector(
@@ -598,22 +600,16 @@ async test "permit_1271 sends the signature as bytes" {
 async test "the bytes form takes a 65-byte signature as it is" {
   @async.with_task_group(_ => {
     let wallet = sending()
+    let eoa = signature()
     let _ = @stablecoin.Stablecoin::new(token()).transfer_with_authorization_1271(
       wallet,
       submitter=relayer(),
       authorization=authorization(),
-      signature=signature(),
+      signature=eoa,
     ) catch {
       e => fail("unexpected error: \{e}")
     }
-    let sent = calldata(wallet)
-    inspect(
-      sent[:10].to_owned(),
-      content=(
-        #|0xcf092995
-      ),
-    )
     // the 65 bytes, unchanged and right where the offset points
-    inspect(sent.contains(signature().to_string()[2:]), content="true")
+    inspect(calldata(wallet).contains(eoa.to_string()[2:]), content="true")
   })
 }

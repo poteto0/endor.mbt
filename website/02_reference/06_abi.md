@@ -141,12 +141,10 @@ have `contract()`, the `@contract.Contract` underneath — already carrying
 | `domain(p, chain_id?)`                     | reads `name()` / `version()`, checked against `DOMAIN_SEPARATOR()` |
 
 `submitter` is who sends the transaction and pays for it, which for EIP-3009 is
-never the account whose units move. The four `_1271` methods are the same calls
-under the second selector FiatTokenV2_2 — what USDC runs today — gave each of
-them, which takes the signature as `bytes` and lets a *contract* wallet vouch
-for it ([EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)); which form goes
-out is the caller's to choose, since a token older than V2_2 does not carry
-those selectors and reverts. The documents themselves are
+never the account whose units move. The `_1271` methods send the second
+selector FiatTokenV2_2 gave each of those four, which takes the signature as
+`bytes` so a contract wallet's can go through — the caller's to choose, since a
+token older than V2_2 does not carry them. The documents themselves are
 `endor/eips/eip3009` and `endor/eips/eip2612`, which reach no node: [Move a
 stablecoin](../../cookbook/stablecoin/) is both halves.
 
