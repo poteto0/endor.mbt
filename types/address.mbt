@@ -39,7 +39,16 @@ pub fn Address::from_string(s : String) -> Address raise CodecError {
   guard body == lower || body == lower.to_upper() || body == eip55_body(lower) else {
     raise InvalidChecksum("address fails its EIP-55 checksum: \{s}")
   }
-  Address::{ inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
+  Address::of_lower_digits(lower)
+}
+
+///|
+/// Build an address out of 40 lowercase hex digits already known to be 40
+/// lowercase hex digits — no `0x` to strip, nothing to validate, no checksum
+/// to prove. The two spellings the type holds are derived here, so nothing
+/// else has to know it holds two.
+fn Address::of_lower_digits(lower : String) -> Address {
+  { inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
 }
 
 ///|
@@ -71,11 +80,55 @@ pub fn Address::from_public_key(public_key : Bytes) -> Address raise CodecError 
       "public key must be 65 uncompressed bytes tagged 0x04: \{public_key.length()} bytes",
     )
   }
+  address_of_tagged_key(public_key)
+}
+
+///|
+/// The address a public key already known to be a point derives: drop the
+/// `0x04` tag, Keccak-256 the 64 coordinate bytes, keep the last 20.
+///
+/// Built rather than parsed: the input is established — by `from_public_key`
+/// off the wire, by the curve itself in `Address::recover` — and the digits
+/// come out of a hash, so there is no form to check and no checksum casing to
+/// prove. Nothing here can raise.
+fn address_of_tagged_key(public_key : Bytes) -> Address {
   let hash = @keccak.keccak256(public_key[1:].to_owned())
-  // Built rather than parsed: the digits come out of a hash, so there is no
-  // form to validate and no checksum casing to prove.
-  let lower = @codec.digits_of_bytes(hash[12:].to_owned())
-  Address::{ inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
+  Address::of_lower_digits(@codec.digits_of_bytes(hash[12:].to_owned()))
+}
+
+///|
+/// The address that signed `digest`: ecrecover, ending where Ethereum ends it.
+///
+/// `@secp256k1.Signature::recover` does the curve work and answers with the
+/// public key, because the curve package sits below this one and knows no
+/// `Address`. This is the same call with the derivation on the end, and it is
+/// the one to reach for: an address is what a contract, a log or a transaction
+/// names a signer by.
+///
+/// It raises `@secp256k1.CurveError` and nothing else. The bytes it derives
+/// from come out of the curve rather than off a wire, so there is no address
+/// to validate and no `CodecError` to raise — which is why the derivation
+/// above is a separate, infallible step.
+///
+/// Recovery is not verification: it answers with whichever address would have
+/// signed this digest, so a caller checking a signature compares the answer
+/// with the address it expected.
+///
+/// ```
+/// let key = @secp256k1.PrivateKey::from_bytes(
+///   @codec.bytes_of_digits(
+///     "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+///   ),
+/// )
+/// let digest = @keccak.keccak256(b"foo")
+/// let signer = @types.Address::recover(digest, key.sign(digest))
+/// inspect(signer.to_string(), content="0x970e8128ab834e8eac17ab8e3812f010678cf791")
+/// ```
+pub fn Address::recover(
+  digest : Bytes,
+  signature : @secp256k1.Signature,
+) -> Address raise @secp256k1.CurveError {
+  address_of_tagged_key(signature.recover(digest))
 }
 
 ///|

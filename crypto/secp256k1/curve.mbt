@@ -46,8 +46,21 @@ let base_y : @bigint.BigInt = @bigint.BigInt::from_string(
 )
 
 ///|
+/// `7`, the `b` of `y^2 = x^3 + 7` — secp256k1's curve equation, whose `a` is
+/// zero, which is why the formulas below have no `a` term.
+let curve_b : @bigint.BigInt = 7N
+
+///|
 /// Bytes in a coordinate, and in a scalar.
 const COORD_BYTES = 32
+
+///|
+/// A point in its uncompressed SEC1 form: the tag byte `0x04` and then the two
+/// coordinates, each big-endian in exactly 32 bytes. The one place the wire
+/// form is spelled — a key derives it once, recovery builds it again.
+fn uncompressed(x : @bigint.BigInt, y : @bigint.BigInt) -> Bytes {
+  b"\x04" + x.to_octets(length=COORD_BYTES) + y.to_octets(length=COORD_BYTES)
+}
 
 ///|
 /// The scalar a big-endian run of bytes spells, or `None` when that scalar is
@@ -200,7 +213,7 @@ fn Point::to_affine(self : Point) -> (@bigint.BigInt, @bigint.BigInt) {
 /// value it then holds is some `m * G` with `0 < m < N`, so none is infinity,
 /// and `m` is always even where it adds.
 fn scalar_base_mult(k : @bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) {
-  let mut acc = Point::{ x: base_x, y: base_y, z: 1N }
+  let mut acc = Point::base()
   let mut started = false
   for byte in k.to_octets(length=COORD_BYTES) {
     for bit = 7; bit >= 0; bit = bit - 1 {
@@ -217,4 +230,119 @@ fn scalar_base_mult(k : @bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) {
     }
   }
   acc.to_affine()
+}
+
+///|
+/// The point at infinity, the identity of the group. Any `z = 0` is it; this
+/// is the representative everything here builds.
+fn Point::infinity() -> Point {
+  { x: 1N, y: 1N, z: 0N }
+}
+
+///|
+/// The base point G, as a Jacobian point. Affine coordinates are the `z = 1`
+/// case, so this is `(base_x, base_y)` with nothing to divide by.
+fn Point::base() -> Point {
+  { x: base_x, y: base_y, z: 1N }
+}
+
+///|
+/// Whether this is the identity. Jacobian coordinates say so with a zero `z`,
+/// there being no affine `(x / 0, y / 0)`.
+fn Point::is_infinity(self : Point) -> Bool {
+  self.z.is_zero()
+}
+
+///|
+/// `self + other`, by `add-2007-bl` — the general addition, for two operands
+/// that are both projective and may be anything.
+///
+/// `Point::add_base` is the same sum with an affine, non-degenerate second
+/// operand and stays where it is: the signing path runs it about 256 times per
+/// signature and must not pay for the three cases below.
+///
+/// Those cases are what a general addition has and a fixed-base one does not:
+/// either operand may be infinity, and the two may name the same affine point
+/// — `h == 0` — where the chord this formula draws does not exist. There the
+/// answer is the tangent (`r == 0`, the doubling) or infinity (`r != 0`, which
+/// is `P + (-P)`).
+fn Point::add(self : Point, other : Point) -> Point {
+  if self.is_infinity() {
+    return other
+  }
+  if other.is_infinity() {
+    return self
+  }
+  let z1z1 = mul_mod(self.z, self.z)
+  let z2z2 = mul_mod(other.z, other.z)
+  let u1 = mul_mod(self.x, z2z2)
+  let u2 = mul_mod(other.x, z1z1)
+  let s1 = mul_mod(mul_mod(self.y, other.z), z2z2)
+  let s2 = mul_mod(mul_mod(other.y, self.z), z1z1)
+  let h = sub_mod(u2, u1)
+  let r = scale_mod(sub_mod(s2, s1), 2)
+  if h.is_zero() {
+    return if r.is_zero() { self.double() } else { Point::infinity() }
+  }
+  let hh = mul_mod(h, h)
+  let i = scale_mod(hh, 4)
+  let j = mul_mod(h, i)
+  let v = mul_mod(u1, i)
+  let x = sub_mod(sub_mod(mul_mod(r, r), j), scale_mod(v, 2))
+  let z_sum = add_mod(self.z, other.z)
+  {
+    x,
+    y: sub_mod(mul_mod(r, sub_mod(v, x)), scale_mod(mul_mod(s1, j), 2)),
+    z: mul_mod(sub_mod(sub_mod(mul_mod(z_sum, z_sum), z1z1), z2z2), h),
+  }
+}
+
+///|
+/// `k * point`, by double-and-add over the bits of `k`, most significant
+/// first.
+///
+/// Unlike `scalar_base_mult` this takes any `k`, including zero — which gives
+/// infinity — and any point, so the accumulator starts at infinity and doubles
+/// through the leading zeros rather than skipping to the first set bit. That
+/// costs next to nothing: the scalars reaching here are near-uniform in
+/// `[0, N)`, so there is about one leading zero, and doubling infinity is
+/// small-integer arithmetic whose `add` short-circuits. The cost of this
+/// ladder is the 256 general additions, not its start.
+fn scalar_mult(point : Point, k : @bigint.BigInt) -> Point {
+  let mut acc = Point::infinity()
+  for byte in k.to_octets(length=COORD_BYTES) {
+    for bit = 7; bit >= 0; bit = bit - 1 {
+      acc = acc.double()
+      if ((byte.to_int() >> bit) & 1) == 1 {
+        acc = acc.add(point)
+      }
+    }
+  }
+  acc
+}
+
+///|
+/// The exponent that takes a square root in the coordinate field: `(p + 1) / 4`.
+///
+/// It works because `p ≡ 3 (mod 4)` on this curve, which makes `a^((p+1)/4)` a
+/// square root of `a` whenever `a` has one at all. It does not say whether `a`
+/// has one, so the caller squares the answer back.
+let sqrt_exponent : @bigint.BigInt = (field_order + 1N) / 4N
+
+///|
+/// A square root of `a` in the coordinate field, or `None` when `a` is not a
+/// square there — half the field is not, and an `r` that is no point's x
+/// coordinate is exactly that case.
+///
+/// Which of the two roots comes back is not specified; `-root` is the other,
+/// and the caller picks by parity.
+fn sqrt_mod_p(a : @bigint.BigInt) -> @bigint.BigInt? {
+  let root = a.pow(sqrt_exponent, modulus=field_order)
+  // The exponent answers for every input; only squaring back says whether the
+  // answer is a root or a leftover.
+  if mul_mod(root, root) == a {
+    Some(root)
+  } else {
+    None
+  }
 }
