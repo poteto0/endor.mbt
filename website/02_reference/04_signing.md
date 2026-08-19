@@ -123,6 +123,36 @@ The message stays `Json`, because a value is only meaningful against the type it
 is declared as, and that declaration lives in `types` — checking the two against
 each other is what `TypedData::new` does.
 
+## Reading a document back
+
+`TypedData::from_json` is `to_json`'s inverse: the way in for code that
+**receives** a document rather than building one — a payload a wallet is asking
+about, or an adapter whose own seam is `Json` so that only one package of it
+depends on endor.
+
+```moonbit
+fn read_document(payload : Json) -> String raise @endor.CodecError {
+  @endor.TypedData::from_json(payload).primary_type()
+}
+```
+
+It ends in `TypedData::new`, so everything the section above lists is checked
+here too: parsing a document validates it. Three things the wire spells that the
+struct does not:
+
+- **`EIP712Domain` in `types`.** Some producers declare it, some leave it to be
+  derived. It is accepted and dropped — but only when it says exactly what
+  `domain` derives, the same fields in the same order, since that order is part
+  of the hash and a document holding two answers would sign one of them and
+  display the other.
+- **A member nothing declares.** Refused, in the document and in `domain` alike:
+  `chainID` for `chainId` parses perfectly well, drops the field, and changes
+  every signature made against the document.
+- **`chainId` as a string.** EIP-712 spells it as a number and `to_json` emits
+  one, but wallets pass `"1"` and `"0x1"` around too, so all three read. A chain
+  id past `2^64` is refused: it is a well-formed document naming a chain
+  `ChainId` cannot hold.
+
 ## The digest
 
 Where the digest is computed follows the key. Ask a **wallet** to sign and the

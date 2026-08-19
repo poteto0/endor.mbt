@@ -17,6 +17,7 @@ pub struct TypedData {
 pub fn TypedData::digest(Self) -> @types.Hex raise @types.CodecError
 pub fn TypedData::domain_separator(Self) -> @types.Hex raise @types.CodecError
 pub fn TypedData::encode_type(Self, String) -> String raise @types.CodecError
+pub fn TypedData::from_json(Json) -> Self raise @types.CodecError
 pub fn TypedData::hash_struct(Self) -> @types.Hex raise @types.CodecError
 pub fn TypedData::new(TypedDataDomain, primary_type~ : String, types~ : Map[String, Array[TypedDataField]], message~ : Json) -> Self raise @types.CodecError
 pub fn TypedData::primary_type(Self) -> String

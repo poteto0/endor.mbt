@@ -12,6 +12,20 @@ gets fixed rather than kept for compatibility. Every such change is listed under
 **Changed** with what to do about it. From 1.0 onward, the usual SemVer promise
 applies.
 
+## [Unreleased]
+
+### Added
+
+- `@endor.TypedData::from_json`, the inverse of `to_json`: the
+  `{ types, primaryType, domain, message }` document read back into a validated
+  value. Building one was possible and reading one was not, so code that
+  *receives* a document — a payload a wallet is asking about, or a module that
+  keeps its own seam at `Json` — had to rebuild the domain and every type by
+  hand. It ends in `TypedData::new`, so parsing a document validates it. Three
+  things the wire spells that the struct does not — `EIP712Domain` in `types`,
+  a member nothing declares, `chainId` as a string — are on the signing
+  reference page. (#140)
+
 ## [0.7.0] - 2026-08-09
 
 ### Added
