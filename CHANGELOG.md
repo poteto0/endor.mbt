@@ -16,6 +16,18 @@ applies.
 
 ### Added
 
+- **A stablecoin is an ERC-20.** `@stablecoin.Stablecoin` now answers the whole
+  ERC-20 interface itself — `name`, `symbol`, `decimals`, `total_supply`,
+  `balance_of`, `allowance`, `transfer`, `approve`, and EIP-2612's `nonces` and
+  `domain_separator` — instead of asking the caller to change type first:
+  `jpyc.token().balance_of(p, who)` is `jpyc.balance_of(p, who)`. Every one of
+  them delegates to `@erc20.Erc20` and reimplements nothing. `token()` stays,
+  for handing the same token to something that takes an `@erc20.Erc20`, and the
+  two now share one `Contract` rather than standing up a second one at the same
+  address — `@erc20.Erc20::contract()` is the accessor that makes that possible,
+  and the escape hatch for a function the preset does not spell.
+  `Erc20::transfer_topic()` and `Erc20::decode_transfer(log)` are not delegated:
+  they take no token, so there is nothing to delegate. (#144)
 - **The submitter's half of a stablecoin.** `@stablecoin.Stablecoin` — the
   package is `poteto0/endor/contract/stablecoin` — is `@erc20.Erc20` plus the
   calls that *send* what a holder signed: `transfer_with_authorization`,

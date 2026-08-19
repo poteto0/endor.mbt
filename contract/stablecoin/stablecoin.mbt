@@ -26,31 +26,146 @@
 /// }
 /// ```
 pub struct Stablecoin {
-  priv contract : @contract.Contract
+  priv erc20 : @erc20.Erc20
 } derive(Eq, @debug.Debug)
 
 ///|
 /// Point at a deployed stablecoin.
 pub fn Stablecoin::new(address : @types.Address) -> Stablecoin {
-  Stablecoin::{
-    contract: @contract.Contract::new(address, errors=@erc20.standard_errors()),
-  }
+  Stablecoin::{ erc20: @erc20.Erc20::new(address) }
+}
+
+///|
+/// The same token as an `@erc20.Erc20` — for handing to something that takes
+/// one. Everything it can do a `Stablecoin` can do too, so reaching for this to
+/// make a call is never necessary.
+///
+/// The two share one `Contract`: this is the token itself, not a second view of
+/// its address.
+pub fn Stablecoin::token(self : Stablecoin) -> @erc20.Erc20 {
+  self.erc20
+}
+
+///|
+/// The contract both halves are sent against.
+fn Stablecoin::contract(self : Stablecoin) -> @contract.Contract {
+  self.erc20.contract()
 }
 
 ///|
 /// The token's address.
 pub fn Stablecoin::address(self : Stablecoin) -> @types.Address {
-  self.contract.address()
+  self.erc20.address()
 }
 
 ///|
-/// The ERC-20 half — `balance_of`, `transfer`, `nonces`, and the rest.
+/// The token's name — `name()`.
+pub async fn[P : @provider.Provider] Stablecoin::name(
+  self : Stablecoin,
+  provider : P,
+) -> String raise @contract.ContractError {
+  self.erc20.name(provider)
+}
+
+///|
+/// The token's ticker — `symbol()`.
+pub async fn[P : @provider.Provider] Stablecoin::symbol(
+  self : Stablecoin,
+  provider : P,
+) -> String raise @contract.ContractError {
+  self.erc20.symbol(provider)
+}
+
+///|
+/// How many decimal places the token's amounts carry — `decimals()`. 18 for
+/// JPYC, 6 for USDC; it is not safe to assume either.
+pub async fn[P : @provider.Provider] Stablecoin::decimals(
+  self : Stablecoin,
+  provider : P,
+) -> Int raise @contract.ContractError {
+  self.erc20.decimals(provider)
+}
+
+///|
+/// How many units exist — `totalSupply()`.
+pub async fn[P : @provider.Provider] Stablecoin::total_supply(
+  self : Stablecoin,
+  provider : P,
+) -> BigInt raise @contract.ContractError {
+  self.erc20.total_supply(provider)
+}
+
+///|
+/// How many units `owner` holds — `balanceOf(address)`.
+pub async fn[P : @provider.Provider] Stablecoin::balance_of(
+  self : Stablecoin,
+  provider : P,
+  owner : @types.Address,
+) -> BigInt raise @contract.ContractError {
+  self.erc20.balance_of(provider, owner)
+}
+
+///|
+/// How much of `owner`'s balance `spender` may still move —
+/// `allowance(address,address)`.
+pub async fn[P : @provider.Provider] Stablecoin::allowance(
+  self : Stablecoin,
+  provider : P,
+  owner~ : @types.Address,
+  spender~ : @types.Address,
+) -> BigInt raise @contract.ContractError {
+  self.erc20.allowance(provider, owner~, spender~)
+}
+
+///|
+/// `owner`'s permit counter — `nonces(address)`, what a `@eip2612.Permit` is
+/// signed against and what `permit` spends.
+pub async fn[P : @provider.Provider] Stablecoin::nonces(
+  self : Stablecoin,
+  provider : P,
+  owner : @types.Address,
+) -> BigInt raise @contract.ContractError {
+  self.erc20.nonces(provider, owner)
+}
+
+///|
+/// The EIP-712 domain the token verifies signatures under —
+/// `DOMAIN_SEPARATOR()`. The hash on its own; `domain` is the whole domain,
+/// already checked against it.
+pub async fn[P : @provider.Provider] Stablecoin::domain_separator(
+  self : Stablecoin,
+  provider : P,
+) -> @types.Hex raise @contract.ContractError {
+  self.erc20.domain_separator(provider)
+}
+
+///|
+/// Move `amount` units from `from` to `to` — `transfer(address,uint256)`.
 ///
-/// A stablecoin *is* an ERC-20 and this preset does not repeat its interface:
-/// the extension is what is spelled here, and everything a plain token can do
-/// is reached through the token itself.
-pub fn Stablecoin::token(self : Stablecoin) -> @erc20.Erc20 {
-  @erc20.Erc20::new(self.address())
+/// The half that pays for itself: `from` signs *and* sends. Its counterpart is
+/// `transfer_with_authorization`, where those are two different accounts.
+pub async fn[P : @provider.Provider] Stablecoin::transfer(
+  self : Stablecoin,
+  provider : P,
+  from~ : @types.Address,
+  to~ : @types.Address,
+  amount~ : BigInt,
+) -> @types.TxHash raise @contract.ContractError {
+  self.erc20.transfer(provider, from~, to~, amount~)
+}
+
+///|
+/// Let `spender` move up to `amount` of `from`'s units —
+/// `approve(address,uint256)`. `permit` is the same allowance signed rather
+/// than sent.
+pub async fn[P : @provider.Provider] Stablecoin::approve(
+  self : Stablecoin,
+  provider : P,
+  from~ : @types.Address,
+  spender~ : @types.Address,
+  amount~ : BigInt,
+) -> @types.TxHash raise @contract.ContractError {
+  self.erc20.approve(provider, from~, spender~, amount~)
 }
 
 ///|
@@ -65,7 +180,7 @@ pub async fn[P : @provider.Provider] Stablecoin::version(
   provider : P,
 ) -> String raise @contract.ContractError {
   @contract.string_answer(
-    self.contract.call(provider, name="version", outputs=[String]),
+    self.contract().call(provider, name="version", outputs=[String]),
     what="version",
   )
 }
@@ -96,8 +211,7 @@ pub async fn[P : @provider.Provider] Stablecoin::domain(
     Some(chain) => chain
     None => @provider.chain_id(provider) catch { e => raise @contract.Rpc(e) }
   }
-  let token = self.token()
-  let name = token.name(provider)
+  let name = self.name(provider)
   let version = self.version(provider) catch { _ => "1" }
   // the token's own domain, which is what EIP-2612 binds to as well — so it is
   // spelled as neither standard's rather than reached for through one of them
@@ -109,7 +223,7 @@ pub async fn[P : @provider.Provider] Stablecoin::domain(
   ) catch {
     e => raise domain_error(e)
   }
-  let on_chain = token.domain_separator(provider)
+  let on_chain = self.domain_separator(provider)
   domain.check_separator(on_chain~) catch {
     e => raise domain_error(e)
   }
@@ -130,7 +244,9 @@ pub async fn[P : @provider.Provider] Stablecoin::authorization_state(
   nonce~ : @types.Hex,
 ) -> Bool raise @contract.ContractError {
   @contract.bool_answer(
-    self.contract.call(
+    self
+    .contract()
+    .call(
       provider,
       name="authorizationState",
       inputs=[Address, FixedBytes(32)],
@@ -202,7 +318,9 @@ async fn[P : @provider.Provider] Stablecoin::submit(
   authorization~ : @eip3009.Authorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.contract.send(
+  self
+  .contract()
+  .send(
     provider,
     from=submitter,
     name~,
@@ -243,7 +361,9 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(
   cancellation~ : @eip3009.CancelAuthorization,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.contract.send(
+  self
+  .contract()
+  .send(
     provider,
     from=submitter,
     name="cancelAuthorization",
@@ -262,7 +382,7 @@ pub async fn[P : @provider.Provider] Stablecoin::cancel_authorization(
 /// EIP-2612's half of the same idea: it sets an allowance the way `approve`
 /// does, but the owner only signed, so the spender can raise the allowance and
 /// spend it in one transaction of their own. The `nonce` the permit was signed
-/// against is a counter — `@erc20.Erc20::nonces` — and goes up by one here,
+/// against is a counter — `nonces` — and goes up by one here,
 /// which makes a second permit signed against the same one worthless.
 pub async fn[P : @provider.Provider] Stablecoin::permit(
   self : Stablecoin,
@@ -271,7 +391,9 @@ pub async fn[P : @provider.Provider] Stablecoin::permit(
   permit~ : @eip2612.Permit,
   signature~ : @types.Hex,
 ) -> @types.TxHash raise @contract.ContractError {
-  self.contract.send(
+  self
+  .contract()
+  .send(
     provider,
     from=submitter,
     name="permit",
