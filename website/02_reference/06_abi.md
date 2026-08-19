@@ -121,8 +121,14 @@ whose success is in the receipt.
 `@stablecoin.Stablecoin` — the package is `poteto0/endor/contract/stablecoin` —
 is that preset plus the two extensions that make a token a stablecoin: EIP-3009,
 which lets a holder sign a transfer for somebody else to submit, and EIP-2612,
-which does the same for an approval. `token()` reaches the ERC-20 half, which is
-not repeated.
+which does the same for an approval. A stablecoin *is* an ERC-20, so the whole
+of the table above is on it as well — `name`, `symbol`, `decimals`,
+`total_supply`, `balance_of`, `allowance`, `transfer`, `approve`, `nonces` and
+`domain_separator` all delegate to `@erc20.Erc20`. `token()` hands out the same
+token as an `@erc20.Erc20` for passing to something that takes one, and the
+`Transfer` log helpers stay there, since they take no token. Both presets also
+have `contract()`, the `@contract.Contract` underneath — already carrying
+`standard_errors()` — for a function neither of them spells.
 
 | Call                                       | Sends                                                  |
 | ------------------------------------------ | ------------------------------------------------------ |

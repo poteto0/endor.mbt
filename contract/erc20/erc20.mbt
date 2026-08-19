@@ -77,6 +77,14 @@ pub fn Erc20::address(self : Erc20) -> @types.Address {
 }
 
 ///|
+/// The token as a plain contract — for a function this preset does not spell,
+/// and what a preset built on top of ERC-20 sends against rather than standing
+/// up its own at the same address.
+pub fn Erc20::contract(self : Erc20) -> @contract.Contract {
+  self.contract
+}
+
+///|
 /// The token's name — `name()`.
 pub async fn[P : @provider.Provider] Erc20::name(
   self : Erc20,

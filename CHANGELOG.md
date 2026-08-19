@@ -17,7 +17,10 @@ applies.
 ### Added
 
 - **The submitter's half of a stablecoin.** `@stablecoin.Stablecoin` — the
-  package is `poteto0/endor/contract/stablecoin` — is `@erc20.Erc20` plus the
+  package is `poteto0/endor/contract/stablecoin` — answers the whole ERC-20
+  interface (`name`, `symbol`, `decimals`, `total_supply`, `balance_of`,
+  `allowance`, `transfer`, `approve`, and EIP-2612's `nonces` and
+  `domain_separator`, each delegated to `@erc20.Erc20`) plus the
   calls that *send* what a holder signed: `transfer_with_authorization`,
   `receive_with_authorization` and `cancel_authorization` for EIP-3009, and
   `permit` for EIP-2612. `eips/eip3009` and `eips/eip2612` built those documents
@@ -32,7 +35,11 @@ applies.
   `(v, r, s)` split is checked rather than sliced: a signature the token's
   `ecrecover` would refuse is refused here, for the price of no transaction.
   [Move a stablecoin](https://endor.poteto-mahiro.com/cookbook/stablecoin/) is
-  both halves, with JPYC as the example. (#73)
+  both halves, with JPYC as the example. `token()` hands the same token to
+  something that takes an `@erc20.Erc20`, and `contract()` — new on both presets
+  — reaches the raw contract, error table and all, for a function neither
+  spells. `Erc20::transfer_topic()` and `Erc20::decode_transfer(log)` take no
+  token, so they stay on `@erc20` alone. (#73, #144)
 - `@endor.TypedData::from_json`, the inverse of `to_json`: the
   `{ types, primaryType, domain, message }` document read back into a validated
   value. Building one was possible and reading one was not, so code that

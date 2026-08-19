@@ -29,9 +29,9 @@ else's transfer, which is a service, not a browser extension.
 
 ## The token
 
-`Stablecoin::new` takes the address, and everything a plain token can do is
-reached through `token()` — the preset does not repeat the ERC-20 interface it
-already has:
+`Stablecoin::new` takes the address. A stablecoin *is* an ERC-20, so everything
+a plain token can do it does too — `balance_of`, `transfer`, `approve`,
+`decimals` and the rest are on it directly:
 
 ```moonbit
 fn jpyc() -> @stablecoin.Stablecoin raise @endor.CodecError {
@@ -44,13 +44,18 @@ async fn[P : @provider.Provider] balance(
   p : P,
   who : @endor.Address,
 ) -> BigInt raise {
-  jpyc().token().balance_of(p, who)
+  jpyc().balance_of(p, who)
 }
 ```
 
 Amounts are in the token's own smallest unit, as everywhere else in this SDK.
 JPYC has 18 decimals and USDC has 6, so `decimals()` is a read, never an
 assumption.
+
+`token()` hands out the same token as an `@erc20.Erc20`, for passing to
+something that takes one. The `Transfer` log helpers stay there:
+`transfer_topic()` and `decode_transfer(log)` take no token, so there is nothing
+for a preset to delegate.
 
 ## The domain, read off the token
 
