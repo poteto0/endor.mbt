@@ -35,12 +35,27 @@ pub fn BrowserProvider::is_metamask(self : BrowserProvider) -> Bool {
 }
 
 ///|
-/// Send an EIP-1193 request.
+/// Send an EIP-1193 request, retrying the failures that are about this attempt
+/// rather than about the request.
+///
+/// A wallet is a transport too — it can be disconnected, and the node behind it
+/// can be busy — so it gets the same loop. What it does *not* get is a second
+/// prompt: `retry_loop` sends the methods that open a dialog exactly once.
 pub impl @provider.Provider for BrowserProvider with fn request(
   self,
   method_name~,
   params~,
 ) {
+  @provider.retry_loop(method_name~, () => self.send_once(method_name~, params~))
+}
+
+///|
+/// One attempt: one `ethereum.request`, one envelope read.
+async fn BrowserProvider::send_once(
+  self : BrowserProvider,
+  method_name~ : String,
+  params~ : Json,
+) -> Json raise @provider.ProviderError {
   let payload = Json::object({
     "method": Json::string(method_name),
     "params": params,

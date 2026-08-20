@@ -11,14 +11,17 @@
 /// HTTP layer to put a retry in at all.
 ///
 /// The defaults are viem's — 150ms doubling to at most 2s, three retries, so
-/// four attempts spanning about a second. This is the loop and nothing else:
-/// what turns it on, and how a caller overrides it, is not decided here.
+/// four attempts spanning about a second. They are the only settings there are:
+/// how a caller overrides them is a later question, and until it is answered
+/// both providers retry on these.
 ///
 /// No jitter: `@async.retry` has none, so several requests that hit the same
 /// `429` together will come back together. That wants a hand-written loop, and
 /// it can wait until it is a problem someone has.
-// `#internal` alone still lists it; `#doc(hidden)` is what keeps it out of the
-// generated `.mbti`, which is what says whether a change is externally visible.
+///
+/// Not public API. It is `pub` only because `provider/http` and
+/// `provider/browser` both call it; `#doc(hidden)` is what keeps it out of the
+/// generated `.mbti`, which `#internal` alone does not.
 #internal(internal, "the retry loop is not public API")
 #doc(hidden)
 pub async fn retry_loop(
