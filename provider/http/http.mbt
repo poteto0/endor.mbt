@@ -72,7 +72,13 @@ fn needs_a_wallet(method_name : String) -> Bool {
 }
 
 ///|
-/// Perform one JSON-RPC call over the transport.
+/// Perform one JSON-RPC call over the transport, retrying the failures that are
+/// about this attempt rather than about the request.
+///
+/// The retry sits here rather than in `HttpTransport`, because a hosted RPC
+/// asking for a moment often does it *inside a 200* — `-32005`, or a body
+/// carrying `{ code: 429 }` — which `post` cannot see and `send_once` has
+/// already turned into a `ProviderError` by the time this reads it.
 pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn request(
   self,
   method_name~,
@@ -82,6 +88,17 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   if needs_a_wallet(method_name) {
     raise @provider.UnsupportedMethod
   }
+  @provider.retry_loop(method_name~, () => self.send_once(method_name~, params~))
+}
+
+///|
+/// One attempt: one id, one POST, one envelope read. Each retry comes back
+/// through here and takes a fresh id, which is what the node answers against.
+async fn[T : HttpTransport] HttpProvider::send_once(
+  self : HttpProvider[T],
+  method_name~ : String,
+  params~ : Json,
+) -> Json raise @provider.ProviderError {
   let id = self.next_id
   self.next_id = id + 1
   let payload = Json::object({

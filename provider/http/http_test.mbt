@@ -171,7 +171,10 @@ async test "a response with no id at all is accepted" {
 }
 
 ///|
-async test "a transport that cannot reach the node propagates its error" {
+/// A transport failure is the retryable kind, so this is also where the retry
+/// loop shows up from the outside: four POSTs for one `eth_chainId`, and the
+/// error that comes back is still the transport's own.
+async test "a transport that cannot reach the node is retried, then propagates its error" {
   let transport = FakeTransport::failing(
     @provider.Transport("POST http://127.0.0.1:1 failed"),
   )
@@ -184,6 +187,27 @@ async test "a transport that cannot reach the node propagates its error" {
       ),
     )
   })
+  // one attempt plus the three retries, each with an id of its own
+  inspect(transport.sent.length(), content="4")
+}
+
+///|
+/// The other half of it: a failure the node already decided is sent once. The
+/// body is a well-formed JSON-RPC error, so the `HttpTransport` saw a perfectly
+/// good response and only `request` can tell that retrying is pointless.
+async test "a refusal the node answered with is not retried" {
+  let transport = on_answers(
+    [
+      "{\"jsonrpc\":\"2.0\",\"id\":1,\"error\":{\"code\":4001,\"message\":\"user rejected\"}}",
+    ],
+    provider => {
+      inspect(
+        refusal(provider, method_name="eth_chainId"),
+        content="UserRejected",
+      )
+    },
+  )
+  inspect(transport.sent.length(), content="1")
 }
 
 ///|
