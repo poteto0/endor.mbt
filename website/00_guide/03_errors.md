@@ -91,8 +91,9 @@ async fn every_branch(wallet : @browser.BrowserProvider) -> Unit {
     // nothing got through: no connection, DNS, TLS, a socket that closed
     Transport(why) => println("could not reach it: \{why}")
     // something answered, with a status that is not 2xx. 429 and 5xx are worth
-    // retrying; 401 and 403 are an API key that is wrong or missing.
-    HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
+    // retrying; 401 and 403 are an API key that is wrong or missing. `info`
+    // also carries the `Retry-After` the answer asked for, when it asked.
+    HttpStatus(info~) => println("HTTP \{info.code()} from \{info.url()}")
     // a 2xx body that is not JSON-RPC at all — a proxy, a captive portal, the
     // wrong URL. Retrying gets the same body back.
     MalformedResponse(why) => println("that was not JSON-RPC: \{why}")
@@ -145,8 +146,12 @@ whichever variant says what actually happened.
 | `HttpStatus` 429, 5xx | `HttpStatus` 401, 403 — the API key, not the load   |
 | `Rpc(-32005)`         | `MalformedResponse`, `Decode`, `Config`, `Reverted` |
 
-Back off between attempts rather than looping: a `429` is the node asking for a
-moment, and a retry that arrives immediately is another `429`.
+Both providers already retry these for you, backing off between attempts. A
+`429` or a `503` that came with a `Retry-After` is waited exactly that long
+instead — the node saying how long it wants to be left alone beats any backoff
+guessed from outside — and one asking for longer than about a minute ends the
+retrying rather than holding your request. The value is on
+`HttpStatusInfo::retry_after()`, in seconds, for anyone waiting by hand.
 
 ## ContractError
 

@@ -3,6 +3,7 @@ import {
   "poteto0/endor/provider/http",
   "moonbitlang/async/http" @client,
   "moonbitlang/async",
+  "moonbitlang/core/string",
 }
 
 supported_targets = "+js +native +wasm"

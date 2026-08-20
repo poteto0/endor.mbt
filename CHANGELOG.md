@@ -73,6 +73,35 @@ applies.
   things the wire spells that the struct does not — `EIP712Domain` in `types`,
   a member nothing declares, `chainId` as a string — are on the signing
   reference page. (#140)
+- **A node that says how long to wait is waited.** `HttpStatus` now carries the
+  `Retry-After` a `429` or a `503` answered with, and the retry loop both
+  providers already run waits exactly that instead of its own backoff — which is
+  the one number in the exchange that is not a guess. Only the delta-seconds
+  form of the header is read (an HTTP-date needs a clock to compare against and
+  is not what a rate limiter sends), values past an hour are left to the backoff
+  rather than sat through, and anything unreadable is treated as absent. For
+  anyone retrying by hand it is `HttpStatusInfo::retry_after()`, in seconds.
+  (#152)
+
+### Changed
+
+- **`HttpStatus` carries one `HttpStatusInfo` instead of `code` and `url`.**
+  Breaking, for every `catch` that reads either:
+
+  ```moonbit no-check
+  // before
+  HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
+  // after
+  HttpStatus(info~) => println("HTTP \{info.code()} from \{info.url()}")
+  ```
+
+  `ProviderError` is a `pub(all) suberror`, so anything added to that variant
+  breaks every pattern match on it — and what an HTTP response carries is open,
+  so `Retry-After` would not have been the last time. `HttpStatusInfo` is a
+  read-only struct with an optional-argument `new`, the shape `TransactionRequest`
+  and `LogFilter` already use here, so the variant is now one field wide and the
+  next thing worth reading off a response is an accessor rather than another
+  break. (#152)
 
 ## [0.7.0] - 2026-08-09
 

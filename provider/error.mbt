@@ -51,10 +51,9 @@ pub(all) suberror ProviderError {
   Transport(String)
   /// The endpoint answered, with a status that is not 2xx. `429` and `5xx` are
   /// the node or its gateway asking for a moment; `401` and `403` are an API
-  /// key that is wrong or absent, and no amount of retrying fixes those. The
-  /// URL is carried because a dapp that reads from several nodes needs to know
-  /// which one.
-  HttpStatus(code~ : Int, url~ : String)
+  /// key that is wrong or absent, and no amount of retrying fixes those.
+  /// What is known about the answer is in `HttpStatusInfo`.
+  HttpStatus(info~ : HttpStatusInfo)
   /// A 2xx body that is not a JSON-RPC answer: it did not parse, it was not an
   /// object, it carried neither `result` nor `error`, or its `id` was not the
   /// one that was sent. Something between here and the node is not speaking
@@ -75,6 +74,71 @@ pub(all) suberror ProviderError {
   /// timeout apart from the `None` a not-yet-mined transaction reads as.
   Timeout(String)
 } derive(Eq, Debug)
+
+///|
+/// What the SDK knows about an answer that is not 2xx: the status, the URL it
+/// came from, and the `Retry-After` the node asked for.
+///
+/// The URL is carried because a dapp that reads from several nodes needs to
+/// know which one, and `retry_after` because a node that says "come back in
+/// N seconds" is more informative than any backoff guessed from outside.
+///
+/// Read-only, built through `new`, because an HTTP response carries more than
+/// these three and the next thing worth reading out of one must not break every
+/// `catch` that matches `HttpStatus`. So the variant stays one field wide and
+/// growth happens in here, as one more optional argument and one more accessor.
+///
+/// ```mbt check
+/// test "doc: http status info" {
+///   let info = @provider.HttpStatusInfo::new(
+///     code=429,
+///     url="https://node.example",
+///     retry_after=30,
+///   )
+///   inspect(info.code(), content="429")
+///   debug_inspect(info.retry_after(), content="Some(30)")
+/// }
+/// ```
+pub struct HttpStatusInfo {
+  priv code : Int
+  priv url : String
+  priv retry_after : Int?
+} derive(Eq, Debug)
+
+///|
+/// What is known about a status that is not 2xx. `retry_after` is absent unless
+/// the response asked for one.
+pub fn HttpStatusInfo::new(
+  code~ : Int,
+  url~ : String,
+  retry_after? : Int,
+) -> HttpStatusInfo {
+  HttpStatusInfo::{ code, url, retry_after }
+}
+
+///|
+/// The status the endpoint answered with.
+pub fn HttpStatusInfo::code(self : HttpStatusInfo) -> Int {
+  self.code
+}
+
+///|
+/// The URL that answered.
+pub fn HttpStatusInfo::url(self : HttpStatusInfo) -> String {
+  self.url
+}
+
+///|
+/// The seconds the response asked to be left alone for, when it asked. `None`
+/// when the header was absent or unreadable, and for the HTTP-date form, which
+/// is not what a rate limiter sends and is not read.
+///
+/// The retry both providers run already waits this. It is here for a caller
+/// retrying by hand, and for one that would rather wait longer than the loop
+/// will.
+pub fn HttpStatusInfo::retry_after(self : HttpStatusInfo) -> Int? {
+  self.retry_after
+}
 
 ///|
 /// Render through the derived `Debug`, so the variant list stays the single
@@ -262,8 +326,8 @@ pub fn ProviderError::message(self : ProviderError) -> String {
       }
     Reverted(..) => "The contract refused the transaction."
     Transport(_) => "Could not reach the network. Check your connection."
-    HttpStatus(code~, ..) =>
-      match http_status_kind(code) {
+    HttpStatus(info~) =>
+      match http_status_kind(info.code()) {
         Busy => "The network is busy. Try again in a moment."
         Unauthenticated => "This app is not authorized to use that node."
         NodeTrouble => "The node is having trouble. Try again in a moment."
@@ -298,7 +362,7 @@ pub fn ProviderError::message(self : ProviderError) -> String {
 pub fn ProviderError::is_retryable(self : ProviderError) -> Bool {
   match self {
     Transport(_) | Timeout(_) => true
-    HttpStatus(code~, ..) => http_status_kind(code) is (Busy | NodeTrouble)
+    HttpStatus(info~) => http_status_kind(info.code()) is (Busy | NodeTrouble)
     Rpc(code~, ..) => code == RATE_LIMITED
     UserRejected
     | Unauthorized
