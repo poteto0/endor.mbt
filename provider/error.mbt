@@ -53,8 +53,8 @@ pub(all) suberror ProviderError {
   /// the node or its gateway asking for a moment; `401` and `403` are an API
   /// key that is wrong or absent, and no amount of retrying fixes those. The
   /// URL is carried because a dapp that reads from several nodes needs to know
-  /// which one.
-  HttpStatus(code~ : Int, url~ : String)
+  /// which one, and `info` is whatever else the response happened to say.
+  HttpStatus(code~ : Int, url~ : String, info~ : HttpStatusInfo)
   /// A 2xx body that is not a JSON-RPC answer: it did not parse, it was not an
   /// object, it carried neither `result` nor `error`, or its `id` was not the
   /// one that was sent. Something between here and the node is not speaking
@@ -75,6 +75,49 @@ pub(all) suberror ProviderError {
   /// timeout apart from the `None` a not-yet-mined transaction reads as.
   Timeout(String)
 } derive(Eq, Debug)
+
+///|
+/// The rest of what an answer that is not 2xx said: the parts a response may or
+/// may not carry, as against the status and the URL, which it always does and
+/// which are on the variant itself.
+///
+/// Today that is `Retry-After` alone. It is a struct rather than another field
+/// on the variant because what an HTTP response carries is open-ended, and
+/// `ProviderError` is a `pub(all) suberror` — one more field on `HttpStatus`
+/// breaks every `catch` that matches it. In here, the next thing worth reading
+/// off a response is one more optional argument and one more accessor, and
+/// nobody's pattern match notices.
+///
+/// ```mbt check
+/// test "doc: http status info" {
+///   let info = @provider.HttpStatusInfo::new(retry_after=30)
+///   debug_inspect(info.retry_after(), content="Some(30)")
+///   // nothing said beyond the status
+///   debug_inspect(@provider.HttpStatusInfo::new().retry_after(), content="None")
+/// }
+/// ```
+pub struct HttpStatusInfo {
+  priv retry_after : Int?
+} derive(Eq, Debug)
+
+///|
+/// What the response said beyond its status. Every argument is optional: an
+/// answer that said nothing else is `HttpStatusInfo::new()`.
+pub fn HttpStatusInfo::new(retry_after? : Int) -> HttpStatusInfo {
+  HttpStatusInfo::{ retry_after, }
+}
+
+///|
+/// The seconds the response asked to be left alone for, when it asked. `None`
+/// when the header was absent or unreadable, and for the HTTP-date form, which
+/// is not what a rate limiter sends and is not read.
+///
+/// The retry both providers run already waits this. It is here for a caller
+/// retrying by hand, and for one that would rather wait longer than the loop
+/// will.
+pub fn HttpStatusInfo::retry_after(self : HttpStatusInfo) -> Int? {
+  self.retry_after
+}
 
 ///|
 /// Render through the derived `Debug`, so the variant list stays the single

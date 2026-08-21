@@ -121,9 +121,40 @@ async fn Endpoint::send(
     e => raise @provider.Transport("POST \{self.url} failed: \{e}")
   }
   guard response.code >= 200 && response.code < 300 else {
-    raise @provider.HttpStatus(code=response.code, url=self.url)
+    raise @provider.HttpStatus(
+      code=response.code,
+      url=self.url,
+      info=@provider.HttpStatusInfo::new(
+        retry_after?=retry_after_seconds(response.headers),
+      ),
+    )
   }
   payload.text() catch {
     e => raise @provider.Transport("unreadable response from \{self.url}: \{e}")
   }
+}
+
+///|
+/// The `Retry-After` a `429` or a `503` asked for, in seconds.
+///
+/// Only the delta-seconds form is read. The other form the header allows is an
+/// HTTP-date, which needs a clock and a date parser to compare against and is
+/// not what a rate limiter sends; anything unreadable is `None`, and whoever
+/// retries backs off on its own as if the header had not been there.
+///
+/// What the value *says* is all that is decided here. How long the SDK is
+/// actually willing to sit on a request is the retry loop's, and is decided
+/// there — a header this reads is one a caller can read too.
+fn retry_after_seconds(headers : Map[String, String]) -> Int? {
+  // header names arrive lowercased, on every backend
+  guard headers.get("retry-after") is Some(value) else { return None }
+  // `base=10` on purpose: the default reads `0x…` as hex, and a header that
+  // spells anything but plain seconds is one to ignore rather than interpret.
+  // A sign and `_` separators still get through, and neither makes the value
+  // unusable — only a negative one does.
+  let seconds = @string.parse_int(value.trim(), base=10) catch {
+    _ => return None
+  }
+  guard seconds >= 0 else { return None }
+  Some(seconds)
 }

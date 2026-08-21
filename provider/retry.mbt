@@ -15,9 +15,13 @@
 /// how a caller overrides them is a later question, and until it is answered
 /// both providers retry on these.
 ///
-/// No jitter: `@async.retry` has none, so several requests that hit the same
-/// `429` together will come back together. That wants a hand-written loop, and
-/// it can wait until it is a problem someone has.
+/// A `Retry-After` on the failure wins over the backoff, the way viem's `delay`
+/// prefers it: a node that says how long it wants to be left alone is stating
+/// what the backoff is only guessing at. One longer than
+/// `MAX_RETRY_AFTER_S` ends the loop instead — see there.
+///
+/// No jitter: several requests that hit the same `429` together come back
+/// together. That can wait until it is a problem someone has.
 ///
 /// Not public API. It is `pub` only because `provider/http` and
 /// `provider/browser` both call it; `#doc(hidden)` is what keeps it out of the
@@ -37,32 +41,86 @@ pub async fn retry_loop(
   if is_not_idempotent(method_name) {
     return call()
   }
-  // `@async.retry` erases what it catches to a bare `Error`, and there is no
-  // way back from one to a `ProviderError`. So every failure is caught where it
-  // is still typed — inside the closure — and carried out in `last`, which is
-  // what both `fatal_error` and the final `raise` then read.
-  let mut last : ProviderError? = None
-  @async.retry(
-    strategy,
-    max_retry~,
-    fatal_error=_ => last is Some(e) && !e.is_retryable(),
-    () => {
-      call() catch {
-        e => {
-          last = Some(e)
+  // Written out rather than handed to `@async.retry`, which picks its delay
+  // from the strategy alone and so has nowhere to read a `Retry-After` from.
+  // The price is that `first_delay` / `next_delay` mirror what `@async.retry`
+  // reads `RetryMethod` to mean, and have to keep matching it.
+  for attempt = 0, delay = first_delay(strategy) {
+    try call() catch {
+      e => {
+        guard attempt < max_retry &&
+          e.is_retryable() &&
+          !@async.is_being_cancelled() else {
           raise e
         }
+        // the node's own answer to "how long", when it gave one
+        let wait = match retry_after_seconds(e) {
+          Some(asked) => {
+            guard asked <= MAX_RETRY_AFTER_S else { raise e }
+            asked * 1_000
+          }
+          None => delay
+        }
+        // `sleep` raises `Error` on cancellation, which cannot cross a
+        // `ProviderError` boundary as itself
+        @async.sleep(wait) catch {
+          cancelled =>
+            raise Transport(
+              "the retry of \{method_name} was cancelled: \{cancelled}",
+            )
+        }
+        continue attempt + 1, next_delay(strategy, delay)
       }
-    },
-  ) catch {
-    e =>
-      match last {
-        Some(typed) => raise typed
-        // `retry` raised before any attempt did — a cancellation, which it
-        // re-raises as itself. There is no typed failure to report, so the
-        // bare one is carried across in a message.
-        None => raise Transport("retry raised before the first attempt: \{e}")
+    } noraise {
+      answer => return answer
+    }
+  }
+}
+
+///|
+/// The longest wait this loop sits through, in seconds. A node that asks for
+/// longer is not asking for a moment — it is saying the quota is spent — and
+/// the loop hands the failure back rather than either ignoring what it asked
+/// (coming back sooner is another `429`) or holding the caller's request for an
+/// hour. The `Retry-After` is on the error, so a caller who does want to wait
+/// that long can read it and decide for itself.
+///
+/// A minute: past every backoff this loop runs, and short of the quota windows
+/// a hosted RPC hands out when the day's requests are spent.
+const MAX_RETRY_AFTER_S : Int = 60
+
+///|
+/// How long the node asked to be left alone for. Only an HTTP response carries
+/// such a request, and only `provider/http/endpoint` reads one off the wire.
+fn retry_after_seconds(error : ProviderError) -> Int? {
+  guard error is HttpStatus(info~, ..) else { return None }
+  info.retry_after()
+}
+
+///|
+/// The wait before the second attempt.
+fn first_delay(strategy : @async.RetryMethod) -> Int {
+  match strategy {
+    Immediate => 0
+    FixedDelay(delay) => delay
+    ExponentialDelay(initial~, ..) => initial
+  }
+}
+
+///|
+/// The wait after one that was `delay` — the growth `ExponentialDelay`
+/// describes, and no growth at all for the other two.
+fn next_delay(strategy : @async.RetryMethod, delay : Int) -> Int {
+  match strategy {
+    Immediate | FixedDelay(_) => delay
+    ExponentialDelay(factor~, maximum~, ..) => {
+      let grown = (delay.to_double() * factor).to_int()
+      if grown > maximum {
+        maximum
+      } else {
+        grown
       }
+    }
   }
 }
 

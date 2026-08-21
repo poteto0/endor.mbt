@@ -73,6 +73,35 @@ applies.
   things the wire spells that the struct does not — `EIP712Domain` in `types`,
   a member nothing declares, `chainId` as a string — are on the signing
   reference page. (#140)
+- **A node that says how long to wait is waited.** `HttpStatus` now carries the
+  `Retry-After` a `429` or a `503` answered with, and the retry loop both
+  providers already run waits exactly that instead of its own backoff — which is
+  the one number in the exchange that is not a guess. Only the delta-seconds
+  form of the header is read (an HTTP-date needs a clock to compare against and
+  is not what a rate limiter sends), values past an hour are left to the backoff
+  rather than sat through, and anything unreadable is treated as absent. For
+  anyone retrying by hand it is `HttpStatusInfo::retry_after()`, in seconds.
+  (#152)
+
+### Changed
+
+- **`HttpStatus` has a third field, `info~ : HttpStatusInfo`.** `code` and `url`
+  are untouched; a pattern that names them both and stops there needs a `..`:
+
+  ```moonbit no-check
+  // before
+  HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
+  // after
+  HttpStatus(code~, url~, ..) => println("HTTP \{code} from \{url}")
+  ```
+
+  `ProviderError` is a `pub(all) suberror`, so anything added to that variant
+  breaks every pattern match on it — and what an HTTP response carries is
+  open-ended, so `Retry-After` would not have been the last time. So this is the
+  last field the variant gets: `HttpStatusInfo` is a read-only struct with an
+  optional-argument `new`, the shape `CallRequest` and `LogFilter` already use
+  here, and the next thing worth reading off a response is one more optional
+  argument and one more accessor inside it. (#152)
 
 ## [0.7.0] - 2026-08-09
 
