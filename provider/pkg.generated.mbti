@@ -90,7 +90,7 @@ pub(all) suberror ProviderError {
   Reverted(code~ : Int, message~ : String, data~ : @types.Hex)
   NotInstalled
   Transport(String)
-  HttpStatus(info~ : HttpStatusInfo)
+  HttpStatus(code~ : Int, url~ : String, info~ : HttpStatusInfo)
   MalformedResponse(String)
   Decode(method_name~ : String, cause~ : @types.CodecError)
   InvalidConfig(String)
@@ -113,10 +113,8 @@ pub(all) enum Answer {
 pub struct HttpStatusInfo {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn HttpStatusInfo::code(Self) -> Int
-pub fn HttpStatusInfo::new(code~ : Int, url~ : String, retry_after? : Int) -> Self
+pub fn HttpStatusInfo::new(retry_after? : Int) -> Self
 pub fn HttpStatusInfo::retry_after(Self) -> Int?
-pub fn HttpStatusInfo::url(Self) -> String
 
 pub struct MockProvider {
   // private fields

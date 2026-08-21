@@ -173,7 +173,7 @@ async fn read_or_explain(url : String, who : @endor.Address) -> Unit {
     UnsupportedMethod => println("that one needs a wallet")
     // a typo in the URL, caught before anything was sent
     InvalidConfig(what) => println("misconfigured: \{what}")
-    HttpStatus(info~) => println("HTTP \{info.code()} from \{info.url()}")
+    HttpStatus(code~, url~, ..) => println("HTTP \{code} from \{url}")
     // the host was unreachable, or it stopped answering mid-request
     e => println("could not reach it: \{e} (retry? \{e.is_retryable()})")
   }

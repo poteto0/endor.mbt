@@ -91,9 +91,10 @@ async fn every_branch(wallet : @browser.BrowserProvider) -> Unit {
     // nothing got through: no connection, DNS, TLS, a socket that closed
     Transport(why) => println("could not reach it: \{why}")
     // something answered, with a status that is not 2xx. 429 and 5xx are worth
-    // retrying; 401 and 403 are an API key that is wrong or missing. `info`
-    // also carries the `Retry-After` the answer asked for, when it asked.
-    HttpStatus(info~) => println("HTTP \{info.code()} from \{info.url()}")
+    // retrying; 401 and 403 are an API key that is wrong or missing. `info~`,
+    // left out of the pattern here, is what else the response said — today the
+    // `Retry-After` it asked for, when it asked.
+    HttpStatus(code~, url~, ..) => println("HTTP \{code} from \{url}")
     // a 2xx body that is not JSON-RPC at all — a proxy, a captive portal, the
     // wrong URL. Retrying gets the same body back.
     MalformedResponse(why) => println("that was not JSON-RPC: \{why}")

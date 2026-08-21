@@ -93,7 +93,7 @@ const MAX_RETRY_AFTER_S : Int = 60
 /// How long the node asked to be left alone for. Only an HTTP response carries
 /// such a request, and only `provider/http/endpoint` reads one off the wire.
 fn retry_after_seconds(error : ProviderError) -> Int? {
-  guard error is HttpStatus(info~) else { return None }
+  guard error is HttpStatus(info~, ..) else { return None }
   info.retry_after()
 }
 

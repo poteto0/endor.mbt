@@ -51,9 +51,10 @@ pub(all) suberror ProviderError {
   Transport(String)
   /// The endpoint answered, with a status that is not 2xx. `429` and `5xx` are
   /// the node or its gateway asking for a moment; `401` and `403` are an API
-  /// key that is wrong or absent, and no amount of retrying fixes those.
-  /// What is known about the answer is in `HttpStatusInfo`.
-  HttpStatus(info~ : HttpStatusInfo)
+  /// key that is wrong or absent, and no amount of retrying fixes those. The
+  /// URL is carried because a dapp that reads from several nodes needs to know
+  /// which one, and `info` is whatever else the response happened to say.
+  HttpStatus(code~ : Int, url~ : String, info~ : HttpStatusInfo)
   /// A 2xx body that is not a JSON-RPC answer: it did not parse, it was not an
   /// object, it carried neither `result` nor `error`, or its `id` was not the
   /// one that was sent. Something between here and the node is not speaking
@@ -76,56 +77,34 @@ pub(all) suberror ProviderError {
 } derive(Eq, Debug)
 
 ///|
-/// What the SDK knows about an answer that is not 2xx: the status, the URL it
-/// came from, and the `Retry-After` the node asked for.
+/// The rest of what an answer that is not 2xx said: the parts a response may or
+/// may not carry, as against the status and the URL, which it always does and
+/// which are on the variant itself.
 ///
-/// The URL is carried because a dapp that reads from several nodes needs to
-/// know which one, and `retry_after` because a node that says "come back in
-/// N seconds" is more informative than any backoff guessed from outside.
-///
-/// Read-only, built through `new`, because an HTTP response carries more than
-/// these three and the next thing worth reading out of one must not break every
-/// `catch` that matches `HttpStatus`. So the variant stays one field wide and
-/// growth happens in here, as one more optional argument and one more accessor.
+/// Today that is `Retry-After` alone. It is a struct rather than another field
+/// on the variant because what an HTTP response carries is open-ended, and
+/// `ProviderError` is a `pub(all) suberror` — one more field on `HttpStatus`
+/// breaks every `catch` that matches it. In here, the next thing worth reading
+/// off a response is one more optional argument and one more accessor, and
+/// nobody's pattern match notices.
 ///
 /// ```mbt check
 /// test "doc: http status info" {
-///   let info = @provider.HttpStatusInfo::new(
-///     code=429,
-///     url="https://node.example",
-///     retry_after=30,
-///   )
-///   inspect(info.code(), content="429")
+///   let info = @provider.HttpStatusInfo::new(retry_after=30)
 ///   debug_inspect(info.retry_after(), content="Some(30)")
+///   // nothing said beyond the status
+///   debug_inspect(@provider.HttpStatusInfo::new().retry_after(), content="None")
 /// }
 /// ```
 pub struct HttpStatusInfo {
-  priv code : Int
-  priv url : String
   priv retry_after : Int?
 } derive(Eq, Debug)
 
 ///|
-/// What is known about a status that is not 2xx. `retry_after` is absent unless
-/// the response asked for one.
-pub fn HttpStatusInfo::new(
-  code~ : Int,
-  url~ : String,
-  retry_after? : Int,
-) -> HttpStatusInfo {
-  HttpStatusInfo::{ code, url, retry_after }
-}
-
-///|
-/// The status the endpoint answered with.
-pub fn HttpStatusInfo::code(self : HttpStatusInfo) -> Int {
-  self.code
-}
-
-///|
-/// The URL that answered.
-pub fn HttpStatusInfo::url(self : HttpStatusInfo) -> String {
-  self.url
+/// What the response said beyond its status. Every argument is optional: an
+/// answer that said nothing else is `HttpStatusInfo::new()`.
+pub fn HttpStatusInfo::new(retry_after? : Int) -> HttpStatusInfo {
+  HttpStatusInfo::{ retry_after, }
 }
 
 ///|
@@ -326,8 +305,8 @@ pub fn ProviderError::message(self : ProviderError) -> String {
       }
     Reverted(..) => "The contract refused the transaction."
     Transport(_) => "Could not reach the network. Check your connection."
-    HttpStatus(info~) =>
-      match http_status_kind(info.code()) {
+    HttpStatus(code~, ..) =>
+      match http_status_kind(code) {
         Busy => "The network is busy. Try again in a moment."
         Unauthenticated => "This app is not authorized to use that node."
         NodeTrouble => "The node is having trouble. Try again in a moment."
@@ -362,7 +341,7 @@ pub fn ProviderError::message(self : ProviderError) -> String {
 pub fn ProviderError::is_retryable(self : ProviderError) -> Bool {
   match self {
     Transport(_) | Timeout(_) => true
-    HttpStatus(info~) => http_status_kind(info.code()) is (Busy | NodeTrouble)
+    HttpStatus(code~, ..) => http_status_kind(code) is (Busy | NodeTrouble)
     Rpc(code~, ..) => code == RATE_LIMITED
     UserRejected
     | Unauthorized

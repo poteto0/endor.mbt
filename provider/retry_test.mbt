@@ -109,10 +109,8 @@ async test "a Retry-After past what the loop will wait ends it" {
 /// A `429` from a node, with or without a `Retry-After`.
 fn busy(retry_after? : Int) -> @provider.ProviderError {
   HttpStatus(
-    info=@provider.HttpStatusInfo::new(
-      code=429,
-      url="https://node.example",
-      retry_after?,
-    ),
+    code=429,
+    url="https://node.example",
+    info=@provider.HttpStatusInfo::new(retry_after?),
   )
 }

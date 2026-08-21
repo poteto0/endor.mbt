@@ -85,23 +85,23 @@ applies.
 
 ### Changed
 
-- **`HttpStatus` carries one `HttpStatusInfo` instead of `code` and `url`.**
-  Breaking, for every `catch` that reads either:
+- **`HttpStatus` has a third field, `info~ : HttpStatusInfo`.** `code` and `url`
+  are untouched; a pattern that names them both and stops there needs a `..`:
 
   ```moonbit no-check
   // before
   HttpStatus(code~, url~) => println("HTTP \{code} from \{url}")
   // after
-  HttpStatus(info~) => println("HTTP \{info.code()} from \{info.url()}")
+  HttpStatus(code~, url~, ..) => println("HTTP \{code} from \{url}")
   ```
 
   `ProviderError` is a `pub(all) suberror`, so anything added to that variant
-  breaks every pattern match on it — and what an HTTP response carries is open,
-  so `Retry-After` would not have been the last time. `HttpStatusInfo` is a
-  read-only struct with an optional-argument `new`, the shape `TransactionRequest`
-  and `LogFilter` already use here, so the variant is now one field wide and the
-  next thing worth reading off a response is an accessor rather than another
-  break. (#152)
+  breaks every pattern match on it — and what an HTTP response carries is
+  open-ended, so `Retry-After` would not have been the last time. So this is the
+  last field the variant gets: `HttpStatusInfo` is a read-only struct with an
+  optional-argument `new`, the shape `CallRequest` and `LogFilter` already use
+  here, and the next thing worth reading off a response is one more optional
+  argument and one more accessor inside it. (#152)
 
 ## [0.7.0] - 2026-08-09
 

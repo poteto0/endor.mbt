@@ -122,9 +122,9 @@ async fn Endpoint::send(
   }
   guard response.code >= 200 && response.code < 300 else {
     raise @provider.HttpStatus(
+      code=response.code,
+      url=self.url,
       info=@provider.HttpStatusInfo::new(
-        code=response.code,
-        url=self.url,
         retry_after?=retry_after_seconds(response.headers),
       ),
     )
