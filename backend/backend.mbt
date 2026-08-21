@@ -32,8 +32,10 @@ let skip_reported : Array[String] = []
 ///|
 /// Run `body` against `backend`, or skip when the backend is not configured.
 ///
-/// An error from `body` fails the test, so the tests themselves only catch
-/// where the error *is* the assertion.
+/// An error from `body` reaches the test runner as-is: an `inspect` that fails
+/// inside a body has to report its own location and diff, not the line that
+/// caught it. So the tests themselves only catch where the error *is* the
+/// assertion.
 pub async fn[B : Backend] run(backend : B, body : async () -> Unit) -> Unit {
   let endpoint = backend.endpoint()
   if endpoint == "" {
@@ -47,5 +49,5 @@ pub async fn[B : Backend] run(backend : B, body : async () -> Unit) -> Unit {
     return
   }
   backend.install(endpoint)
-  @async.with_task_group(_ => body() catch { e => fail("\{e}") })
+  @async.with_task_group(_ => body())
 }
