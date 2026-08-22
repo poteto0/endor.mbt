@@ -1,5 +1,6 @@
 import {
   "poteto0/endor/provider",
+  "poteto0/endor/codec",
   "poteto0/endor/ffi/js",
   "moonbitlang/core/debug",
   // shipped, not test-only: `discover` puts a deadline on EIP-6963 enumeration,

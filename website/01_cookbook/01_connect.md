@@ -66,6 +66,12 @@ async fn choose() -> Unit {
 }
 ```
 
+An announcement comes from whichever extension is installed, so one whose fields
+are not spelled the way EIP-6963 says never reaches the picker — `icon` above
+all, which is drawn in an `<img src>` and so must be a `data:image/` URI rather
+than a `javascript:` or remote one. What passes is still the wallet's own claim:
+`rdns` is what to key on, not a reason to trust one.
+
 Each `wallet.provider` is a `BrowserProvider` like any other, so the account and
 chain calls above work unchanged once the user has picked one. Nothing is
 remembered: the SDK is stateless, and which wallet the user chose is the page's

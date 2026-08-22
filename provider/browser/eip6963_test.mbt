@@ -88,8 +88,8 @@ extern "js" fn install_unserialisable_wallets(info_json : String) -> Unit =
 ///|
 /// The `info` two well-behaved wallets announce.
 let two_wallets : String =
-  #|[{"uuid":"uuid-a","name":"Wallet A","icon":"data:image/svg+xml,A","rdns":"com.example.a"},
-  #| {"uuid":"uuid-b","name":"Wallet B","icon":"data:image/svg+xml,B","rdns":"com.example.b"}]
+  #|[{"uuid":"11111111-1111-4111-8111-111111111111","name":"Wallet A","icon":"data:image/svg+xml,A","rdns":"com.example.a"},
+  #| {"uuid":"22222222-2222-4222-9222-222222222222","name":"Wallet B","icon":"data:image/svg+xml,B","rdns":"com.example.b"}]
 
 ///|
 test "on_announce delivers every announcement and unsubscribe stops it" {
@@ -116,15 +116,59 @@ test "on_announce delivers every announcement and unsubscribe stops it" {
 test "an announcement missing a required field is dropped" {
   install_window_events()
   let infos =
-    #|[{"uuid":"uuid-a","name":"Wallet A","icon":"i","rdns":"com.example.a"},
-    #| {"uuid":"uuid-b","name":"Wallet B","icon":"i"},
-    #| {"uuid":"uuid-c","name":"","icon":"i","rdns":"com.example.c"},
+    #|[{"uuid":"11111111-1111-4111-8111-111111111111","name":"Wallet A","icon":"data:image/png;base64,AA","rdns":"com.example.a"},
+    #| {"uuid":"22222222-2222-4222-9222-222222222222","name":"Wallet B","icon":"data:image/png;base64,AA"},
+    #| {"uuid":"33333333-3333-4333-a333-333333333333","name":"","icon":"data:image/png;base64,AA","rdns":"com.example.c"},
     #| "not an object"]
   install_announcing_wallets(infos)
   let seen = []
   @browser.BrowserProvider::on_announce((info, _) => seen.push(info.rdns)).unsubscribe()
   inspect(seen.join(","), content="com.example.a")
   uninstall_window_events()
+}
+
+///|
+/// An announcement is whatever an installed extension felt like sending, so
+/// the fields EIP-6963 spells out are read as spelled or not at all — an
+/// `icon` that is not a data URI is the one that reaches a dapp's `<img src>`.
+test "an announcement whose fields break the EIP-6963 spelling is dropped" {
+  let ok_uuid = "11111111-1111-4111-8111-111111111111"
+  let ok_icon = "data:image/png;base64,AA"
+  let ok_rdns = "com.example.a"
+  fn info(uuid : String, icon : String, rdns : String) {
+    @browser.ProviderInfo::from_json(
+      { "uuid": uuid, "name": "Wallet A", "icon": icon, "rdns": rdns }.to_json(),
+    )
+  }
+
+  assert_true(info(ok_uuid, ok_icon, ok_rdns) is Some(_))
+
+  // `icon`: anything but a data URI is the wallet reaching into the page
+  assert_true(info(ok_uuid, "javascript:alert(1)", ok_rdns) is None)
+  assert_true(info(ok_uuid, "https://example.com/a.png", ok_rdns) is None)
+  assert_true(info(ok_uuid, "data:text/html,<script>", ok_rdns) is None)
+
+  // `rdns`: domain-shaped, and a bare label is not
+  assert_true(info(ok_uuid, ok_icon, "metamask") is None)
+  assert_true(info(ok_uuid, ok_icon, "com..example") is None)
+  assert_true(info(ok_uuid, ok_icon, "com.exa mple.a") is None)
+  assert_true(info(ok_uuid, ok_icon, "1com.example") is None)
+  assert_true(info(ok_uuid, ok_icon, "io.metamask") is Some(_))
+
+  // `uuid`: a UUIDv4, version nibble and variant included
+  assert_true(info("uuid-a", ok_icon, ok_rdns) is None)
+  assert_true(
+    info("11111111-1111-1111-8111-111111111111", ok_icon, ok_rdns) is None,
+  )
+  assert_true(
+    info("11111111-1111-4111-1111-111111111111", ok_icon, ok_rdns) is None,
+  )
+  assert_true(
+    info("1111111111114111811111111111111z", ok_icon, ok_rdns) is None,
+  )
+  assert_true(
+    info("11111111-1111-4111-A111-111111111111", ok_icon, ok_rdns) is Some(_),
+  )
 }
 
 ///|
