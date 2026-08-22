@@ -48,13 +48,17 @@ where the assumption is the caller's own.
 The wallet holds the key and that is the entire security model — an SDK that
 could sign without the wallet would be an SDK that could sign without the user.
 
-**JSON-RPC batch requests**, the `[{…}, {…}]` array a node accepts as one
-request, and any scheduler that bundles calls the caller did not bundle.
-Batching reads is [Multicall3](/cookbook/batch-reads/), which is a different
-thing: it is one `eth_call`, so every call in it is executed against one block,
-which a JSON-RPC batch does not promise. A transport-level batch would carry
-methods other than `eth_call` in exchange for losing that, and is the transport's
-business rather than the contract layer's.
+**Bundling calls nobody asked to have bundled.** The `[{…}, {…}]` array a node
+accepts as one request is wrapped, but only where it was asked for:
+`HttpProvider::with_batch` opts an endpoint into a window, and a provider
+without it sends one POST per call, as it always did. There is no scheduler
+folding the calls of a provider that never asked. See
+[Read without a wallet](/cookbook/http-rpc/#one-post-for-many-calls).
+
+A transport batch also gives no same-block guarantee — the node runs each
+element against whatever state it has by the time it gets there. Reads that must
+see one block are [Multicall3](/cookbook/batch-reads/), which is one `eth_call`,
+executed once.
 
 **A cached "current account".** The SDK is stateless on purpose; see
 [How the SDK is shaped](/guide/design/). A cache would be wrong the moment the

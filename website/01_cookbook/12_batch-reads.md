@@ -170,11 +170,13 @@ It is not JSON-RPC batching — the `[{…}, {…}]` array a node will accept as
 request. That is a transport concern, it can carry methods other than `eth_call`,
 and it gives no same-block guarantee, because the node is free to run each
 element against whatever state it has by the time it gets there. Multicall3 is
-one call, executed once, on one block.
+one call, executed once, on one block. The SDK has that fold too, over HTTP and
+[only where you ask for it](/cookbook/http-rpc/#one-post-for-many-calls); the two
+compose, and neither replaces the other.
 
-There is also no scheduler quietly collecting your reads and flushing them. Calls
-are bundled because you bundled them, and a `Contract::call` is still exactly one
-`eth_call`.
+Nothing here collects your reads behind your back. Calls are bundled because you
+bundled them, and a `Contract::call` is still exactly one `eth_call` — over a
+batched endpoint, one `eth_call` in a POST it may be sharing.
 
 Writes are not batchable this way at all. `aggregate3` runs inside a single
 `eth_call`, which changes nothing — several *transactions* in one is a different
