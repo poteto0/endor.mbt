@@ -123,9 +123,22 @@ pub fn Hex::concat(self : Hex, other : Hex) -> Hex {
 }
 
 ///|
-/// The digits without copying them out, for the callers inside this package
-/// that only read them. The one place that knows how long the prefix is.
-fn Hex::digits_view(self : Hex) -> StringView {
+/// The digits without copying them out — what a caller that only reads them
+/// wants, and the one place that knows how long the prefix is. `digits()` is
+/// this with a copy on the end, for a caller that needs to keep them.
+///
+/// The pair mirrors `from_digits`, which already takes a view: the digit
+/// boundary is a view on the way in, and this is the way out. ABI decoding
+/// reads a word at a time out of a value this long, so copying the digits out
+/// first would cost more than the decoding.
+///
+/// ```mbt check
+/// test "doc: hex digits view" {
+///   let h = @types.Hex::from_string("0xdeadbeef")
+///   inspect(h.digits_view()[:4], content="dead")
+/// }
+/// ```
+pub fn Hex::digits_view(self : Hex) -> StringView {
   self.inner[2:]
 }
 

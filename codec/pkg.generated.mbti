@@ -44,6 +44,8 @@ pub fn is_valid_bits(Int) -> Bool
 
 pub fn is_valid_bytes_size(Int) -> Bool
 
+pub fn is_zero_digits(StringView) -> Bool
+
 pub fn nibble(Char) -> Int
 
 pub fn word_left_pad(Bytes) -> Bytes

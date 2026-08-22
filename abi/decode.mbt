@@ -20,7 +20,7 @@ pub fn decode(
   types : Array[AbiType],
   data : @types.Hex,
 ) -> Array[AbiValue] raise AbiError {
-  _decode_block(types, data.digits(), 0)
+  _decode_block(types, data.digits_view(), 0)
 }
 
 ///|
@@ -28,7 +28,7 @@ pub fn decode(
 /// the value itself or the offset — counted from `base` — of its tail.
 fn _decode_block(
   types : Array[AbiType],
-  data : String,
+  data : StringView,
   base : Int,
 ) -> Array[AbiValue] raise AbiError {
   let out = []
@@ -49,7 +49,7 @@ fn _decode_block(
 /// Read one value of type `t` from the digits at `at`.
 fn _decode_value(
   t : AbiType,
-  data : String,
+  data : StringView,
   at : Int,
 ) -> AbiValue raise AbiError {
   match t {
@@ -76,7 +76,7 @@ fn _decode_value(
         raise InvalidData("Address encoding")
       }
       Address(
-        @types.Address::from_string("0x" + word[WORD_DIGITS - 40:].to_owned()) catch {
+        @types.Address::from_string("0x\{word[WORD_DIGITS - ADDRESS_DIGITS:]}") catch {
           e => raise InvalidData("address: \{e}")
         },
       )
@@ -121,19 +121,23 @@ fn _decode_value(
 
 ///|
 /// The 32-byte word at `at`, or `InvalidData` when the data stops short of it.
-fn _read_word(data : String, at : Int) -> String raise AbiError {
+/// A view, so a word is never copied out of the data it was read from.
+fn _read_word(data : StringView, at : Int) -> StringView raise AbiError {
   guard at >= 0 && at + WORD_DIGITS <= data.length() else {
     raise InvalidData(
       "expected a word at byte \{at / 2}, but the data is \{data.length() / 2} bytes",
     )
   }
-  data[at:at + WORD_DIGITS].to_owned()
+  data[at:at + WORD_DIGITS]
 }
 
 ///|
 /// The word at `at` read as an unsigned 256-bit number.
-fn _read_word_as_uint(data : String, at : Int) -> BigInt raise AbiError {
-  BigInt::from_string(_read_word(data, at), radix=16)
+fn _read_word_as_uint(data : StringView, at : Int) -> BigInt raise AbiError {
+  let word = _read_word(data, at)
+  @string.parse_bigint(word, base=16) catch {
+    _ => raise InvalidData("not a 256-bit number: \{word}")
+  }
 }
 
 ///|
@@ -142,20 +146,20 @@ fn _read_word_as_uint(data : String, at : Int) -> BigInt raise AbiError {
 /// Both are `uint256` on the wire and both have to become an `Int` to index
 /// with, so anything that could not possibly address this data is rejected here
 /// rather than truncated into a plausible-looking small number.
-fn _read_index(data : String, at : Int, what~ : String) -> Int raise AbiError {
+fn _read_index(
+  data : StringView,
+  at : Int,
+  what~ : String,
+) -> Int raise AbiError {
   let word = _read_word(data, at)
+  // only the last 6 digits can address data this side of 16 MB, so anything
+  // above them is out of range and keeps `value` in `Int`
+  guard @codec.is_zero_digits(word[:WORD_DIGITS - 6]) else {
+    raise InvalidData("\{what} is far larger than the data")
+  }
   let mut value = 0
-  for i, c in word.iter2() {
-    let digit = @codec.nibble(c)
-    // only the last 6 digits can address data this side of 16 MB, so anything
-    // above them is out of range and keeps `value` in `Int`
-    if i < WORD_DIGITS - 6 {
-      guard digit == 0 else {
-        raise InvalidData("\{what} is far larger than the data")
-      }
-    } else {
-      value = value * 16 + digit
-    }
+  for c in word[WORD_DIGITS - 6:] {
+    value = value * 16 + @codec.nibble(c)
   }
   guard value <= data.length() / 2 else {
     raise InvalidData(
@@ -167,7 +171,7 @@ fn _read_index(data : String, at : Int, what~ : String) -> Int raise AbiError {
 
 ///|
 /// A dynamic byte string: a length word, then that many bytes.
-fn _read_byte_string(data : String, at : Int) -> Bytes raise AbiError {
+fn _read_byte_string(data : StringView, at : Int) -> Bytes raise AbiError {
   let length = _read_index(data, at, what="byte length")
   let from = at + WORD_DIGITS
   guard from + length * 2 <= data.length() else {

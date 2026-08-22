@@ -76,6 +76,18 @@ pub fn is_lower_hex_digits(s : StringView) -> Bool {
 }
 
 ///|
+/// Whether every character of `s` is `0` — the question a fixed-width encoding
+/// asks of its padding. The third of this file's scans, and the one the read
+/// side asks: a value that was left- or right-padded into a word is only the
+/// value it says it is if the rest of the word is still zero.
+pub fn is_zero_digits(s : StringView) -> Bool {
+  for i in 0..<s.length() {
+    guard s.unsafe_get(i).to_int() == 0x30 else { return false }
+  }
+  true
+}
+
+///|
 /// The pass both predicates above are: one walk over the code units, since a
 /// hex digit is ASCII and decoding each into a `Char` costs more than the test.
 fn scan_digits(s : StringView, lower_only~ : Bool) -> Bool {

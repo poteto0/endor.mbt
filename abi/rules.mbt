@@ -29,13 +29,13 @@ fn _is_valid_int_bits_word(word : BigInt, bits : Int) -> Bool {
 
 ///|
 /// top 12 bits should be all zero
-fn _is_valid_address_word(word : String) -> Bool {
-  word[0:24] == "000000000000000000000000"
+fn _is_valid_address_word(word : StringView) -> Bool {
+  @codec.is_zero_digits(word[:WORD_DIGITS - ADDRESS_DIGITS])
 }
 
 ///|
 /// bytesN of abi is right padded
 /// size + all zero
-fn _is_valid_bytes_word(word : String, size : Int) -> Bool {
-  word[size * 2:] == "0".repeat(WORD_DIGITS - size * 2)
+fn _is_valid_bytes_word(word : StringView, size : Int) -> Bool {
+  @codec.is_zero_digits(word[size * 2:])
 }

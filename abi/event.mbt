@@ -228,7 +228,7 @@ fn _decode_topic(t : AbiType, topic : @types.Hex) -> AbiValue raise AbiError {
   } else {
     // an indexed value type sits in its topic exactly as it would in a word of
     // `data`, so this is the same reader
-    _decode_value(t, topic.digits(), 0)
+    _decode_value(t, topic.digits_view(), 0)
   }
 }
 
