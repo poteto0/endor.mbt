@@ -120,6 +120,86 @@ async fn[P : @provider.Provider] holdings(
 }
 ```
 
+## One POST for many calls
+
+A node will accept a JSON-RPC **array** — several calls in one request body,
+answered by an array of answers. `with_batch` turns that on, and from there it
+is invisible: calls that start close together in time leave as a single POST,
+and each one gets its own answer back.
+
+```moonbit
+async fn two_reads_one_post(url : String) -> Unit raise {
+  let node = @endpoint.at(url).with_batch(@provider.BatchPolicy::default())
+  let answers = @provider.request_many(node, [
+    @provider.BatchCall::new(method_name="eth_chainId", params=Json::array([])),
+    @provider.BatchCall::new(
+      method_name="eth_blockNumber",
+      params=Json::array([]),
+    ),
+  ])
+  println("\{answers.length()} answers, one round trip")
+}
+```
+
+Nothing about the calls changes — the same helpers, the same errors, and one
+element failing is one call failing. What changes is the number of requests on
+the wire.
+
+**It is off unless you ask for it**, which is the opposite of
+[retries](/guide/retries/). Retrying costs a caller nothing when nothing fails.
+A window costs a lone read the whole `wait` before it is even sent, and whether
+that trade is worth making depends on the endpoint and on what the code is
+doing — which only you know. A provider that never sees `with_batch` sends what
+it always did.
+
+`BatchPolicy` is two numbers, both viem's:
+
+|            |                                        |
+| ---------- | -------------------------------------- |
+| `wait`     | 16 ms — how long the window stays open |
+| `max_size` | 100 calls — what closes it early       |
+
+```moonbit
+// a slow, rate-limited endpoint: wait longer, fold more
+fn a_wider_window(
+  url : String,
+) -> @http.HttpProvider[@endpoint.Endpoint] raise {
+  @endpoint.at(url).with_batch(@provider.BatchPolicy::new(wait=50, max_size=20))
+}
+```
+
+The window belongs to **the provider value**, so folding is scoped to it: build
+it once and hand that one value to the calls you want folded. A provider built
+fresh inside a per-call helper has a window of its own with one call in it — it
+folds nothing and pays the whole `wait`, which looks like the feature making
+things slower.
+
+The first call into an open window is the one that sends it, so there is no
+background task and nothing to shut down — `at()` still hands back a plain
+value. If that call is cancelled before the window closes, the role passes to
+the next call waiting, and the abandoned one is taken back out of the batch.
+
+Two things stay out of a window. **Send-once methods** —
+`eth_sendTransaction`, `personal_sign`, `eth_signTypedData_v4` and every
+`wallet_*` — take the unbatched path, because an array is retried whole and
+those must be sent at most once. And **retries move to the POST**: one `429`
+for a folded window is one resend of that window, not one resend per call in
+it.
+
+What comes back is matched by **id**, never by position — JSON-RPC lets a node
+answer a batch in any order. An id that was never sent, or one answered twice,
+fails the whole batch rather than risking one call being handed another's
+answer; an id that never came back fails only its own call. If the node refuses
+the batch as a whole it answers a single error object instead of an array, and
+that error reaches everyone in the window.
+
+This is a *transport* fold, so it gives no same-block guarantee: the node is
+free to run each element against whatever state it has by the time it gets
+there. When several reads have to see one block,
+[Multicall3](/cookbook/batch-reads/) is the tool — one `eth_call`, executed
+once. The two compose: a multicall over a batched endpoint is still one
+`eth_call`, in a POST it may be sharing.
+
 ## What HTTP cannot do
 
 Two things, and the SDK says so about both rather than failing obscurely.

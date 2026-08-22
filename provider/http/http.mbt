@@ -50,27 +50,77 @@ pub struct HttpProvider[T] {
   priv transport : T
   priv mut next_id : Int
   priv retry : @provider.RetryPolicy
+  priv batch : Window?
 }
 
 ///|
 /// Build a provider over `transport`. Ids start at 1, retries are the default
-/// policy.
+/// policy, and calls are not batched.
 pub fn[T] HttpProvider::new(transport : T) -> HttpProvider[T] {
   HttpProvider::{
     transport,
     next_id: 1,
     retry: @provider.RetryPolicy::default(),
+    batch: None,
   }
 }
 
 ///|
-/// The same provider, retrying on `policy`. The copy gets an id counter of its
-/// own, which is all ids have to be unique within.
+/// The same provider, retrying on `policy`. The copy gets an id counter and a
+/// batch window of its own — ids only have to be unique within one of those,
+/// and two providers that retry differently should not share a POST.
 pub fn[T] HttpProvider::with_retry(
   self : HttpProvider[T],
   policy : @provider.RetryPolicy,
 ) -> HttpProvider[T] {
-  { ..self, retry: policy }
+  self.copied(retry=policy, batch=self.batch.map(w => w.policy))
+}
+
+///|
+/// Every wither goes through here, so "a copy never shares a window" is one
+/// function's property rather than a line each of them has to remember. A copy
+/// carries the batch *policy* across and nothing else: the calls waiting in the
+/// original window belong to the original.
+fn[T] HttpProvider::copied(
+  self : HttpProvider[T],
+  retry~ : @provider.RetryPolicy,
+  batch~ : @provider.BatchPolicy?,
+) -> HttpProvider[T] {
+  { ..self, retry, batch: batch.map(Window::new) }
+}
+
+///|
+/// The same provider, folding concurrent calls into one JSON-RPC array: calls
+/// that start within `policy`'s window leave as a single POST, and each gets
+/// its own answer back by id.
+///
+/// **Off unless you ask for it**, unlike `with_retry`. Retrying costs a caller
+/// nothing when nothing fails, but a window costs a lone read the whole `wait`
+/// before it is even sent — and whether that trade is right depends on what the
+/// endpoint is and what the caller is doing, which only the caller knows. A
+/// provider that never sees `with_batch` behaves exactly as it did before this
+/// existed.
+///
+/// The window belongs to **this provider value**, so folding is scoped to it:
+/// build it once and share it between the calls that should fold. One built
+/// per call folds nothing and pays the whole `wait`.
+///
+/// ```
+/// async fn heights[T : @http.HttpTransport](
+///   node : @http.HttpProvider[T],
+/// ) -> Array[Result[Json, @provider.ProviderError]] raise @provider.ProviderError {
+///   // one provider, so these two land in one window — and one POST
+///   @provider.request_many(node, [
+///     @provider.BatchCall::new(method_name="eth_chainId", params=Json::array([])),
+///     @provider.BatchCall::new(method_name="eth_blockNumber", params=Json::array([])),
+///   ])
+/// }
+/// ```
+pub fn[T] HttpProvider::with_batch(
+  self : HttpProvider[T],
+  policy : @provider.BatchPolicy,
+) -> HttpProvider[T] {
+  self.copied(retry=self.retry, batch=Some(policy))
 }
 
 ///|
@@ -104,6 +154,13 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   if needs_a_wallet(method_name) {
     raise @provider.UnsupportedMethod
   }
+  // The window retries the POST it folds into, so a call that goes in must not
+  // also be retried here — and one that must be sent at most once cannot be in
+  // an array that a retry resends whole.
+  let may_be_resent = !@provider.is_not_idempotent(method_name)
+  if self.batch is Some(window) && may_be_resent {
+    return self.send_batched(window, method_name~, params~)
+  }
   @provider.retry_loop(method_name~, policy=self.retry, () => {
     self.send_once(method_name~, params~)
   })
@@ -119,13 +176,9 @@ async fn[T : HttpTransport] HttpProvider::send_once(
 ) -> Json raise @provider.ProviderError {
   let id = self.next_id
   self.next_id = id + 1
-  let payload = Json::object({
-    "jsonrpc": Json::string("2.0"),
-    "id": Json::number(id.to_double()),
-    "method": Json::string(method_name),
-    "params": params,
-  })
-  let body = self.transport.post(payload.stringify())
+  let body = self.transport.post(
+    envelope(id~, method_name~, params~).stringify(),
+  )
   let parsed = @json.parse(body) catch {
     e => raise @provider.MalformedResponse("response is not JSON: \{e}")
   }
@@ -133,17 +186,43 @@ async fn[T : HttpTransport] HttpProvider::send_once(
     raise @provider.MalformedResponse("response is not an object: \{body}")
   }
   check_id(fields, id)
-  if fields.get("error") is Some(error) && !(error is Null) {
-    raise @provider.ProviderError::from_error_object(error)
+  match read_answer(fields) {
+    Ok(result) => result
+    Err(e) => raise e
   }
-  // `null` is a legitimate result — a receipt for a transaction that has not
-  // been mined — so absence is the missing *key*, not the null value.
+}
+
+///|
+/// The request envelope, spelled once: a batched call and a lone one put the
+/// same four members on the wire, and only the brackets around them differ.
+fn envelope(id~ : Int, method_name~ : String, params~ : Json) -> Json {
+  Json::object({
+    "jsonrpc": Json::string("2.0"),
+    "id": Json::number(id.to_double()),
+    "method": Json::string(method_name),
+    "params": params,
+  })
+}
+
+///|
+/// Read one JSON-RPC answer object: the node's `error` as an `Err`, its
+/// `result` as an `Ok`, and a body that is neither as a raise — an element of a
+/// batch and a whole response are the same shape here.
+///
+/// `null` is a legitimate result — a receipt for a transaction that has not
+/// been mined — so absence is the missing *key*, not the null value.
+fn read_answer(
+  fields : Map[String, Json],
+) -> Result[Json, @provider.ProviderError] raise @provider.ProviderError {
+  if fields.get("error") is Some(error) && !(error is Null) {
+    return Err(@provider.ProviderError::from_error_object(error))
+  }
   guard fields.get("result") is Some(result) else {
     raise @provider.MalformedResponse(
-      "response carries neither result nor error: \{body}",
+      "answer carries neither result nor error: \{Json::object(fields).stringify()}",
     )
   }
-  result
+  Ok(result)
 }
 
 ///|

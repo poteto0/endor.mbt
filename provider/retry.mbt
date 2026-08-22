@@ -17,6 +17,24 @@ pub async fn retry_loop(
   if is_not_idempotent(method_name) {
     return call()
   }
+  retry_loop_of(label=method_name, policy~, call)
+}
+
+///|
+/// The loop itself, for a caller that has already settled idempotency some
+/// other way — a JSON-RPC batch does it by admission, keeping the send-once
+/// methods out of the window in the first place.
+///
+/// `label` names the thing being retried in a cancellation message and decides
+/// nothing. Splitting it off the method name is what keeps such a caller from
+/// having to invent a name that misses the send-once list.
+#internal(internal, "the retry loop is not public API")
+#doc(hidden)
+pub async fn retry_loop_of(
+  label~ : String,
+  policy~ : RetryPolicy,
+  call : async () -> Json raise ProviderError,
+) -> Json raise ProviderError {
   // Written out rather than handed to `@async.retry`, which picks its delay
   // from the strategy alone and so has nowhere to read a `Retry-After` from.
   // The price is that `first_delay` / `next_delay` mirror what `@async.retry`
@@ -41,9 +59,7 @@ pub async fn retry_loop(
         // `ProviderError` boundary as itself
         @async.sleep(wait) catch {
           cancelled =>
-            raise Transport(
-              "the retry of \{method_name} was cancelled: \{cancelled}",
-            )
+            raise Transport("the retry of \{label} was cancelled: \{cancelled}")
         }
         continue attempt + 1, next_delay(policy.strategy, delay)
       }
@@ -117,7 +133,13 @@ fn next_delay(strategy : @async.RetryMethod, delay : Int) -> Int {
 /// names: a dev node with unlocked accounts really does serve
 /// `eth_sendTransaction`, which is why HTTP lets it through — and it is exactly
 /// the one that must not be sent twice.
-fn is_not_idempotent(method_name : String) -> Bool {
+///
+/// The batch window in `provider/http` asks the same question for a second
+/// reason: a call that must be sent at most once must not ride in an array that
+/// a retry can resend whole.
+#internal(internal, "the send-once list is not public API")
+#doc(hidden)
+pub fn is_not_idempotent(method_name : String) -> Bool {
   method_name.has_prefix("wallet_") ||
   method_name == "eth_sendTransaction" ||
   method_name == "eth_requestAccounts" ||
