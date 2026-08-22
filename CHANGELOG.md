@@ -12,7 +12,7 @@ gets fixed rather than kept for compatibility. Every such change is listed under
 **Changed** with what to do about it. From 1.0 onward, the usual SemVer promise
 applies.
 
-## [Unreleased]
+## [0.8.0] - 2026-08-22
 
 ### Added
 
@@ -73,6 +73,32 @@ applies.
   things the wire spells that the struct does not — `EIP712Domain` in `types`,
   a member nothing declares, `chainId` as a string — are on the signing
   reference page. (#140)
+- **Every provider retries the failures worth retrying.** A `429` from a hosted
+  RPC, a socket that closed mid-request, a node answering `-32005`: none of
+  those is an answer, and `HttpProvider` and `BrowserProvider` now send the
+  request again rather than handing the failure straight to the caller. What
+  counts as worth retrying is `ProviderError::is_retryable()`, which already
+  answered the question and had nothing running it — the errors guide said to
+  back off between attempts and the SDK shipped no way to. viem's numbers:
+  150 ms doubling to at most 2 s, three retries. No new public type, no
+  wrapping, nothing to enable. (#151)
+- **`RetryPolicy` and `with_retry`, for when the defaults are wrong.**
+  `@provider.RetryPolicy::new(strategy?, max_retry?)` names how hard to try —
+  `strategy` being `moonbitlang/async`'s `RetryMethod` — with `default()` and
+  `none()` for the two most dapps want. `HttpProvider::with_retry(policy)` and
+  `BrowserProvider::with_retry(policy)` put one on a provider and give the copy
+  back. `none()` is the one that matters: a caller with its own retry layer was
+  otherwise multiplying its attempts by four. A wither rather than an argument
+  to the constructors, because `BrowserProvider` has four of those and two of
+  them — `discover` and `on_announce` — hand back a provider the caller never
+  built. Two things stay outside the policy, because they are not a dial:
+  `Retry-After` still wins over the backoff, and the methods that open a wallet
+  dialog — every `wallet_*`, `eth_requestAccounts`, `personal_sign`,
+  `eth_signTypedData_v4`, `eth_sendTransaction` — are still sent exactly once, a
+  deliberate difference from viem, whose retry never looks at the method name.
+  All of it — the defaults, the policy, the calls that are sent exactly once —
+  is one page now:
+  [Retries](https://endor.poteto-mahiro.com/guide/retries/). (#158, #165)
 - **A node that says how long to wait is waited.** `HttpStatus` now carries the
   `Retry-After` a `429` or a `503` answered with, and the retry loop both
   providers already run waits exactly that instead of its own backoff — which is
@@ -85,6 +111,16 @@ applies.
 
 ### Changed
 
+- **`WalletClient::prepare` asks for everything at once.** The chain id, the
+  pending nonce, the fees and the gas estimate do not depend on each other, and
+  were four round trips in a row on the way to every `send()`. They now go out
+  together in one `@async` task group and the call waits for the slowest of the
+  reads it actually issues rather than the sum — against a hosted RPC that is
+  most of the latency of sending a transaction. Every step still raises the same
+  variant with the same message; what moves is which one wins when more than one
+  fails, since the tasks keep their failures and are unwrapped in a fixed order.
+  A contract creation with no `gas` is now refused before any request leaves,
+  with the same `Incomplete`. (#164)
 - **`HttpStatus` has a third field, `info~ : HttpStatusInfo`.** `code` and `url`
   are untouched; a pattern that names them both and stops there needs a `..`:
 
@@ -651,6 +687,7 @@ topics~, data~)` checks `topics[0]` against the event's own signature hash,
 - MetaMask connection via the EIP-1193 provider standard
 - Basic read methods
 
+[0.8.0]: https://github.com/poteto0/endor.mbt/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/poteto0/endor.mbt/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/poteto0/endor.mbt/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/poteto0/endor.mbt/compare/v0.4.0...v0.5.0

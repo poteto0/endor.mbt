@@ -6,6 +6,9 @@
 // adding a snippet never means editing this file.
 
 import {
+  // not an SDK package: a page that spells a `RetryPolicy` strategy names
+  // `RetryMethod`'s constructors, and a constructor needs its package imported
+  "moonbitlang/async",
   "poteto0/endor",
   "poteto0/endor/codec",
   "poteto0/endor/crypto/keccak",

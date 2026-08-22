@@ -17,7 +17,7 @@ website/
   astra.config.json   nav, theme, footer, the islands directory
   page.json           the home page's front matter
   index.md            the home page
-  00_guide/           install, design, errors
+  00_guide/           install, design, errors, retries
   01_cookbook/        one page per task, each with a live demo
   02_reference/       what is wrapped, and what is not
   islands/            the demos — a MoonBit module (poteto0/endor-website-islands)

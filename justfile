@@ -381,6 +381,10 @@ release-check tag:
   # be moved by hand and is therefore the one that gets forgotten
   expect "cmd/endor-cli VERSION" \
     "$(grep -m1 '^const VERSION' cmd/endor-cli/version.mbt | cut -d'"' -f2)"
+  # the site's Status line. Not a version anything resolves, but it is the
+  # number a reader is told to install, and it is on the front page
+  expect "website/index.md Status" \
+    "$(grep -m1 '^`[0-9]' website/index.md | cut -d'`' -f2)"
   [ "$fail" -eq 0 ] || exit 1
   echo "ok: every declared version is ${want}"
 

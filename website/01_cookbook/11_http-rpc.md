@@ -159,7 +159,8 @@ The same suberrors as everywhere else, from one more source. A failing
 retrying, in the [Errors guide](/guide/errors/). A JSON-RPC `error` object is
 none of them: it is a well-formed answer, and it is mapped through the same code
 table as a wallet's, so a revert from a node is the `Reverted` you already
-handle.
+handle. The ones worth retrying are retried before you see them — a hosted RPC
+rate-limiting you is the usual case — which is [Retries](/guide/retries/).
 
 ```moonbit
 async fn read_or_explain(url : String, who : @endor.Address) -> Unit {

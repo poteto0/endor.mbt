@@ -147,12 +147,11 @@ whichever variant says what actually happened.
 | `HttpStatus` 429, 5xx | `HttpStatus` 401, 403 — the API key, not the load   |
 | `Rpc(-32005)`         | `MalformedResponse`, `Decode`, `Config`, `Reverted` |
 
-Both providers already retry these for you, backing off between attempts. A
-`429` or a `503` that came with a `Retry-After` is waited exactly that long
-instead — the node saying how long it wants to be left alone beats any backoff
-guessed from outside — and one asking for longer than about a minute ends the
-retrying rather than holding your request. The value is on
-`HttpStatusInfo::retry_after()`, in seconds, for anyone waiting by hand.
+Both providers already retry these for you, backing off between attempts, so a
+failure that reaches this `catch` has been tried more than once. What the
+defaults are, when the node's own `Retry-After` is waited instead, how to change
+any of it with `RetryPolicy`, and which calls are sent exactly once whatever the
+policy says: [Retries](./retries/).
 
 ## ContractError
 
