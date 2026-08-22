@@ -100,6 +100,6 @@ never a ceiling.
 
 ## Status
 
-`0.7.0`, published on [mooncakes.io](https://mooncakes.io/docs/poteto0/endor).
+`0.8.0`, published on [mooncakes.io](https://mooncakes.io/docs/poteto0/endor).
 Pre-1.0: the API still moves, and [Versioning](/reference/versioning/) says how
 much and with what warning.

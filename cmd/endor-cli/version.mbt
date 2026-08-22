@@ -19,4 +19,4 @@ fn handle_version(args : Array[String]) -> Int {
 /// can tell them about is the one baked in when it was built. `just
 /// release-check <tag>` asserts this agrees with `cmd/moon.mod` and with the
 /// SDK it pins, so the three cannot drift apart unnoticed.
-const VERSION = "0.7.0"
+const VERSION = "0.8.0"
