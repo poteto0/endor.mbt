@@ -18,6 +18,10 @@
 /// ```
 pub struct Endpoint {
   priv url : String
+  /// The URL with its secrets dropped: what every message names this endpoint
+  /// by. Built once, because the URL does not change and nothing above here
+  /// may see the other one.
+  priv display : String
   /// The caller's headers with `content-type: application/json` already in
   /// them: they do not change after construction, so neither does this.
   priv headers : Map[String, String]
@@ -46,7 +50,7 @@ fn Endpoint::new(
   for name, value in headers {
     merged[name] = value
   }
-  Endpoint::{ url, headers: merged, timeout }
+  Endpoint::{ url, display: display_url(url), headers: merged, timeout }
 }
 
 ///|
@@ -68,7 +72,7 @@ pub fn at(
   timeout? : Int = DEFAULT_TIMEOUT_MS,
 ) -> @http.HttpProvider[Endpoint] raise @provider.ProviderError {
   guard validate_http_url(url) else {
-    raise @provider.InvalidConfig("not an HTTP URL: \{url}")
+    raise @provider.InvalidConfig("not an HTTP URL: \{display_url(url)}")
   }
   guard timeout > 0 else {
     raise @provider.InvalidConfig(
@@ -99,14 +103,14 @@ pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
       e => Err(e)
     }
   }) catch {
-    e => raise @provider.Transport("POST \{self.url} was cancelled: \{e}")
+    e => raise @provider.Transport("POST \{self.display} was cancelled: \{e}")
   }
   match outcome {
     Some(Ok(text)) => text
     Some(Err(e)) => raise e
     None =>
       raise @provider.Timeout(
-        "POST \{self.url} went unanswered for \{self.timeout}ms",
+        "POST \{self.display} went unanswered for \{self.timeout}ms",
       )
   }
 }
@@ -118,19 +122,22 @@ async fn Endpoint::send(
   body : String,
 ) -> String raise @provider.ProviderError {
   let (response, payload) = @client.post(self.url, body, headers=self.headers) catch {
-    e => raise @provider.Transport("POST \{self.url} failed: \{e}")
+    e => raise @provider.Transport("POST \{self.display} failed: \{e}")
   }
   guard response.code >= 200 && response.code < 300 else {
     raise @provider.HttpStatus(
       code=response.code,
-      url=self.url,
+      url=self.display,
       info=@provider.HttpStatusInfo::new(
         retry_after?=retry_after_seconds(response.headers),
       ),
     )
   }
   payload.text() catch {
-    e => raise @provider.Transport("unreadable response from \{self.url}: \{e}")
+    e =>
+      raise @provider.Transport(
+        "unreadable response from \{self.display}: \{e}",
+      )
   }
 }
 

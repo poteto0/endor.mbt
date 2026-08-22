@@ -9,6 +9,8 @@ import {
 }
 
 // Values
+pub const BODY_PREVIEW_CHARS : Int = 256
+
 pub async fn[P : Provider] accounts(P) -> Array[@types.Address] raise ProviderError
 
 pub async fn[P : Provider] add_chain(P, @types.ChainParams) -> Unit raise ProviderError
@@ -24,6 +26,8 @@ pub async fn[P : Provider] block_number(P) -> UInt64 raise ProviderError
 pub async fn[P : Provider] block_transaction_count_by_hash(P, @types.BlockHash) -> UInt64? raise ProviderError
 
 pub async fn[P : Provider] block_transaction_count_by_number(P, block? : @types.BlockTag) -> UInt64? raise ProviderError
+
+pub fn body_preview(String) -> String
 
 pub async fn[P : Provider] call(P, @types.CallRequest, block? : @types.BlockTag) -> @types.Hex raise ProviderError
 

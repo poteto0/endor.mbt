@@ -217,12 +217,12 @@ fn read_answers(
   for element in elements {
     guard element is Object(fields) else {
       raise @provider.MalformedResponse(
-        "a batch answer is not an object: \{element.stringify()}",
+        "a batch answer is not an object: \{@provider.body_preview(element.stringify())}",
       )
     }
     guard fields.get("id") is Some(Number(raw, ..)) else {
       raise @provider.MalformedResponse(
-        "a batch answer carries no id: \{element.stringify()}",
+        "a batch answer carries no id: \{@provider.body_preview(element.stringify())}",
       )
     }
     let id = raw.to_int()
@@ -261,12 +261,12 @@ async fn[T : HttpTransport] HttpProvider::send_batch_once(
         raise @provider.ProviderError::from_error_object(error)
       } else {
         raise @provider.MalformedResponse(
-          "batch response is a single object carrying no error: \{answered}",
+          "batch response is a single object carrying no error: \{@provider.body_preview(answered)}",
         )
       }
     _ =>
       raise @provider.MalformedResponse(
-        "batch response is neither an array nor an error object: \{answered}",
+        "batch response is neither an array nor an error object: \{@provider.body_preview(answered)}",
       )
   }
 }

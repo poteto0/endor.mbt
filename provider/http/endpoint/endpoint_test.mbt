@@ -19,10 +19,18 @@ test "at accepts the urls a node is reached at" {
 /// A URL with no host would otherwise surface as a connection error at the
 /// first request, a call away from the typo that caused it.
 test "at refuses a url with no host" {
-  for url in ["http://", "http://:8545", "http://user@/v2"] {
+  // the URL is named back as it will be shown — with a secret it may carry
+  // already dropped, because a refusal is printed like any other error
+  for
+    case in [
+      ("http://", "http://"),
+      ("http://:8545", "http://:8545"),
+      ("http://user@/v2", "http:///***"),
+    ] {
+    let (url, shown) = case
     try ignore(@endpoint.at(url)) catch {
       @provider.InvalidConfig(message) =>
-        assert_eq(message, "not an HTTP URL: \{url}")
+        assert_eq(message, "not an HTTP URL: \{shown}")
       e => fail("expected a configuration error for \{url}, but not \{e}")
     } noraise {
       _ => fail("expected \{url} to be refused")
@@ -34,10 +42,16 @@ test "at refuses a url with no host" {
 /// The other transports have their own providers; a URL naming one is a
 /// mistake this catches rather than a request that fails later.
 test "at refuses a scheme it cannot POST to" {
-  for url in ["ws://127.0.0.1:8546", "ipc:///tmp/geth.ipc", "127.0.0.1:8545"] {
+  for
+    case in [
+      ("ws://127.0.0.1:8546", "ws://127.0.0.1:8546"),
+      ("ipc:///tmp/geth.ipc", "ipc:///tmp/***"),
+      ("127.0.0.1:8545", "127.0.0.1:8545"),
+    ] {
+    let (url, shown) = case
     try ignore(@endpoint.at(url)) catch {
       @provider.InvalidConfig(message) =>
-        assert_eq(message, "not an HTTP URL: \{url}")
+        assert_eq(message, "not an HTTP URL: \{shown}")
       e => fail("expected a configuration error for \{url}, but not \{e}")
     } noraise {
       _ => fail("expected \{url} to be refused")

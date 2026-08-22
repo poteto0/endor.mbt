@@ -274,3 +274,23 @@ async test "the typed helpers decode over an HttpProvider" {
     },
   )
 }
+
+///|
+/// A body has no bound and reflects the call that was made, so the message
+/// about one that is not JSON-RPC carries its head and not the body itself.
+async test "a body that is not an answer is quoted only as far as its head" {
+  // JSON, so it is read; not an object, so it is no answer
+  let body = "\"" + "wall of text. ".repeat(1000) + "\""
+  let _ = on_answers([body], provider => {
+    guard refusal(provider, method_name="eth_chainId")
+      is @provider.MalformedResponse(message) else {
+      fail("expected a malformed response")
+    }
+    assert_true(
+      message.has_prefix("response is not an object: \"wall of text."),
+    )
+    // how much is left is `body_preview`'s own test; what this proves is that
+    // the message goes through it at all
+    assert_true(message.has_suffix("… (\{body.char_length()} chars)"))
+  })
+}
