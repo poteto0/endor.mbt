@@ -155,10 +155,6 @@ pub fn Subscription::unsubscribe(Self) -> Unit
 // Type aliases
 
 // Traits
-pub(open) trait BatchProvider : Provider {
-  async fn request_many(Self, Array[BatchCall]) -> Array[Result[Json, ProviderError]] raise ProviderError
-}
-
 pub(open) trait EventSource {
   fn subscribe(Self, event~ : String, handler~ : (Json) -> Unit) -> Subscription
 }
