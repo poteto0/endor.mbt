@@ -110,11 +110,6 @@ pub fn MockProvider::last_call(self : MockProvider) -> (String, Json)? {
 }
 
 ///|
-/// The mock takes the default `request_many`: one `request` per call, run
-/// concurrently, each recorded like any other.
-pub impl BatchProvider for MockProvider
-
-///|
 pub impl Provider for MockProvider with fn request(self, method_name~, params~) {
   self.calls.push((method_name, params))
   // a registered run answers first, one entry per call, until it is used up

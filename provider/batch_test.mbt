@@ -39,12 +39,47 @@ async test "an empty batch touches nothing" {
 }
 
 ///|
-async test "a BatchProvider that adds no override answers through the default" {
-  let mock = @provider.MockProvider::new().on(
-    method_name="eth_chainId",
-    response="0x1".to_json(),
-  )
-  assert_eq(mock.request_many([call("eth_chainId")]), [Ok("0x1".to_json())])
+/// A transport that really does fold: it answers the whole batch itself and
+/// counts how many times it was asked.
+struct Folding {
+  mut rounds : Int
+}
+
+///|
+impl @provider.Provider for Folding with fn request(self, method_name~, params~) {
+  ignore(params)
+  self.rounds += 1
+  method_name.to_json()
+}
+
+///|
+impl @provider.BatchProvider for Folding with fn request_many(self, calls) {
+  self.rounds += 1
+  calls.map(one => Ok(one.method_name().to_json()))
+}
+
+///|
+async test "a BatchProvider answers the whole batch in one round" {
+  let folding = Folding::{ rounds: 0 }
+  let answers = @provider.BatchProvider::request_many(folding, [
+    call("eth_chainId"),
+    call("eth_blockNumber"),
+  ])
+  assert_eq(answers, [
+    Ok("eth_chainId".to_json()),
+    Ok("eth_blockNumber".to_json()),
+  ])
+  assert_eq(folding.rounds, 1)
+}
+
+///|
+async test "the same transport still takes one round per call through request_many" {
+  let folding = Folding::{ rounds: 0 }
+  let _ = @provider.request_many(folding, [
+    call("eth_chainId"),
+    call("eth_blockNumber"),
+  ])
+  assert_eq(folding.rounds, 2)
 }
 
 ///|

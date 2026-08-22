@@ -1,21 +1,16 @@
 ///|
 /// One JSON-RPC call of a batch: the same pair `Provider::request` takes.
 ///
-/// It is `pub(all)` because it carries no invariant — any method name and any
-/// params value are as valid here as they are on `request` — and because the
-/// transport that folds a batch into one body has to read both fields from its
-/// own package.
-///
 /// ```
 /// let call = @provider.BatchCall::new(
 ///   method_name="eth_chainId",
 ///   params=Json::array([]),
 /// )
-/// ignore(call)
+/// inspect(call.method_name(), content="eth_chainId")
 /// ```
-pub(all) struct BatchCall {
-  method_name : String
-  params : Json
+pub struct BatchCall {
+  priv method_name : String
+  priv params : Json
 } derive(Eq, @debug.Debug)
 
 ///|
@@ -25,20 +20,26 @@ pub fn BatchCall::new(method_name~ : String, params~ : Json) -> BatchCall {
 }
 
 ///|
-/// A `Provider` that can answer several requests at once.
+/// The method this call names.
+pub fn BatchCall::method_name(self : BatchCall) -> String {
+  self.method_name
+}
+
+///|
+/// The params this call carries.
+pub fn BatchCall::params(self : BatchCall) -> Json {
+  self.params
+}
+
+///|
+/// A `Provider` that answers several requests in one round trip.
 ///
 /// It is a trait of its own for the reason `EventSource` is: a transport can
 /// answer RPC without being able to answer many at once. EIP-1193 has no
-/// batch — `request` is one call, `sendAsync` is superseded, and the wallets'
-/// own batch extensions are non-standard — so a browser provider could never
-/// implement a batch-only interface, and making one would leave every dapp
-/// behind the extension out of it.
-///
-/// So `request_many` has a default implementation: `request` per call, run
-/// concurrently. It is not a fold into one round trip, but it is the win that
-/// is actually available over an async message port, and it means the caller
-/// writes the same code either way. `provider/http` overrides it with a real
-/// JSON-RPC batch, where the round trips do collapse into one.
+/// batch — `request` is one call — so a browser provider cannot implement this
+/// and is not asked to: `request_many` is the function every `Provider` gets,
+/// and implementing this trait is the claim that the round trips really do
+/// collapse. JSON-RPC over HTTP is where that is true.
 ///
 /// A call that fails keeps its failure as a value, so the answers that did
 /// arrive are still there. Only a failure of the batch itself is raised.
@@ -57,26 +58,22 @@ pub(open) trait BatchProvider: Provider {
   /// Answer `calls`, in the order they were given.
   async fn request_many(Self, Array[BatchCall]) -> Array[
     Result[Json, ProviderError],
-  ] raise ProviderError = _
+  ] raise ProviderError
 }
 
 ///|
-/// The default: the concurrent one, so a transport declares `BatchProvider`
-/// only to say it has something better.
-impl BatchProvider with fn request_many(self, calls) {
-  request_many(self, calls)
-}
-
-///|
-/// Answer `calls` concurrently with one `request` each, in the order they were
-/// given.
+/// Answer `calls` with one `request` each, run concurrently, in the order they
+/// were given.
 ///
-/// This is what `BatchProvider` does by default, as a function any `Provider`
-/// can be handed to: a type that implements only `Provider` still gets the
-/// concurrency, without claiming a batch it does not have.
+/// This is the path any `Provider` gets, `BatchProvider` or not: the round
+/// trips stay N, but they stop waiting for each other, which is the win that
+/// is available over an async message port. A caller that wants the fold takes
+/// a `P : BatchProvider` instead — the code either side of the call is the
+/// same.
 ///
-/// An empty batch answers `[]` without touching the network, the way
-/// `@multicall.aggregate3` does.
+/// `max_concurrent` bounds how many are in flight at once, for the endpoint
+/// that answers a fan-out of two hundred reads with rate limiting rather than
+/// with answers. Unbounded by default, the way a folded batch is.
 ///
 /// ```
 /// async fn balances[P : @provider.Provider](
@@ -95,24 +92,19 @@ impl BatchProvider with fn request_many(self, calls) {
 pub async fn[P : Provider] request_many(
   p : P,
   calls : Array[BatchCall],
+  max_concurrent? : Int,
 ) -> Array[Result[Json, ProviderError]] raise ProviderError {
-  guard !calls.is_empty() else { return [] }
-  @async.with_task_group(group => {
-    let tasks = calls.map(one => {
-      group.spawn(() => {
-        Ok(p.request(method_name=one.method_name, params=one.params)) catch {
-          e => Err(e)
-        }
-      })
-    })
-    let answers = []
-    for task in tasks {
-      answers.push(task.wait())
+  let tasks : Array[async () -> Result[Json, ProviderError]] = calls.map(one => {
+    () => {
+      Ok(p.request(method_name=one.method_name, params=one.params)) catch {
+        e => Err(e)
+      }
     }
-    answers
-  }) catch {
-    // The tasks keep their own failures, so nothing but a cancellation of the
-    // group itself gets out this way.
+  })
+  // An empty batch spawns nothing, so it answers `[]` without a round trip.
+  @async.all(tasks[:], max_concurrent?) catch {
+    // Each task keeps its own failure, so nothing but a cancellation of the
+    // group gets out this way.
     e => raise Transport("the batch was cancelled: \{e}")
   }
 }
