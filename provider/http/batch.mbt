@@ -123,12 +123,10 @@ async fn[T : HttpTransport] HttpProvider::flush(
     }
   }
   // Nothing awaits between here and the POST, so the drain cannot be the place
-  // a cancellation strands the batch.
-  let batch = []
+  // a cancellation strands the batch. What does not fit stays for the next
+  // window rather than being split into a second POST alongside this one.
   let take = window.policy.max_size().min(window.pending.length())
-  for _ in 0..<take {
-    batch.push(window.pending.remove(0))
-  }
+  let batch = window.pending.drain(0, take)
   if batch.is_empty() {
     return
   }
@@ -160,15 +158,15 @@ async fn[T : HttpTransport] HttpProvider::deliver(
   }
   for slot in batch {
     slot.answer = Some(
-      answers
-      .get(slot.id)
-      .unwrap_or(
-        Err(
-          @provider.MalformedResponse(
-            "the batch answered nothing for id \{slot.id} (\{slot.method_name})",
-          ),
-        ),
-      ),
+      match answers.get(slot.id) {
+        Some(answer) => answer
+        None =>
+          Err(
+            @provider.MalformedResponse(
+              "the batch answered nothing for id \{slot.id} (\{slot.method_name})",
+            ),
+          )
+      },
     )
   }
 }
@@ -183,28 +181,38 @@ async fn[T : HttpTransport] HttpProvider::post_batch(
   self : HttpProvider[T],
   batch : Array[Pending],
 ) -> Map[Int, Result[Json, @provider.ProviderError]] raise @provider.ProviderError {
-  let payload = Json::array(
+  // The bytes are frozen before the first attempt, so a retry resends them
+  // rather than building them again.
+  let body = Json::array(
     batch.map(slot => {
-      Json::object({
-        "jsonrpc": Json::string("2.0"),
-        "id": Json::number(slot.id.to_double()),
-        "method": Json::string(slot.method_name),
-        "params": slot.params,
-      })
+      envelope(id=slot.id, method_name=slot.method_name, params=slot.params)
     }),
-  )
+  ).stringify()
   // Every call in a window is idempotent — `request` keeps the send-once ones
-  // out — so the batch as a whole is, and this name is only what a cancellation
-  // message reads back.
-  let parsed = @provider.retry_loop(
-    method_name="a batch of \{batch.length()} calls",
+  // out — so the batch as a whole is, and the label only names it in a
+  // cancellation message.
+  let parsed = @provider.retry_loop_of(
+    label="a batch of \{batch.length()} calls",
     policy=self.retry,
-    () => self.send_batch_once(payload),
+    () => self.send_batch_once(body),
   )
+  read_answers(batch, parsed)
+}
+
+///|
+/// Index a batch response by the id each answer carries.
+///
+/// An id that was never sent, or one answered twice, says the mapping cannot be
+/// trusted at all — and a wrong mapping hands one call another's answer,
+/// silently. The whole batch fails instead of guessing.
+fn read_answers(
+  batch : Array[Pending],
+  parsed : Json,
+) -> Map[Int, Result[Json, @provider.ProviderError]] raise @provider.ProviderError {
   guard parsed is Array(elements) else {
     raise @provider.MalformedResponse("batch response is not an array")
   }
-  let sent = Set::from_array(batch.map(slot => slot.id))
+  let sent = Set::from_iter(batch.iter().map(slot => slot.id))
   let answers : Map[Int, Result[Json, @provider.ProviderError]] = Map([])
   for element in elements {
     guard element is Object(fields) else {
@@ -218,9 +226,6 @@ async fn[T : HttpTransport] HttpProvider::post_batch(
       )
     }
     let id = raw.to_int()
-    // An id that was never sent, or one answered twice, says the mapping cannot
-    // be trusted at all — and a wrong mapping hands one call another's answer,
-    // silently. The whole batch fails instead.
     guard sent.contains(id) else {
       raise @provider.MalformedResponse(
         "the batch answered an id it was not sent: \{id}",
@@ -229,15 +234,7 @@ async fn[T : HttpTransport] HttpProvider::post_batch(
     guard !answers.contains(id) else {
       raise @provider.MalformedResponse("the batch answered id \{id} twice")
     }
-    answers[id] = if fields.get("error") is Some(error) && !(error is Null) {
-      Err(@provider.ProviderError::from_error_object(error))
-    } else if fields.get("result") is Some(result) {
-      Ok(result)
-    } else {
-      raise @provider.MalformedResponse(
-        "a batch answer carries neither result nor error: \{element.stringify()}",
-      )
-    }
+    answers[id] = read_answer(fields)
   }
   answers
 }
@@ -251,10 +248,10 @@ async fn[T : HttpTransport] HttpProvider::post_batch(
 /// front of the retry, where it belongs.
 async fn[T : HttpTransport] HttpProvider::send_batch_once(
   self : HttpProvider[T],
-  payload : Json,
+  body : String,
 ) -> Json raise @provider.ProviderError {
-  let body = self.transport.post(payload.stringify())
-  let parsed = @json.parse(body) catch {
+  let answered = self.transport.post(body)
+  let parsed = @json.parse(answered) catch {
     e => raise @provider.MalformedResponse("batch response is not JSON: \{e}")
   }
   match parsed {
@@ -264,12 +261,12 @@ async fn[T : HttpTransport] HttpProvider::send_batch_once(
         raise @provider.ProviderError::from_error_object(error)
       } else {
         raise @provider.MalformedResponse(
-          "batch response is a single object carrying no error: \{body}",
+          "batch response is a single object carrying no error: \{answered}",
         )
       }
     _ =>
       raise @provider.MalformedResponse(
-        "batch response is neither an array nor an error object: \{body}",
+        "batch response is neither an array nor an error object: \{answered}",
       )
   }
 }

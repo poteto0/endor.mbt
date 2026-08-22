@@ -1,20 +1,4 @@
 ///|
-/// Drive `body` against a provider whose window is `policy`, answering from
-/// `responses`. Same shape as `on_answers`, and the transport comes back for
-/// the assertions that are about how many POSTs there were.
-async fn on_batched(
-  responses : Array[String],
-  policy? : @provider.BatchPolicy = @provider.BatchPolicy::default(),
-  body : async (@http.HttpProvider[FakeTransport]) -> Unit,
-) -> FakeTransport {
-  let transport = FakeTransport::new(responses)
-  @async.with_task_group(_ => {
-    body(@http.HttpProvider::new(transport).with_batch(policy))
-  })
-  transport
-}
-
-///|
 /// The two reads every test below folds: unrelated, concurrent, and answered
 /// under ids 1 and 2.
 fn two_reads() -> Array[@provider.BatchCall] {
@@ -28,19 +12,30 @@ fn two_reads() -> Array[@provider.BatchCall] {
 }
 
 ///|
+/// What a node answers `two_reads()` with, in order.
+fn two_answers() -> String {
+  let body =
+    #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":2,"result":"0x2a"}]
+  body
+}
+
+///|
 /// Two reads, concurrently, with nothing to say to each other. The window is
 /// the only thing that knows they are related, and one POST is the whole point
 /// of this feature.
 async test "concurrent calls in one window leave as a single POST" {
-  let answered =
-    #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":2,"result":"0x2a"}]
-  let transport = on_batched([answered], provider => {
-    let answers = @provider.request_many(provider, two_reads())
-    debug_inspect(
-      answers,
-      content="[Ok(String(\"0x1\")), Ok(String(\"0x2a\"))]",
-    )
-  })
+  let answered = two_answers()
+  let transport = on_answers(
+    [answered],
+    batch=@provider.BatchPolicy::default(),
+    provider => {
+      let answers = @provider.request_many(provider, two_reads())
+      debug_inspect(
+        answers,
+        content="[Ok(String(\"0x1\")), Ok(String(\"0x2a\"))]",
+      )
+    },
+  )
   assert_eq(transport.sent.length(), 1)
   inspect(
     transport.sent[0],
@@ -57,7 +52,7 @@ async test "concurrent calls in one window leave as a single POST" {
 async test "answers are matched by id, not by position" {
   let backwards =
     #|[{"jsonrpc":"2.0","id":2,"result":"0x2a"},{"jsonrpc":"2.0","id":1,"result":"0x1"}]
-  let _ = on_batched([backwards], provider => {
+  let _ = on_answers([backwards], batch=@provider.BatchPolicy::default(), provider => {
     let answers = @provider.request_many(provider, two_reads())
     debug_inspect(
       answers,
@@ -72,7 +67,7 @@ async test "answers are matched by id, not by position" {
 async test "an error on one element leaves the others answered" {
   let mixed =
     #|[{"jsonrpc":"2.0","id":1,"error":{"code":-32601,"message":"nope"}},{"jsonrpc":"2.0","id":2,"result":"0x2a"}]
-  let _ = on_batched([mixed], provider => {
+  let _ = on_answers([mixed], batch=@provider.BatchPolicy::default(), provider => {
     let answers = @provider.request_many(provider, two_reads())
     assert_true(answers[0] is Err(Rpc(code=-32601, ..)))
     debug_inspect(answers[1], content="Ok(String(\"0x2a\"))")
@@ -86,7 +81,7 @@ async test "an error on one element leaves the others answered" {
 async test "a whole-batch error object reaches every call in the window" {
   let refused =
     #|{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"batch too large"}}
-  let _ = on_batched([refused], provider => {
+  let _ = on_answers([refused], batch=@provider.BatchPolicy::default(), provider => {
     let answers = @provider.request_many(provider, two_reads())
     assert_true(answers[0] is Err(Rpc(code=-32600, ..)))
     assert_true(answers[1] is Err(Rpc(code=-32600, ..)))
@@ -104,7 +99,7 @@ async test "an id that is unknown or doubled fails the batch" {
   let doubled =
     #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":1,"result":"0x2a"}]
   for body in [unknown, doubled] {
-    let _ = on_batched([body], provider => {
+    let _ = on_answers([body], batch=@provider.BatchPolicy::default(), provider => {
       let answers = @provider.request_many(provider, two_reads())
       assert_true(answers[0] is Err(MalformedResponse(_)))
       assert_true(answers[1] is Err(MalformedResponse(_)))
@@ -116,7 +111,7 @@ async test "an id that is unknown or doubled fails the batch" {
 async test "an id that never came back fails only its own call" {
   let short =
     #|[{"jsonrpc":"2.0","id":1,"result":"0x1"}]
-  let _ = on_batched([short], provider => {
+  let _ = on_answers([short], batch=@provider.BatchPolicy::default(), provider => {
     let answers = @provider.request_many(provider, two_reads())
     debug_inspect(answers[0], content="Ok(String(\"0x1\"))")
     assert_true(answers[1] is Err(MalformedResponse(_)))
@@ -127,11 +122,10 @@ async test "an id that never came back fails only its own call" {
 /// The window closes on `max_size` without waiting out `wait`. The assertion is
 /// that this test finishes: a `wait` of a minute is one nobody sits through.
 async test "reaching max_size closes the window without waiting" {
-  let answered =
-    #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":2,"result":"0x2a"}]
-  let transport = on_batched(
+  let answered = two_answers()
+  let transport = on_answers(
     [answered],
-    policy=@provider.BatchPolicy::new(wait=60_000, max_size=2),
+    batch=@provider.BatchPolicy::new(wait=60_000, max_size=2),
     provider => {
       let answers = @provider.request_many(provider, two_reads())
       debug_inspect(
@@ -152,9 +146,9 @@ async test "what does not fit in a window goes in the next one" {
     #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":2,"result":"0x2"}]
   let second =
     #|[{"jsonrpc":"2.0","id":3,"result":"0x3"}]
-  let transport = on_batched(
+  let transport = on_answers(
     [first, second],
-    policy=@provider.BatchPolicy::new(wait=1, max_size=2),
+    batch=@provider.BatchPolicy::new(wait=1, max_size=2),
     provider => {
       let answers = @provider.request_many(
         provider,
@@ -201,18 +195,22 @@ async test "a send-once method never enters the window" {
     #|{"jsonrpc":"2.0","id":1,"result":"0xhash"}
   let chain =
     #|[{"jsonrpc":"2.0","id":2,"result":"0x1"}]
-  let transport = on_batched([hash, chain], provider => {
-    let sent = provider.request(
-      method_name="eth_sendTransaction",
-      params=Json::array([]),
-    )
-    debug_inspect(sent, content="String(\"0xhash\")")
-    let answer = provider.request(
-      method_name="eth_chainId",
-      params=Json::array([]),
-    )
-    debug_inspect(answer, content="String(\"0x1\")")
-  })
+  let transport = on_answers(
+    [hash, chain],
+    batch=@provider.BatchPolicy::default(),
+    provider => {
+      let sent = provider.request(
+        method_name="eth_sendTransaction",
+        params=Json::array([]),
+      )
+      debug_inspect(sent, content="String(\"0xhash\")")
+      let answer = provider.request(
+        method_name="eth_chainId",
+        params=Json::array([]),
+      )
+      debug_inspect(answer, content="String(\"0x1\")")
+    },
+  )
   inspect(
     transport.sent[0],
     content=(
@@ -266,19 +264,19 @@ async test "a cancelled sender hands the window to the next call" {
 async test "a retryable failure retries the POST once, not once per call" {
   let busy =
     #|{"jsonrpc":"2.0","id":null,"error":{"code":-32005,"message":"slow down"}}
-  let answered =
-    #|[{"jsonrpc":"2.0","id":1,"result":"0x1"},{"jsonrpc":"2.0","id":2,"result":"0x2a"}]
-  let transport = FakeTransport::new([busy, answered])
-  let provider = @http.HttpProvider::new(transport)
-    .with_retry(@provider.RetryPolicy::new(strategy=Immediate, max_retry=1))
-    .with_batch(@provider.BatchPolicy::default())
-  @async.with_task_group(_ => {
-    let answers = @provider.request_many(provider, two_reads())
-    debug_inspect(
-      answers,
-      content="[Ok(String(\"0x1\")), Ok(String(\"0x2a\"))]",
-    )
-  })
+  let answered = two_answers()
+  let transport = on_answers(
+    [busy, answered],
+    batch=@provider.BatchPolicy::default(),
+    retry=@provider.RetryPolicy::new(strategy=Immediate, max_retry=1),
+    provider => {
+      let answers = @provider.request_many(provider, two_reads())
+      debug_inspect(
+        answers,
+        content="[Ok(String(\"0x1\")), Ok(String(\"0x2a\"))]",
+      )
+    },
+  )
   assert_eq(transport.sent.length(), 2)
 }
 

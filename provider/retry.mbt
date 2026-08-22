@@ -17,6 +17,24 @@ pub async fn retry_loop(
   if is_not_idempotent(method_name) {
     return call()
   }
+  retry_loop_of(label=method_name, policy~, call)
+}
+
+///|
+/// The loop itself, for a caller that has already settled idempotency some
+/// other way — a JSON-RPC batch does it by admission, keeping the send-once
+/// methods out of the window in the first place.
+///
+/// `label` names the thing being retried in a cancellation message and decides
+/// nothing. Splitting it off the method name is what keeps such a caller from
+/// having to invent a name that misses the send-once list.
+#internal(internal, "the retry loop is not public API")
+#doc(hidden)
+pub async fn retry_loop_of(
+  label~ : String,
+  policy~ : RetryPolicy,
+  call : async () -> Json raise ProviderError,
+) -> Json raise ProviderError {
   // Written out rather than handed to `@async.retry`, which picks its delay
   // from the strategy alone and so has nowhere to read a `Retry-After` from.
   // The price is that `first_delay` / `next_delay` mirror what `@async.retry`
@@ -41,9 +59,7 @@ pub async fn retry_loop(
         // `ProviderError` boundary as itself
         @async.sleep(wait) catch {
           cancelled =>
-            raise Transport(
-              "the retry of \{method_name} was cancelled: \{cancelled}",
-            )
+            raise Transport("the retry of \{label} was cancelled: \{cancelled}")
         }
         continue attempt + 1, next_delay(policy.strategy, delay)
       }

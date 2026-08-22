@@ -160,14 +160,19 @@ it always did.
 | `max_size` | 100 calls — what closes it early       |
 
 ```moonbit
-async fn a_wider_window(url : String) -> @endor.ChainId raise {
-  // a slow, rate-limited endpoint: wait longer, fold more
-  let node = @endpoint.at(url).with_batch(
-    @provider.BatchPolicy::new(wait=50, max_size=20),
-  )
-  @provider.chain_id(node)
+// a slow, rate-limited endpoint: wait longer, fold more
+fn a_wider_window(
+  url : String,
+) -> @http.HttpProvider[@endpoint.Endpoint] raise {
+  @endpoint.at(url).with_batch(@provider.BatchPolicy::new(wait=50, max_size=20))
 }
 ```
+
+The window belongs to **the provider value**, so folding is scoped to it: build
+it once and hand that one value to the calls you want folded. A provider built
+fresh inside a per-call helper has a window of its own with one call in it — it
+folds nothing and pays the whole `wait`, which looks like the feature making
+things slower.
 
 The first call into an open window is the one that sends it, so there is no
 background task and nothing to shut down — `at()` still hands back a plain

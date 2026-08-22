@@ -36,12 +36,24 @@ impl @http.HttpTransport for FakeTransport with fn post(self, body) {
 /// Drive `body` against a provider answering from `responses`, inside the task
 /// group every async call needs. The transport comes back too, for the tests
 /// whose assertion is about what was *sent*.
+///
+/// `batch` and `retry` are the two withers, so a test that is about either says
+/// so here rather than building the provider by hand.
 async fn on_answers(
   responses : Array[String],
+  batch? : @provider.BatchPolicy,
+  retry? : @provider.RetryPolicy,
   body : async (@http.HttpProvider[FakeTransport]) -> Unit,
 ) -> FakeTransport {
   let transport = FakeTransport::new(responses)
-  @async.with_task_group(_ => body(@http.HttpProvider::new(transport)))
+  let mut provider = @http.HttpProvider::new(transport)
+  if retry is Some(policy) {
+    provider = provider.with_retry(policy)
+  }
+  if batch is Some(policy) {
+    provider = provider.with_batch(policy)
+  }
+  @async.with_task_group(_ => body(provider))
   transport
 }
 
