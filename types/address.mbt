@@ -19,12 +19,29 @@ fn eip55_body(lower_body : String) -> String {
 
 ///|
 /// A 20-byte Ethereum address. Parsing validates the `0x` prefix, hex digits
-/// and exact 20-byte length; the value is stored lowercased. EIP-55 checksum
-/// casing is a later milestone.
+/// and exact 20-byte length; the value is stored lowercased — the wire form.
+///
+/// The EIP-55 spelling is a memo the first display fills: an address that is
+/// only decoded, compared or sent back out never hashes. It is not part of the
+/// value, so `Eq` and `Debug` are hand-written to read `inner` alone.
 pub struct Address {
   priv inner : String
-  priv eip55 : String
-} derive(Eq, Debug)
+  priv mut eip55 : String?
+}
+
+///|
+/// Two addresses are the same address when they spell the same digits; the
+/// checksum memo is a rendering, not a difference.
+pub impl Eq for Address with fn equal(self, other) {
+  self.inner == other.inner
+}
+
+///|
+/// Debugs as the wire form, so the output does not depend on whether the
+/// checksum has been asked for yet.
+pub impl @debug.Debug for Address with fn to_repr(self) {
+  @debug.Repr::Repr(self.inner)
+}
 
 ///|
 /// Parse and validate a 20-byte hex address. Input that is entirely lowercase
@@ -36,19 +53,24 @@ pub fn Address::from_string(s : String) -> Address raise CodecError {
     raise InvalidLength("address must be 20 bytes (40 hex digits): \{s}")
   }
   let lower = body.to_lower()
-  guard body == lower || body == lower.to_upper() || body == eip55_body(lower) else {
+  if body == lower || body == lower.to_upper() {
+    return Address::of_lower_digits(lower)
+  }
+  // Mixed case claims a checksum: the spelling that proves it is the memo.
+  let cased = eip55_body(lower)
+  guard body == cased else {
     raise InvalidChecksum("address fails its EIP-55 checksum: \{s}")
   }
-  Address::of_lower_digits(lower)
+  { inner: "0x" + lower, eip55: Some("0x" + cased) }
 }
 
 ///|
 /// Build an address out of 40 lowercase hex digits already known to be 40
 /// lowercase hex digits — no `0x` to strip, nothing to validate, no checksum
-/// to prove. The two spellings the type holds are derived here, so nothing
-/// else has to know it holds two.
+/// to prove. The prefix the type carries is put on here, so nothing else has
+/// to know it is stored prefixed.
 fn Address::of_lower_digits(lower : String) -> Address {
-  { inner: "0x" + lower, eip55: "0x" + eip55_body(lower) }
+  { inner: "0x" + lower, eip55: None }
 }
 
 ///|
@@ -145,14 +167,22 @@ pub fn Address::digits(self : Address) -> String {
 }
 
 ///|
-/// The EIP-55 checksummed spelling, for display to a human.
+/// The EIP-55 checksummed spelling, for display to a human. Costs one
+/// `keccak256` the first time it is asked for, and nothing after.
 ///
 /// ```
 /// let a = @types.Address::from_string("0x5aaeb6053f3e94c9b9a09f33669435e7ef1beaed")
 /// inspect(a.to_checksum_string(), content="0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
 /// ```
 pub fn Address::to_checksum_string(self : Address) -> String {
-  self.eip55
+  match self.eip55 {
+    Some(cached) => cached
+    None => {
+      let cased = "0x" + eip55_body(self.digits())
+      self.eip55 = Some(cased)
+      cased
+    }
+  }
 }
 
 ///|
@@ -180,5 +210,5 @@ pub fn Address::array_from_json(j : Json) -> Array[Address] raise CodecError {
 ///|
 /// Displays the checksummed form; the wire form is `to_string` / `to_json`.
 pub impl Show for Address with fn output(self, logger) {
-  logger.write_string(self.eip55)
+  logger.write_string(self.to_checksum_string())
 }

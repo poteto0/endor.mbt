@@ -286,3 +286,26 @@ test "a signature that recovers nothing raises a curve error" {
     _ => fail("expected fail, but success")
   }
 }
+
+///|
+/// The checksum spelling is a memo, so asking for it must not make one address
+/// differ from another that has not been asked — nor change what `Debug` says.
+test "showing an address does not change the value" {
+  let shown = @types.Address::from_string(LOWER_ADDRESS)
+  let untouched = @types.Address::from_string(LOWER_ADDRESS)
+  assert_eq(shown.to_checksum_string(), MIXED_ADDRESS)
+  // asked once, asked twice: the same answer, and still the same value
+  assert_eq(shown.to_checksum_string(), MIXED_ADDRESS)
+  assert_eq(shown, untouched)
+  assert_eq(@debug.to_string(shown), @debug.to_string(untouched))
+  inspect(shown, content=MIXED_ADDRESS)
+}
+
+///|
+/// A checksummed address arrives with its spelling already proven, so showing
+/// it back costs nothing and answers exactly what was passed in.
+test "a checksummed address keeps the spelling it proved" {
+  let a = @types.Address::from_string(MIXED_ADDRESS)
+  inspect(a.to_string(), content=LOWER_ADDRESS)
+  inspect(a.to_checksum_string(), content=MIXED_ADDRESS)
+}
