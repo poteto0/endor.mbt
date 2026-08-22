@@ -173,6 +173,7 @@ pub struct Hex {
 pub fn Hex::byte_length(Self) -> Int
 pub fn Hex::concat(Self, Self) -> Self
 pub fn Hex::digits(Self) -> String
+pub fn Hex::digits_view(Self) -> StringView
 pub fn Hex::from_bytes(Bytes) -> Self
 pub fn Hex::from_digits(StringView) -> Self raise CodecError
 pub fn Hex::from_json(Json) -> Self raise CodecError
