@@ -68,7 +68,7 @@ pub impl Show for AbiValue
 
 pub struct Address {
   // private fields
-} derive(Eq, @debug.Debug)
+}
 pub fn Address::array_from_json(Json) -> Array[Self] raise CodecError
 pub fn Address::digits(Self) -> String
 pub fn Address::from_json(Json) -> Self raise CodecError
@@ -78,7 +78,9 @@ pub fn Address::recover(Bytes, @secp256k1.Signature) -> Self raise @secp256k1.Cu
 pub fn Address::to_checksum_string(Self) -> String
 pub fn Address::to_json(Self) -> Json
 pub fn Address::to_string(Self) -> String
+pub impl Eq for Address
 pub impl Show for Address
+pub impl @debug.Debug for Address
 
 pub(all) struct Block {
   number : UInt64?

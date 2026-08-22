@@ -8,3 +8,7 @@ import {
   "poteto0/endor/codec",
   "poteto0/endor/codec/rlp",
 }
+
+import {
+  "moonbitlang/core/bench",
+} for "test"

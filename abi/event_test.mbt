@@ -67,18 +67,8 @@ test "decode_log reassembles topics and data in declaration order" {
     ),
     content=(
       #|[
-      #|  Address(
-      #|    {
-      #|      inner: "0x000000000000000000000000000000000000dead",
-      #|      eip55: "0x000000000000000000000000000000000000dEaD",
-      #|    },
-      #|  ),
-      #|  Address(
-      #|    {
-      #|      inner: "0x000000000000000000000000000000000000beef",
-      #|      eip55: "0x000000000000000000000000000000000000bEEF",
-      #|    },
-      #|  ),
+      #|  Address("0x000000000000000000000000000000000000dead"),
+      #|  Address("0x000000000000000000000000000000000000beef"),
       #|  Uint(42),
       #|]
     ),
@@ -211,14 +201,7 @@ test "an event with nothing indexed is its data and one topic" {
       data="0x" + word("dead"),
     ),
     content=(
-      #|[
-      #|  Address(
-      #|    {
-      #|      inner: "0x000000000000000000000000000000000000dead",
-      #|      eip55: "0x000000000000000000000000000000000000dEaD",
-      #|    },
-      #|  ),
-      #|]
+      #|[Address("0x000000000000000000000000000000000000dead")]
     ),
   )
 }
