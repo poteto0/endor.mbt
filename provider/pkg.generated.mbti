@@ -120,6 +120,14 @@ pub fn BatchCall::method_name(Self) -> String
 pub fn BatchCall::new(method_name~ : String, params~ : Json) -> Self
 pub fn BatchCall::params(Self) -> Json
 
+pub struct BatchPolicy {
+  // private fields
+}
+pub fn BatchPolicy::default() -> Self
+pub fn BatchPolicy::max_size(Self) -> Int
+pub fn BatchPolicy::new(wait? : Int, max_size? : Int) -> Self
+pub fn BatchPolicy::wait(Self) -> Int
+
 pub struct HttpStatusInfo {
   // private fields
 } derive(Eq, @debug.Debug)

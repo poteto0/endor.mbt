@@ -29,3 +29,28 @@ async test "a dev account's balance is read over http" {
     inspect(balance.to_bigint() > 0N, content="true")
   })
 }
+
+///|
+/// The one thing a `FakeTransport` cannot settle: whether the wire format a
+/// folded window POSTs — a JSON-RPC array, answered by an array — is one a real
+/// node accepts. Two reads, one request, and both answers must come back
+/// against the ids they were sent under.
+async test "a batched window is one request the node accepts" {
+  @http_backend.on(provider => {
+    let node = provider.with_batch(@provider.BatchPolicy::default())
+    let answers = @provider.request_many(node, [
+      @provider.BatchCall::new(
+        method_name="eth_chainId",
+        params=Json::array([]),
+      ),
+      @provider.BatchCall::new(
+        method_name="eth_blockNumber",
+        params=Json::array([]),
+      ),
+    ])
+    inspect(answers.length(), content="2")
+    // anvil's chain id, and a height that decoded as a quantity at all
+    inspect(answers[0] is Ok(String("0x7a69")), content="true")
+    inspect(answers[1] is Ok(String(_)), content="true")
+  })
+}

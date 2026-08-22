@@ -50,27 +50,58 @@ pub struct HttpProvider[T] {
   priv transport : T
   priv mut next_id : Int
   priv retry : @provider.RetryPolicy
+  priv batch : Window?
 }
 
 ///|
 /// Build a provider over `transport`. Ids start at 1, retries are the default
-/// policy.
+/// policy, and calls are not batched.
 pub fn[T] HttpProvider::new(transport : T) -> HttpProvider[T] {
   HttpProvider::{
     transport,
     next_id: 1,
     retry: @provider.RetryPolicy::default(),
+    batch: None,
   }
 }
 
 ///|
-/// The same provider, retrying on `policy`. The copy gets an id counter of its
-/// own, which is all ids have to be unique within.
+/// The same provider, retrying on `policy`. The copy gets an id counter and a
+/// batch window of its own — ids only have to be unique within one of those,
+/// and two providers that retry differently should not share a POST.
 pub fn[T] HttpProvider::with_retry(
   self : HttpProvider[T],
   policy : @provider.RetryPolicy,
 ) -> HttpProvider[T] {
-  { ..self, retry: policy }
+  { ..self, retry: policy, batch: self.batch.map(w => Window::new(w.policy)) }
+}
+
+///|
+/// The same provider, folding concurrent calls into one JSON-RPC array: calls
+/// that start within `policy`'s window leave as a single POST, and each gets
+/// its own answer back by id.
+///
+/// **Off unless you ask for it**, unlike `with_retry`. Retrying costs a caller
+/// nothing when nothing fails, but a window costs a lone read the whole `wait`
+/// before it is even sent — and whether that trade is right depends on what the
+/// endpoint is and what the caller is doing, which only the caller knows. A
+/// provider that never sees `with_batch` behaves exactly as it did before this
+/// existed.
+///
+/// The send-once methods — `eth_sendTransaction` and the wallet prompts — never
+/// enter the window: an array is retried whole, and those must not be.
+///
+/// ```
+/// async fn latest(url : String) -> @endor.BlockNumber raise @provider.ProviderError {
+///   let node = @endpoint.at(url).with_batch(@provider.BatchPolicy::default())
+///   @provider.block_number(node)
+/// }
+/// ```
+pub fn[T] HttpProvider::with_batch(
+  self : HttpProvider[T],
+  policy : @provider.BatchPolicy,
+) -> HttpProvider[T] {
+  { ..self, batch: Some(Window::new(policy)) }
 }
 
 ///|
@@ -103,6 +134,11 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   // Before any I/O: what HTTP cannot answer is not worth a round trip.
   if needs_a_wallet(method_name) {
     raise @provider.UnsupportedMethod
+  }
+  // The window retries the POST it folds into, so a call that goes in must not
+  // also be retried here.
+  if self.batch is Some(window) && !@provider.is_not_idempotent(method_name) {
+    return self.send_batched(window, method_name~, params~)
   }
   @provider.retry_loop(method_name~, policy=self.retry, () => {
     self.send_once(method_name~, params~)

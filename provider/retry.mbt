@@ -117,7 +117,13 @@ fn next_delay(strategy : @async.RetryMethod, delay : Int) -> Int {
 /// names: a dev node with unlocked accounts really does serve
 /// `eth_sendTransaction`, which is why HTTP lets it through — and it is exactly
 /// the one that must not be sent twice.
-fn is_not_idempotent(method_name : String) -> Bool {
+///
+/// The batch window in `provider/http` asks the same question for a second
+/// reason: a call that must be sent at most once must not ride in an array that
+/// a retry can resend whole.
+#internal(internal, "the send-once list is not public API")
+#doc(hidden)
+pub fn is_not_idempotent(method_name : String) -> Bool {
   method_name.has_prefix("wallet_") ||
   method_name == "eth_sendTransaction" ||
   method_name == "eth_requestAccounts" ||
