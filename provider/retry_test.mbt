@@ -14,9 +14,11 @@ async fn drive(
 ) -> @provider.ProviderError? {
   @async.with_task_group(_ => {
     try
-      @provider.retry_loop(method_name~, strategy~, max_retry~, () => {
-        mock.request(method_name~, params=Json::array([]))
-      })
+      @provider.retry_loop(
+        method_name~,
+        policy=@provider.RetryPolicy::new(strategy~, max_retry~),
+        () => mock.request(method_name~, params=Json::array([])),
+      )
     catch {
       e => Some(e)
     } noraise {

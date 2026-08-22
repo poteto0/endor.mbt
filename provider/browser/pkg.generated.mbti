@@ -19,6 +19,7 @@ pub fn BrowserProvider::has_events(Self) -> Bool
 pub fn BrowserProvider::is_metamask(Self) -> Bool
 pub fn BrowserProvider::on_announce((ProviderInfo, Self) -> Unit) -> @provider.Subscription
 pub fn BrowserProvider::require() -> Self raise @provider.ProviderError
+pub fn BrowserProvider::with_retry(Self, @provider.RetryPolicy) -> Self
 pub impl @provider.EventSource for BrowserProvider
 pub impl @provider.Provider for BrowserProvider
 

@@ -251,3 +251,48 @@ test "readme example compiles" {
   watch(wallet).unsubscribe()
   uninstall_mock_ethereum()
 }
+
+///|
+/// A wallet that only ever fails, counting the attempts. `-32005` is the node
+/// behind it saying it is busy — retryable, unlike the `4001` the other fake
+/// answers with.
+extern "js" fn install_busy_ethereum() -> Unit =
+  #| () => {
+  #|   globalThis.__busyCalls = 0
+  #|   globalThis.ethereum = {
+  #|     request: async () => {
+  #|       globalThis.__busyCalls += 1
+  #|       throw { code: -32005, message: "limit exceeded" }
+  #|     }
+  #|   }
+  #| }
+
+///|
+extern "js" fn busy_ethereum_calls() -> Int =
+  #| () => globalThis.__busyCalls
+
+///|
+async test "a wallet retries on the policy it was given" {
+  for
+    case in [
+      (@provider.RetryPolicy::none(), 1),
+      (@provider.RetryPolicy::new(strategy=Immediate, max_retry=2), 3),
+    ] {
+    let (policy, expected) = case
+    install_busy_ethereum()
+    let wallet = (@browser.BrowserProvider::require() catch {
+      e => fail("expected provider, but \{e}")
+    }).with_retry(policy)
+    @async.with_task_group(_ => {
+      let _ = try
+        wallet.request(method_name="eth_chainId", params=Json::array([]))
+      catch {
+        _ => ()
+      } noraise {
+        _ => fail("expected the busy wallet to raise")
+      }
+    })
+    assert_eq(busy_ethereum_calls(), expected)
+    uninstall_mock_ethereum()
+  }
+}
