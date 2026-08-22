@@ -16,6 +16,9 @@ let request_event : String = "eip6963:requestProvider"
 /// stable identity — a reverse-DNS name the wallet owns (`io.metamask`) — and
 /// is what a dapp should key on; `uuid` is fresh per page load, and `name` and
 /// `icon` are for showing the user.
+///
+/// Every field is the wallet's own claim: any installed extension can
+/// announce, so neither the name nor the `rdns` is a reason to trust one.
 pub(all) struct ProviderInfo {
   uuid : String
   name : String
@@ -24,9 +27,15 @@ pub(all) struct ProviderInfo {
 }
 
 ///|
-/// Decode an announcement's `info`. All four fields are required by EIP-6963,
-/// so an object missing any of them is not an announcement this SDK can key on
-/// and is answered with `None` — the caller drops it.
+/// Decode an announcement's `info`. All four fields are required by EIP-6963
+/// and three of them are spelled a particular way, so an announcement that
+/// breaks either rule is not one this SDK can key on and is answered with
+/// `None` — the caller drops it.
+///
+/// The spelling is read here rather than left to each dapp: an announcement
+/// comes from whichever extension is installed, and `icon` — which the EIP
+/// pins to a data URI — is what a page puts in an `<img src>`, where a
+/// `javascript:` or remote URL would be the wallet reaching into it.
 ///
 /// Public for the page that already has its own `eip6963:announceProvider`
 /// listener and wants the same reading of it.
@@ -43,7 +52,55 @@ pub fn ProviderInfo::from_json(json : Json) -> ProviderInfo? {
     field("rdns") is Some(rdns) else {
     return None
   }
+  guard icon.has_prefix("data:image/") && is_rdns(rdns) && is_uuid_v4(uuid) else {
+    return None
+  }
   Some(ProviderInfo::{ uuid, name, icon, rdns })
+}
+
+///|
+/// Whether `rdns` is spelled as a reverse-DNS name: dot-separated labels of
+/// letters, digits and hyphens, at least two of them, and not starting with a
+/// digit. This says nothing about who owns the name — `io.metamask` is as
+/// cheap to announce as anything else — only that a dapp keying on it is
+/// keying on something domain-shaped.
+fn is_rdns(rdns : StringView) -> Bool {
+  let labels = rdns.split(".").collect()
+  guard labels.length() >= 2 &&
+    // a domain name does not start with a digit
+    rdns.iter().take(1).all(c => !c.is_ascii_digit()) else {
+    return false
+  }
+  labels
+  .iter()
+  .all(label => {
+    label.length() > 0 &&
+    label
+    .iter()
+    .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || c == '-')
+  })
+}
+
+///|
+/// Whether `uuid` is spelled as a UUIDv4: `8-4-4-4-12` hex digits, the version
+/// nibble `4`, and an RFC 4122 variant. Fresh per page load and no identity in
+/// itself, but a dapp that indexes a picker by it wants what the EIP promised.
+fn is_uuid_v4(uuid : StringView) -> Bool {
+  guard uuid.length() == 36 else { return false }
+  guard uuid.unsafe_get(8) == '-' &&
+    uuid.unsafe_get(13) == '-' &&
+    uuid.unsafe_get(18) == '-' &&
+    uuid.unsafe_get(23) == '-' &&
+    uuid.unsafe_get(14) == '4' &&
+    uuid.unsafe_get(19) is ('8' | '9' | 'a' | 'b' | 'A' | 'B') else {
+    return false
+  }
+  // the version and variant nibbles are read above
+  @codec.is_hex_digits(uuid[0:8]) &&
+  @codec.is_hex_digits(uuid[9:13]) &&
+  @codec.is_hex_digits(uuid[15:18]) &&
+  @codec.is_hex_digits(uuid[20:23]) &&
+  @codec.is_hex_digits(uuid[24:36])
 }
 
 ///|
