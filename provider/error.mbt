@@ -53,7 +53,9 @@ pub(all) suberror ProviderError {
   /// the node or its gateway asking for a moment; `401` and `403` are an API
   /// key that is wrong or absent, and no amount of retrying fixes those. The
   /// URL is carried because a dapp that reads from several nodes needs to know
-  /// which one, and `info` is whatever else the response happened to say.
+  /// which one — with the API key a hosted URL hides in its path or its query
+  /// already dropped, since this error is printed — and `info` is whatever
+  /// else the response happened to say.
   HttpStatus(code~ : Int, url~ : String, info~ : HttpStatusInfo)
   /// A 2xx body that is not a JSON-RPC answer: it did not parse, it was not an
   /// object, it carried neither `result` nor `error`, or its `id` was not the
@@ -248,7 +250,7 @@ fn revert_data(data : Json) -> @types.Hex? {
 pub fn ProviderError::from_error_object(payload : Json) -> ProviderError {
   guard payload is Object(fields) else {
     return MalformedResponse(
-      "JSON-RPC error is not an object: \{payload.stringify()}",
+      "JSON-RPC error is not an object: \{body_preview(payload.stringify())}",
     )
   }
   let code = match fields.get("code") {
@@ -448,4 +450,42 @@ pub fn ProviderError::is_method_not_found(self : ProviderError) -> Bool {
     Rpc(code~, ..) => code == METHOD_NOT_FOUND
     _ => false
   }
+}
+
+///|
+/// How much of a body a message about it may carry.
+///
+/// Long enough that the first line of an HTML error page, a proxy's notice or
+/// a JSON-RPC envelope is all there; short enough that a node answering with a
+/// megabyte does not become a megabyte of log.
+pub const BODY_PREVIEW_CHARS : Int = 256
+
+///|
+/// The head of `body`, for a message that says what came back instead of an
+/// answer — the bound every `MalformedResponse` this SDK raises is cut to.
+///
+/// A body is not quoted whole: it has no bound, and what a node echoes back
+/// reflects the call that was made — an address, a signed transaction — which
+/// is not what a message about a malformed response is for. It sits with the
+/// error rather than with a transport, because every transport that raises one
+/// owes the same bound, and a caller raising its own `MalformedResponse` can
+/// reach for it too.
+///
+/// ```mbt check
+/// test "doc: a body a message may carry" {
+///   inspect(
+///     @provider.body_preview("<html>502</html>"),
+///     content="<html>502</html>",
+///   )
+///   let long = "x".repeat(1000)
+///   inspect(@provider.body_preview(long).length(), content="270")
+/// }
+/// ```
+pub fn body_preview(body : String) -> String {
+  // a body can hold no more characters than the code units it is stored in,
+  // so this settles the short ones without counting them
+  guard body.length() > BODY_PREVIEW_CHARS else { return body }
+  let length = body.char_length()
+  guard length > BODY_PREVIEW_CHARS else { return body }
+  "\{String::from_iter(body.iter().take(BODY_PREVIEW_CHARS))}… (\{length} chars)"
 }

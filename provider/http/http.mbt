@@ -183,7 +183,9 @@ async fn[T : HttpTransport] HttpProvider::send_once(
     e => raise @provider.MalformedResponse("response is not JSON: \{e}")
   }
   guard parsed is Object(fields) else {
-    raise @provider.MalformedResponse("response is not an object: \{body}")
+    raise @provider.MalformedResponse(
+      "response is not an object: \{@provider.body_preview(body)}",
+    )
   }
   check_id(fields, id)
   match read_answer(fields) {
@@ -219,7 +221,7 @@ fn read_answer(
   }
   guard fields.get("result") is Some(result) else {
     raise @provider.MalformedResponse(
-      "answer carries neither result nor error: \{Json::object(fields).stringify()}",
+      "answer carries neither result nor error: \{@provider.body_preview(Json::object(fields).stringify())}",
     )
   }
   Ok(result)
@@ -238,7 +240,7 @@ fn check_id(
     Some(Number(got, ..)) if got.to_int() == sent => ()
     Some(other) =>
       raise @provider.MalformedResponse(
-        "id mismatch: sent \{sent}, got \{other.stringify()}",
+        "id mismatch: sent \{sent}, got \{@provider.body_preview(other.stringify())}",
       )
   }
 }
