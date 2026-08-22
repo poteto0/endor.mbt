@@ -31,7 +31,9 @@ are delivered to callbacks and nowhere else.
 | [Not wrapped yet](./not-wrapped/)   | what is missing, and where it sits in the plan                    |
 | [Versioning](./versioning/)         | what counts as a breaking change while this is `0.x`              |
 
-Errors are documented once, in the guide: [Errors](/guide/errors/).
+Errors are documented once, in the guide: [Errors](/guide/errors/) — and what
+the providers send again before an error reaches you is
+[Retries](/guide/retries/).
 
 ## Packages
 

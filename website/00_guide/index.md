@@ -1,6 +1,6 @@
 ---
 title: Guide
-description: Install the SDK, learn the shape it has, and read its errors.
+description: Install the SDK, learn the shape it has, read its errors, and see what it retries.
 ---
 
 # Guide
@@ -9,6 +9,7 @@ description: Install the SDK, learn the shape it has, and read its errors.
 - [How the SDK is shaped](./design/) — why it is stateless, and what that costs
   you
 - [Errors](./errors/) — the failures a dapp actually has to handle
+- [Retries](./retries/) — what is sent again for you, and how to change it
 
 Looking for a specific task instead? The [Cookbook](/cookbook/) is one page per
 thing you might want to do, each with a working demo. The
