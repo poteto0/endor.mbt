@@ -106,6 +106,15 @@ fn estimated_pair(fee : @types.Fee) -> (@types.Wei, @types.Wei)? {
 }
 
 ///|
+/// The value a task carried back, or the failure it kept instead.
+fn[T] _or_raise(result : Result[T, WalletError]) -> T raise WalletError {
+  match result {
+    Ok(value) => value
+    Err(e) => raise e
+  }
+}
+
+///|
 /// Fill in everything a transaction needs that the caller did not say.
 ///
 /// The chain id, the nonce, the fees and the gas all come from the node, so
@@ -142,20 +151,6 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
   fee? : @types.Fee,
 ) -> @types.UnsignedTransaction raise WalletError {
   let from = self.address()
-  let chain_id = @provider.chain_id(self.provider) catch {
-    e => raise Provider(e)
-  }
-  // The pending count, not the latest: two transactions prepared back to back
-  // must not both claim the same nonce.
-  let nonce = match nonce {
-    Some(nonce) => nonce
-    None =>
-      @types.Quantity::new(
-        @provider.transaction_count(self.provider, from, block=Pending) catch {
-          e => raise Provider(e)
-        },
-      )
-  }
   let named = match fee {
     Some(Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)) =>
       Some((max_fee_per_gas, max_priority_fee_per_gas))
@@ -171,31 +166,75 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
     // path there is no wallet to leave it to.
     Some(Auto) | None => None
   }
-  let priced = match named {
-    Some(pair) => Some(pair)
-    None =>
-      estimated_pair(
-        @provider.estimate_fees(self.provider) catch {
-          e => raise Provider(e)
-        },
+  guard gas is Some(_) || to is Some(_) else {
+    raise Incomplete("a contract creation has to say its own gas")
+  }
+
+  let (chain_id, nonce, priced, gas) = @async.with_task_group(group => {
+    let chain_id = group.spawn(() => {
+      Ok(@provider.chain_id(self.provider)) catch {
+        e => Err(Provider(e))
+      }
+    })
+    // if not provided, count tx of pending
+    let nonce = group.spawn(() => {
+      match nonce {
+        Some(nonce) => Ok(nonce)
+        None =>
+          Ok(
+            @types.Quantity::new(
+              @provider.transaction_count(self.provider, from, block=Pending),
+            ),
+          ) catch {
+            e => Err(Provider(e))
+          }
+      }
+    })
+    let priced = group.spawn(() => {
+      match named {
+        Some(pair) => Ok(Some(pair))
+        None =>
+          Ok(estimated_pair(@provider.estimate_fees(self.provider))) catch {
+            e => Err(Provider(e))
+          }
+      }
+    })
+    // estimate gs, if not gas provided
+    let gas = group.spawn(() => {
+      match (gas, to) {
+        (Some(gas), _) => Ok(gas)
+        (None, Some(to)) =>
+          Ok(
+            @provider.estimate_gas(
+              self.provider,
+              @types.CallRequest::new(to, from~, data~, value~),
+            ),
+          ) catch {
+            e => Err(Provider(e))
+          }
+        // Ruled out before the group was opened.
+        (None, None) =>
+          Err(
+            Provider(@provider.InvalidConfig("unexpected gas, and to is nil")),
+          )
+      }
+    })
+    (chain_id.wait(), nonce.wait(), priced.wait(), gas.wait())
+  }) catch {
+    // The tasks keep their own failures, so nothing but a cancellation of the
+    // group itself gets out this way.
+    e =>
+      raise Provider(
+        @provider.Transport("preparing the transaction was cancelled: \{e}"),
       )
   }
+  let chain_id = _or_raise(chain_id)
+  let nonce = _or_raise(nonce)
+  let gas = _or_raise(gas)
   // `estimate_fees` answers with one of the two priced forms and never `Auto`,
   // so this is a node that named no fee at all.
-  guard priced is Some((max_fee_per_gas, max_priority_fee_per_gas)) else {
+  guard _or_raise(priced) is Some((max_fee_per_gas, max_priority_fee_per_gas)) else {
     raise Incomplete("the node named no gas price")
-  }
-  let gas = match (gas, to) {
-    (Some(gas), _) => gas
-    (None, Some(to)) =>
-      @provider.estimate_gas(
-        self.provider,
-        @types.CallRequest::new(to, from~, data~, value~),
-      ) catch {
-        e => raise Provider(e)
-      }
-    (None, None) =>
-      raise Incomplete("a contract creation has to say its own gas")
   }
   @types.UnsignedTransaction::new(
     chain_id~,
