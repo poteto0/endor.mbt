@@ -53,6 +53,8 @@ pub fn[E : EventSource] on_disconnect(E, (ProviderError) -> Unit) -> Subscriptio
 
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
 
+pub async fn[P : Provider] request_many(P, Array[BatchCall], max_concurrent? : Int) -> Array[Result[Json, ProviderError]] raise ProviderError
+
 pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderError
 
 pub async fn[P : Provider] send_raw_transaction(P, @types.Hex) -> @types.TxHash raise ProviderError
@@ -110,6 +112,13 @@ pub(all) enum Answer {
   Answers(Json)
   Raises(ProviderError)
 }
+
+pub struct BatchCall {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn BatchCall::method_name(Self) -> String
+pub fn BatchCall::new(method_name~ : String, params~ : Json) -> Self
+pub fn BatchCall::params(Self) -> Json
 
 pub struct HttpStatusInfo {
   // private fields
