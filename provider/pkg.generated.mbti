@@ -53,6 +53,8 @@ pub fn[E : EventSource] on_disconnect(E, (ProviderError) -> Unit) -> Subscriptio
 
 pub async fn[P : Provider] request_accounts(P) -> Array[@types.Address] raise ProviderError
 
+pub async fn[P : Provider] request_many(P, Array[BatchCall]) -> Array[Result[Json, ProviderError]] raise ProviderError
+
 pub async fn[P : Provider] require_account(P) -> @types.Address raise ProviderError
 
 pub async fn[P : Provider] send_raw_transaction(P, @types.Hex) -> @types.TxHash raise ProviderError
@@ -111,6 +113,12 @@ pub(all) enum Answer {
   Raises(ProviderError)
 }
 
+pub(all) struct BatchCall {
+  method_name : String
+  params : Json
+} derive(Eq, @debug.Debug)
+pub fn BatchCall::new(method_name~ : String, params~ : Json) -> Self
+
 pub struct HttpStatusInfo {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -127,6 +135,7 @@ pub fn MockProvider::new() -> Self
 pub fn MockProvider::on(Self, method_name~ : String, response~ : Json) -> Self
 pub fn MockProvider::on_error(Self, method_name~ : String, error~ : ProviderError) -> Self
 pub fn MockProvider::on_sequence(Self, method_name~ : String, answers~ : Array[Answer]) -> Self
+pub impl BatchProvider for MockProvider
 pub impl EventSource for MockProvider
 pub impl Provider for MockProvider
 
@@ -146,6 +155,10 @@ pub fn Subscription::unsubscribe(Self) -> Unit
 // Type aliases
 
 // Traits
+pub(open) trait BatchProvider : Provider {
+  async fn request_many(Self, Array[BatchCall]) -> Array[Result[Json, ProviderError]] raise ProviderError = _
+}
+
 pub(open) trait EventSource {
   fn subscribe(Self, event~ : String, handler~ : (Json) -> Unit) -> Subscription
 }
