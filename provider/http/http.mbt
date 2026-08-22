@@ -49,12 +49,28 @@ pub(open) trait HttpTransport {
 pub struct HttpProvider[T] {
   priv transport : T
   priv mut next_id : Int
+  priv retry : @provider.RetryPolicy
 }
 
 ///|
-/// Build a provider over `transport`. Ids start at 1.
+/// Build a provider over `transport`. Ids start at 1, retries are the default
+/// policy.
 pub fn[T] HttpProvider::new(transport : T) -> HttpProvider[T] {
-  HttpProvider::{ transport, next_id: 1 }
+  HttpProvider::{
+    transport,
+    next_id: 1,
+    retry: @provider.RetryPolicy::default(),
+  }
+}
+
+///|
+/// The same provider, retrying on `policy`. The copy gets an id counter of its
+/// own, which is all ids have to be unique within.
+pub fn[T] HttpProvider::with_retry(
+  self : HttpProvider[T],
+  policy : @provider.RetryPolicy,
+) -> HttpProvider[T] {
+  { ..self, retry: policy }
 }
 
 ///|
@@ -88,7 +104,9 @@ pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn reque
   if needs_a_wallet(method_name) {
     raise @provider.UnsupportedMethod
   }
-  @provider.retry_loop(method_name~, () => self.send_once(method_name~, params~))
+  @provider.retry_loop(method_name~, policy=self.retry, () => {
+    self.send_once(method_name~, params~)
+  })
 }
 
 ///|

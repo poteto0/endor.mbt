@@ -2,6 +2,7 @@
 package "poteto0/endor/provider"
 
 import {
+  "moonbitlang/async",
   "moonbitlang/core/debug",
   "poteto0/endor/eips/eip712",
   "poteto0/endor/types",
@@ -128,6 +129,13 @@ pub fn MockProvider::on_error(Self, method_name~ : String, error~ : ProviderErro
 pub fn MockProvider::on_sequence(Self, method_name~ : String, answers~ : Array[Answer]) -> Self
 pub impl EventSource for MockProvider
 pub impl Provider for MockProvider
+
+pub struct RetryPolicy {
+  // private fields
+}
+pub fn RetryPolicy::default() -> Self
+pub fn RetryPolicy::new(strategy? : @async.RetryMethod, max_retry? : Int) -> Self
+pub fn RetryPolicy::none() -> Self
 
 pub struct Subscription {
   // private fields

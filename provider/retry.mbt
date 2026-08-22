@@ -2,40 +2,16 @@
 /// Run `call` again while it keeps failing in a way `is_retryable` says is
 /// worth another try, backing off between attempts.
 ///
-/// This sits at the `Provider::request` layer rather than in a transport,
-/// because the two most common "come back later" answers a hosted RPC gives
-/// arrive **inside a 200 response**: JSON-RPC's `-32005`, and the providers
-/// that put `{ code: 429 }` in the body. Neither is visible to
-/// `HttpTransport::post`; both are visible once the JSON-RPC envelope is open.
-/// Sitting here also means the same loop covers a browser wallet, which has no
-/// HTTP layer to put a retry in at all.
-///
-/// The defaults are viem's — 150ms doubling to at most 2s, three retries, so
-/// four attempts spanning about a second. They are the only settings there are:
-/// how a caller overrides them is a later question, and until it is answered
-/// both providers retry on these.
-///
-/// A `Retry-After` on the failure wins over the backoff, the way viem's `delay`
-/// prefers it: a node that says how long it wants to be left alone is stating
-/// what the backoff is only guessing at. One longer than
-/// `MAX_RETRY_AFTER_S` ends the loop instead — see there.
+/// The `Retry-After` preference below and the send-once list are not the
+/// policy's to override.
 ///
 /// No jitter: several requests that hit the same `429` together come back
 /// together. That can wait until it is a problem someone has.
-///
-/// Not public API. It is `pub` only because `provider/http` and
-/// `provider/browser` both call it; `#doc(hidden)` is what keeps it out of the
-/// generated `.mbti`, which `#internal` alone does not.
 #internal(internal, "the retry loop is not public API")
 #doc(hidden)
 pub async fn retry_loop(
   method_name~ : String,
-  strategy? : @async.RetryMethod = ExponentialDelay(
-    initial=150,
-    factor=2.0,
-    maximum=2_000,
-  ),
-  max_retry? : Int = 3,
+  policy~ : RetryPolicy,
   call : async () -> Json raise ProviderError,
 ) -> Json raise ProviderError {
   if is_not_idempotent(method_name) {
@@ -45,10 +21,10 @@ pub async fn retry_loop(
   // from the strategy alone and so has nowhere to read a `Retry-After` from.
   // The price is that `first_delay` / `next_delay` mirror what `@async.retry`
   // reads `RetryMethod` to mean, and have to keep matching it.
-  for attempt = 0, delay = first_delay(strategy) {
+  for attempt = 0, delay = first_delay(policy.strategy) {
     try call() catch {
       e => {
-        guard attempt < max_retry &&
+        guard attempt < policy.max_retry &&
           e.is_retryable() &&
           !@async.is_being_cancelled() else {
           raise e
@@ -69,7 +45,7 @@ pub async fn retry_loop(
               "the retry of \{method_name} was cancelled: \{cancelled}",
             )
         }
-        continue attempt + 1, next_delay(strategy, delay)
+        continue attempt + 1, next_delay(policy.strategy, delay)
       }
     } noraise {
       answer => return answer

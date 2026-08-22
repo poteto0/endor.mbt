@@ -14,6 +14,7 @@ pub struct HttpProvider[T] {
   // private fields
 }
 pub fn[T] HttpProvider::new(T) -> Self[T]
+pub fn[T] HttpProvider::with_retry(Self[T], @provider.RetryPolicy) -> Self[T]
 pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T]
 
 // Type aliases

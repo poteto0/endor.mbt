@@ -178,7 +178,10 @@ async test "a transport that cannot reach the node is retried, then propagates i
   let transport = FakeTransport::failing(
     @provider.Transport("POST http://127.0.0.1:1 failed"),
   )
-  let provider = @http.HttpProvider::new(transport)
+  // `Immediate`: the count is the point, not the second the real backoff sleeps
+  let provider = @http.HttpProvider::new(transport).with_retry(
+    @provider.RetryPolicy::new(strategy=Immediate),
+  )
   @async.with_task_group(_ => {
     inspect(
       refusal(provider, method_name="eth_chainId"),
@@ -189,6 +192,28 @@ async test "a transport that cannot reach the node is retried, then propagates i
   })
   // one attempt plus the three retries, each with an id of its own
   inspect(transport.sent.length(), content="4")
+}
+
+///|
+async test "the policy a provider was given is the one it retries on" {
+  // nothing after the first failure
+  inspect(attempts_under(@provider.RetryPolicy::none()), content="1")
+  // `max_retry` counts the retries, so it is one more than that in attempts
+  inspect(
+    attempts_under(@provider.RetryPolicy::new(strategy=Immediate, max_retry=5)),
+    content="6",
+  )
+}
+
+///|
+/// How many times a provider on `policy` posts before it gives up.
+async fn attempts_under(policy : @provider.RetryPolicy) -> Int {
+  let transport = FakeTransport::failing(@provider.Transport("refused"))
+  let provider = @http.HttpProvider::new(transport).with_retry(policy)
+  @async.with_task_group(_ => {
+    ignore(refusal(provider, method_name="eth_chainId"))
+  })
+  transport.sent.length()
 }
 
 ///|

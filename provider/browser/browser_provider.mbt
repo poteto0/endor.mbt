@@ -5,6 +5,25 @@
 /// an EIP-1193 compatible provider.
 pub struct BrowserProvider {
   priv eth : @js.Ethereum
+  priv retry : @provider.RetryPolicy
+}
+
+///|
+/// The one place that defaults a wallet's fields, so `detect` and
+/// `on_announce` cannot drift apart.
+fn BrowserProvider::over(eth : @js.Ethereum) -> BrowserProvider {
+  BrowserProvider::{ eth, retry: @provider.RetryPolicy::default() }
+}
+
+///|
+/// The same wallet, retrying on `policy`. A wither rather than an argument to
+/// `detect`, because `discover` and `on_announce` hand back providers the
+/// caller never constructed.
+pub fn BrowserProvider::with_retry(
+  self : BrowserProvider,
+  policy : @provider.RetryPolicy,
+) -> BrowserProvider {
+  { ..self, retry: policy }
 }
 
 ///|
@@ -13,7 +32,7 @@ pub struct BrowserProvider {
 /// Returns `None` when `globalThis.ethereum` does not exist.
 pub fn BrowserProvider::detect() -> BrowserProvider? {
   if @js.has_ethereum() {
-    Some(BrowserProvider::{ eth: @js.get_ethereum() })
+    Some(BrowserProvider::over(@js.get_ethereum()))
   } else {
     None
   }
@@ -46,7 +65,9 @@ pub impl @provider.Provider for BrowserProvider with fn request(
   method_name~,
   params~,
 ) {
-  @provider.retry_loop(method_name~, () => self.send_once(method_name~, params~))
+  @provider.retry_loop(method_name~, policy=self.retry, () => {
+    self.send_once(method_name~, params~)
+  })
 }
 
 ///|

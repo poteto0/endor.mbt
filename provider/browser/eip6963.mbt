@@ -89,7 +89,7 @@ pub fn BrowserProvider::on_announce(
       ProviderInfo::from_json(info_json) is Some(info) else {
       return
     }
-    handler(info, BrowserProvider::{ eth, })
+    handler(info, BrowserProvider::over(eth))
   })
   // register first, then ask — a wallet answers synchronously
   @js.dispatch_window_event(event=request_event)
