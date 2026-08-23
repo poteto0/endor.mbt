@@ -2,5 +2,6 @@ import {
   "moonbitlang/core/json",
   "moonbitlang/core/string",
   "poteto0/endor/types",
+  "poteto0/endor/codec",
   "poteto0/endor/abi",
 }

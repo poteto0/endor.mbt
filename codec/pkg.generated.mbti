@@ -38,6 +38,8 @@ pub fn is_hex_digits(StringView) -> Bool
 
 pub fn is_lower_hex_digits(StringView) -> Bool
 
+pub fn is_solidity_ident(String) -> Bool
+
 pub fn is_valid_array_size(Int) -> Bool
 
 pub fn is_valid_bits(Int) -> Bool

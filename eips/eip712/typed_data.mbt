@@ -22,16 +22,27 @@ pub struct TypedDataField {
 /// Declare a member. Whether the type resolves — whether a struct name is one
 /// the document defines — is `TypedData::new`'s job, since it is the only place
 /// that knows the whole registry; here the spelling itself is checked.
+///
+/// Both halves have to be Solidity identifiers, which is what stops a document
+/// from choosing its own `encodeType` string: `struct_signature` joins names
+/// with `(`, `,` and `)` and hashes the result, so a name free to carry those
+/// characters is a string injection — two documents declaring different fields
+/// can be spelled to produce one `typeHash`, and a signature over what the user
+/// read then means something else to the contract that checks it.
+///
+/// A type is that spelling plus array suffixes, which `base_type` takes off
+/// first — and only the ones that parse, so `uint256[x]` is checked whole and
+/// refused.
 pub fn TypedDataField::new(
   name : String,
   type_name : String,
 ) -> TypedDataField raise @types.CodecError {
-  guard !name.is_empty() else {
-    raise @types.InvalidValue("typed data field has no name")
+  guard @codec.is_solidity_ident(name) else {
+    raise @types.InvalidValue("typed data field is not an identifier: \{name}")
   }
-  guard !base_type(type_name).is_empty() else {
+  guard @codec.is_solidity_ident(base_type(type_name)) else {
     raise @types.InvalidValue(
-      "typed data field \{name} has no type: \{type_name}",
+      "typed data field \{name} has an invalid type: \{type_name}",
     )
   }
   TypedDataField::{ name, type_name }
@@ -224,6 +235,11 @@ pub struct TypedData {
 ///|
 /// Assemble and validate a document.
 ///
+/// Every type name here is checked to be an identifier, the same way a field's
+/// two names are: the keys of `types` are half of what `encode_type` writes,
+/// and the name a document gives its own type is no more free than the names
+/// inside it.
+///
 /// `types` holds the caller's own struct types only: `EIP712Domain` is derived
 /// from `domain` and declaring it here is an error, since a document carrying
 /// two answers for it would sign one and display the other.
@@ -243,6 +259,9 @@ pub fn TypedData::new(
       raise @types.InvalidValue(
         "\{DOMAIN_TYPE} is derived from the domain and must not be declared",
       )
+    }
+    guard @codec.is_solidity_ident(name) else {
+      raise @types.InvalidValue("type name is not an identifier: \{name}")
     }
     for f in fields {
       let base = base_type(f.type_name)
