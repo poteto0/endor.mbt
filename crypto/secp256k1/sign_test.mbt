@@ -12,11 +12,10 @@ fn signed(key_digits : String, digest_digits : String) -> String raise {
 ///|
 /// RFC 6979 §3.2 vectors for secp256k1 with SHA-256, as published in
 /// `python-ecdsa`'s test suite. Each digest is the SHA-256 of the quoted
-/// message; what they pin is the nonce, which is what `r` is a function of, so
-/// a wrong nonce cannot produce these.
+/// message; what they pin is the nonce, which `r` is a function of.
 ///
 /// `s` is the low form. The vectors give the raw one, and EIP-2 wants the other
-/// of the pair — `s_raw + s = N` holds for each, which the last test checks.
+/// of the pair — `s_raw + s = N`, which the last test checks.
 test "RFC 6979: key 1 over sha256(\"Satoshi Nakamoto\")" {
   assert_eq(
     signed(

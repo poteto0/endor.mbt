@@ -398,10 +398,9 @@ async test "a deployment receipt names the contract it created" {
 ///|
 /// The same deployment through the SDK's own `@contract.deploy`, which is the
 /// one above with the receipt's `contractAddress` already turned into the
-/// `Contract` the caller goes on to use. A mock can prove the request it
-/// builds; only a node can prove the code it sent runs and answers where the
-/// receipt said it would — which the call is what proves, so nothing here
-/// re-reads the code the deployment left behind.
+/// `Contract` the caller goes on to use. A mock can prove the request it builds;
+/// only a node can prove the code it sent runs and answers where the receipt
+/// said it would.
 async test "deploying through the contract layer lands a callable contract" {
   @anvil.on(provider => {
     let deployed = @contract.deploy(
@@ -421,11 +420,10 @@ async test "deploying through the contract layer lands a callable contract" {
 
 ///|
 /// A log filter is the one request whose *shape* varies most — `address` and
-/// each `topics` position are each either a value or an array of them, and
-/// `blockHash` is refused alongside a range. A mock proves the JSON the SDK
-/// built; only a node proves that JSON is one it will accept. Anvil emits no
-/// events of its own here, so what is asserted is that each filter came back as
-/// a list at all rather than as an error.
+/// each `topics` position are either a value or an array, and `blockHash` is
+/// refused alongside a range. A mock proves the JSON the SDK built; only a node
+/// proves that JSON is one it will accept. Anvil emits no events of its own
+/// here, so what is asserted is that each filter came back as a list at all.
 async test "a log filter is a request the node accepts" {
   @anvil.on(provider => {
     let head = @provider.block_number(provider)
@@ -462,9 +460,8 @@ async test "a log filter is a request the node accepts" {
 /// request named no nonce, no gas and no fee, so every one of those is what the
 /// node chose — and this is the only way to read them back.
 ///
-/// Anvil mines on receipt, so what comes back here is already `Mined`; the
-/// pending case is a race no test can hold open and is covered against the
-/// mock instead.
+/// Anvil mines on receipt, so what comes back is already `Mined`; the pending
+/// case is covered against the mock instead.
 async test "a sent transaction is read back by its hash" {
   @anvil.on(provider => {
     let hash = @provider.send_transaction(

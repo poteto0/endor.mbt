@@ -88,11 +88,10 @@ test "an element's own error is what surfaces, unwrapped" {
 }
 
 ///|
-/// `array_field` reads through two names, and they are deliberately different:
-/// a *missing* field is the enclosing shape's problem and names it ("log has no
-/// topics"), while a field that is present and not an array is the field's own
-/// and names that ("expected topics array"). Getting these the same way round
-/// would leave one of the two messages unable to say where to look.
+/// `array_field` reads through two names, deliberately different: a *missing*
+/// field is the enclosing shape's problem and names it ("log has no topics"),
+/// while a present non-array field is its own and names that ("expected topics
+/// array"). The other way round, one of the two could not say where to look.
 test "an array field names the object when absent and the field when misshapen" {
   let topics = array_field(some_fields(), "topics", what="log", strings_only)
   inspect(topics.length(), content="2")

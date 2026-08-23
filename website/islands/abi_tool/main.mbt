@@ -2,10 +2,9 @@
 /// keccak256, live: a signature in, the four bytes a call starts with and the
 /// 32-byte topic an event is logged under back out.
 ///
-/// Both are `@abi` on its own — no provider, no network, no `js` needed. Edit
-/// one character of the signature and every digit changes, which is the whole
-/// point of a hash and the reason `transfer(address,uint256)` and
-/// `transfer(address,uint)` are different functions.
+/// Both are `@abi` on its own — no provider, no network, no `js`. Edit one
+/// character and every digit changes, which is why `transfer(address,uint256)`
+/// and `transfer(address,uint)` are different functions.
 using @element {div, text, type DomNode}
 
 ///|

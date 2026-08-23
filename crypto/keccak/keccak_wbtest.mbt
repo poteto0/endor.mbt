@@ -3,17 +3,12 @@
 const SHA3_PAD : Byte = 0x06
 
 ///|
-/// keccak256 has no reference implementation in any standard library, because
-/// what every standard library ships is SHA3-256 — the same permutation, the
-/// same rate, the same sponge, differing only in the byte `pad10*1` appends.
-/// Swapping that one byte therefore turns this code into SHA3-256 and lets the
-/// permutation, the absorb loop and the rate-boundary padding all be checked
-/// against published vectors instead of against itself.
+/// Every standard library ships SHA3-256 rather than keccak256 — the same
+/// permutation and rate, differing only in the byte `pad10*1` appends. Swapping
+/// that byte checks this code against published vectors instead of itself.
 ///
-/// The lengths are chosen around the 136-byte rate: 135 puts the pad byte and
-/// the closing high bit on the same byte, 136 forces a block that is nothing
-/// but padding, 137 opens a fresh tail, 271 repeats that boundary a block
-/// later, and 1000 spans several blocks.
+/// The lengths are chosen around the 136-byte rate: 135, 136 and 137 sit either
+/// side of a block boundary, 271 repeats it a block later, 1000 spans several.
 test "matches sha3-256 vectors when given sha3's pad byte" {
   let vectors : Array[(Bytes, Bytes)] = [
     (

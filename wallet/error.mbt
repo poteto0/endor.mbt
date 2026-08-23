@@ -1,13 +1,10 @@
 ///|
 /// What can go wrong driving a write through a client.
 ///
-/// A client is two things joined — a transport and an account — and each has
-/// its own error type. Rather than flatten them into strings, the one that
-/// happened is carried whole: a caller that wants to know whether the user
-/// declined (`UserRejected`) can still match on the `ProviderError` inside.
-///
-/// `Incomplete` is the client's own: a field it was asked to fill in and
-/// could not.
+/// A client is a transport and an account joined, and the error that happened is
+/// carried whole rather than flattened into a string: a caller can still match
+/// on the `ProviderError` inside. `Incomplete` is the client's own — a field it
+/// was asked to fill in and could not.
 pub(all) suberror WalletError {
   /// The transport, or the node behind it, said no.
   Provider(@provider.ProviderError)

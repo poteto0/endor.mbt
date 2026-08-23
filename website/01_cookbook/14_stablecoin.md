@@ -16,17 +16,6 @@ holder sign a transfer for somebody else to submit, and
 [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612), which does the same for an
 approval. JPYC, USDC and most other regulated stablecoins carry both.
 
-<div class="alert alert--note" role="note">
-  <div class="alert__title">No demo on this page</div>
-  <div class="alert__description">
-
-The demos on this site drive your wallet. Submitting is the half a wallet does
-_not_ do: it needs an account holding gas and willing to spend it on somebody
-else's transfer, which is a service, not a browser extension.
-
-  </div>
-</div>
-
 ## The token
 
 `Stablecoin::new` takes the address. A stablecoin *is* an ERC-20, so everything
@@ -259,3 +248,14 @@ high half that the token's `ecrecover` would reject — raises before a
 transaction exists, rather than costing gas to fail on chain. A `v` of `0` or
 `1`, which is how a typed transaction spells it, is read as the `27` or `28` the
 token wants.
+
+<div class="alert alert--note" role="note">
+  <div class="alert__title">No demo on this page</div>
+  <div class="alert__description">
+
+The demos on this site drive your wallet. Submitting is the half a wallet does
+_not_ do: it needs an account holding gas and willing to spend it on somebody
+else's transfer, which is a service, not a browser extension.
+
+  </div>
+</div>

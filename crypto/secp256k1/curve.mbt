@@ -66,12 +66,9 @@ fn uncompressed(x : @bigint.BigInt, y : @bigint.BigInt) -> Bytes {
 /// The scalar a big-endian run of bytes spells, or `None` when that scalar is
 /// zero.
 ///
-/// The zero is read off the bytes rather than off the result because
-/// `@bigint.BigInt::from_octets` cannot answer for it: it aborts on an empty
-/// input, and on `native` it returns an all-zero value that `is_zero` does not
-/// recognize. Everything in this package that reads a scalar off the wire —
-/// a key here, the halves of a signature later — goes through this, so the
-/// workaround has one place to be deleted from.
+/// The zero is read off the bytes because `@bigint.BigInt::from_octets` cannot
+/// answer for it: it aborts on empty input, and on `native` returns an all-zero
+/// value `is_zero` misses. Every scalar read here goes through this.
 fn scalar_of_octets(bytes : Bytes) -> @bigint.BigInt? {
   if bytes.iter().any(byte => byte != b'\x00') {
     Some(@bigint.BigInt::from_octets(bytes[:]))
@@ -125,9 +122,8 @@ fn mul_mod(a : @bigint.BigInt, b : @bigint.BigInt) -> @bigint.BigInt {
 /// additions.
 ///
 /// Not `a * n % field_order`: the product is under `8p`, and `%` is a full long
-/// division whose quotient — a number below eight — is thrown away. This runs
-/// about 1800 times per scalar multiplication, which is where that division
-/// would be paid.
+/// division whose quotient is thrown away. This runs about 1800 times per
+/// scalar multiplication.
 fn scale_mod(a : @bigint.BigInt, n : Int) -> @bigint.BigInt {
   let mut total = 0N
   let mut addend = a
@@ -164,10 +160,8 @@ fn Point::double(self : Point) -> Point {
 /// `self + G`, by `madd-2007-bl` — the addition formula for a second operand
 /// that is affine, which the base point always is.
 ///
-/// `self` must be neither infinity nor `±G`, which is what the ladder below
-/// guarantees: it always doubles first, so what reaches here is an even
-/// multiple of G. That is why there is no case for a zero `h`, the one input
-/// this formula has no answer for.
+/// `self` must be neither infinity nor `±G`, which the ladder below guarantees
+/// by always doubling first. That is why there is no case for a zero `h`.
 fn Point::add_base(self : Point) -> Point {
   let zz = mul_mod(self.z, self.z)
   let u2 = mul_mod(base_x, zz)
@@ -208,10 +202,9 @@ fn Point::to_affine(self : Point) -> (@bigint.BigInt, @bigint.BigInt) {
 /// `k * G` in affine coordinates, by double-and-add over the bits of `k`, most
 /// significant first.
 ///
-/// `k` must be in `[1, N)`, so it has a highest set bit; the ladder starts at
-/// G there rather than doubling infinity through every leading zero. Every
-/// value it then holds is some `m * G` with `0 < m < N`, so none is infinity,
-/// and `m` is always even where it adds.
+/// `k` must be in `[1, N)`, so it has a highest set bit and the ladder starts at
+/// G there. Every value it holds is some `m * G` with `0 < m < N`, so none is
+/// infinity, and `m` is always even where it adds.
 fn scalar_base_mult(k : @bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) {
   let mut acc = Point::base()
   let mut started = false
@@ -257,15 +250,9 @@ fn Point::is_infinity(self : Point) -> Bool {
 /// `self + other`, by `add-2007-bl` — the general addition, for two operands
 /// that are both projective and may be anything.
 ///
-/// `Point::add_base` is the same sum with an affine, non-degenerate second
-/// operand and stays where it is: the signing path runs it about 256 times per
-/// signature and must not pay for the three cases below.
-///
-/// Those cases are what a general addition has and a fixed-base one does not:
-/// either operand may be infinity, and the two may name the same affine point
-/// — `h == 0` — where the chord this formula draws does not exist. There the
-/// answer is the tangent (`r == 0`, the doubling) or infinity (`r != 0`, which
-/// is `P + (-P)`).
+/// `Point::add_base` stays where it is: the signing path runs it about 256 times
+/// per signature and must not pay for the cases here. Those cases are infinity
+/// on either side, and `h == 0`, where the chord does not exist.
 fn Point::add(self : Point, other : Point) -> Point {
   if self.is_infinity() {
     return other
@@ -298,16 +285,11 @@ fn Point::add(self : Point, other : Point) -> Point {
 }
 
 ///|
-/// `k * point`, by double-and-add over the bits of `k`, most significant
-/// first.
+/// `k * point`, by double-and-add over the bits of `k`, most significant first.
 ///
-/// Unlike `scalar_base_mult` this takes any `k`, including zero — which gives
-/// infinity — and any point, so the accumulator starts at infinity and doubles
-/// through the leading zeros rather than skipping to the first set bit. That
-/// costs next to nothing: the scalars reaching here are near-uniform in
-/// `[0, N)`, so there is about one leading zero, and doubling infinity is
-/// small-integer arithmetic whose `add` short-circuits. The cost of this
-/// ladder is the 256 general additions, not its start.
+/// Unlike `scalar_base_mult` this takes any `k`, including zero, and any point,
+/// so the accumulator starts at infinity. That costs next to nothing — the cost
+/// of this ladder is its 256 general additions, not its start.
 fn scalar_mult(point : Point, k : @bigint.BigInt) -> Point {
   let mut acc = Point::infinity()
   for byte in k.to_octets(length=COORD_BYTES) {

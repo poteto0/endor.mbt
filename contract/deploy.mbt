@@ -2,11 +2,9 @@
 /// The `data` of a deployment: creation code with its constructor arguments
 /// ABI-encoded behind it.
 ///
-/// This is `@abi.encode_call` minus the selector, and the missing selector is
-/// the whole point: a constructor has no name, so there is nothing to hash and
-/// the arguments are simply appended to the code that the EVM runs. A
-/// constructor taking nothing therefore leaves the creation code exactly as it
-/// was.
+/// `@abi.encode_call` minus the selector, and the missing selector is the point:
+/// a constructor has no name, so the arguments are simply appended to the code.
+/// A constructor taking nothing leaves the creation code exactly as it was.
 ///
 /// ```
 /// let data = @contract.deployment_data(
@@ -33,22 +31,11 @@ pub fn deployment_data(
 
 ///|
 /// Broadcast a deployment and answer with its hash, without waiting for it to
-/// be mined.
+/// be mined — `eth_sendTransaction` with `to` left out and `deployment_data` in
+/// its place. `value` is the ether the constructor is handed.
 ///
-/// A transaction with no recipient deploys its `data`, so this is
-/// `eth_sendTransaction` with `to` left out and `deployment_data` in its place.
-/// `from` is required because somebody has to sign, and `value` is the ether
-/// the constructor is handed — a contract whose constructor is not `payable`
-/// reverts on a non-zero one.
-///
-/// The address the code will live at is not available here: it is in the
-/// receipt, which is what `deploy` waits for. Use this one when the wait
-/// belongs to the caller — a UI that wants the hash to link to a block
-/// explorer while the transaction is still pending.
-///
-/// `errors` are the contract's `error` declarations, which a constructor can
-/// revert with as any other function can: a wallet that simulates before
-/// prompting refuses the deployment with that revert in hand.
+/// The address the code will live at is in the receipt, which is what `deploy`
+/// waits for; use this one when the wait belongs to the caller.
 pub async fn[P : @provider.Provider] send_deployment(
   provider : P,
   from~ : @types.Address,
@@ -69,14 +56,9 @@ pub async fn[P : @provider.Provider] send_deployment(
 /// Deploy `bytecode`, wait for it to be mined, and answer with the `Contract`
 /// now at the address it was mined to.
 ///
-/// The three waiting knobs are `wait_for_receipt`'s own — `confirmations`
-/// blocks to wait past the one that mined it, `timeout` and `poll_interval` in
-/// milliseconds — and are passed straight through, defaults included, so the
-/// wait is described in one place rather than in two that can drift.
-///
-/// A deployment that reverted has a receipt too — and a receipt with no
-/// `contractAddress` — so both are raised as `Deployment` rather than folded
-/// into a missing address the caller has to notice for themselves.
+/// The three waiting knobs are `wait_for_receipt`'s own, passed straight through
+/// with their defaults. A deployment that reverted has a receipt too — and no
+/// `contractAddress` — so both are raised as `Deployment`.
 ///
 /// ```
 /// async fn[P : @provider.Provider] put_it_on_chain(

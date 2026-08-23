@@ -30,12 +30,10 @@ extern "js" fn uninstall_window_events() -> Unit =
 
 ///|
 /// Play the wallets: each answers `eth_chainId` with its own value, so a test
-/// can tell *which* provider object came back with an announcement rather than
-/// only that one did.
+/// can tell *which* provider object came back with an announcement.
 ///
-/// `info_json` is a JSON array of the `info` objects to announce, spelled by
-/// the test so a malformed one can be spelled too. Each announces once per
-/// `eip6963:requestProvider`, which is what the EIP asks of a wallet.
+/// `info_json` is a JSON array of the `info` objects to announce, spelled by the
+/// test so a malformed one can be spelled too.
 extern "js" fn install_announcing_wallets(info_json : String) -> Unit =
   #| (infoJson) => {
   #|   const infos = JSON.parse(infoJson)

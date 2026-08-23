@@ -14,20 +14,9 @@ struct Command {
 /// Every subcommand there is.
 ///
 /// One table, read three ways: `dispatch` runs from it, `handle_help` explains
-/// from it, and `print_usage` is rendered from it. That is the point — a name
-/// listed in the help that dispatches nowhere, or a command that works but is
-/// invisible in the help, is what three hand-kept lists produce the first time
-/// somebody edits two of them. Adding a subcommand is a file with a
-/// `handle_<name>` and a `print_<name>_usage`, and one entry here.
-///
-/// Order is the order the help prints in, so entries of a section stay
-/// together.
-///
-/// A `fn` rather than the `let` it reads like it wants to be. A top-level
-/// value holding these entries is a definition cycle — `commands()` names
-/// `handle_help`, which reaches `find_command`, which reads `commands()` — and
-/// MoonBit refuses it. The table is built per call instead, three times in the
-/// life of a process that then exits.
+/// from it, `print_usage` is rendered from it. Order is the order the help
+/// prints in. A `fn` rather than a `let` because a top-level value holding these
+/// entries is a definition cycle MoonBit refuses.
 fn commands() -> Array[Command] {
   [
     {
@@ -91,9 +80,6 @@ fn dispatch(command : String, args : Array[String]) -> Int {
 /// Help asked for is help printed on stdout and an exit code of 0: it is what
 /// the caller wanted, not a failure. Help printed *because* of a mistake is
 /// reported by whoever caught the mistake, and exits non-zero there.
-///
-/// It lives here rather than in a file of its own because it is not a command
-/// about anything except the table above.
 fn handle_help(args : Array[String]) -> Int {
   match args {
     [] => {
@@ -144,17 +130,10 @@ const NAME_COLUMN = 10
 ///|
 /// Say what went wrong, show what would have been right, and fail.
 ///
-/// Every refusal in this CLI has the same shape, and it is here so that
-/// changing it — a prefix, a stream, an exit code — is one edit rather than one
-/// per place something can be refused.
-///
-/// The stream is stdout, which is not where a diagnostic belongs: `endor-cli
-/// abi > report.txt` puts the errors in the report and leaves the terminal
-/// clean. It is stdout because neither `moonbitlang/core` nor `moonbitlang/x`
-/// exposes stderr, so the alternative is an FFI per backend for a CLI that is
-/// still experimental. The exit code carries the signal in the meantime, which
-/// is what a build script reads; when a stderr appears, this is the one place
-/// that has to change.
+/// Every refusal in this CLI has the same shape, so changing it is one edit. The
+/// stream is stdout, which is not where a diagnostic belongs, because neither
+/// `moonbitlang/core` nor `moonbitlang/x` exposes stderr; the exit code carries
+/// the signal in the meantime.
 fn refuse(message : String, usage : () -> Unit) -> Int {
   println(message)
   println("")

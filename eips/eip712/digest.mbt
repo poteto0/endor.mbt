@@ -1,11 +1,9 @@
 ///|
 /// EIP-712 hashing: the digest a wallet signs over, computed locally.
 ///
-/// `TypedData::new` validates a document but hashes nothing — the wallet
-/// computes the digest, so nothing here had a caller until now. What follows
-/// is `encodeType` / `typeHash` / `encodeData` / `hashStruct` /
-/// `domainSeparator`, built up to the final `digest`, checked against the
-/// EIP-712 spec's own `Mail` example.
+/// `encodeType` / `typeHash` / `encodeData` / `hashStruct` / `domainSeparator`,
+/// built up to the final `digest` and checked against the spec's own `Mail`
+/// example. `TypedData::new` validates a document but hashes nothing.
 
 ///|
 /// `encodeType(type_name)`: its own member list, followed by every struct
@@ -67,18 +65,10 @@ pub fn TypedDataDomain::separator(
 ///|
 /// Refuse a domain the verifying contract would not accept.
 ///
-/// A contract that verifies EIP-712 signatures usually publishes the separator
-/// it verifies them under — `DOMAIN_SEPARATOR()`, which every EIP-2612 token
-/// has, and which `@erc20.Erc20::domain_separator` reads. Comparing it against
-/// the domain built here catches, at the moment the caller builds it and for
-/// free, the whole family of mistakes that are otherwise invisible until the
-/// chain rejects the transaction: the wrong `version`, a `name` that is not the
-/// contract's byte for byte, the wrong chain, a contract that binds a `salt`
-/// instead.
-///
-/// It says nothing about the *message*. A contract whose domain is ordinary and
-/// whose document is its own — DAI's permit, say — passes this check and still
-/// rejects the signature; what tells those apart is `type_hash`.
+/// A contract usually publishes the separator it verifies under —
+/// `DOMAIN_SEPARATOR()`, which `@erc20.Erc20::domain_separator` reads — so
+/// comparing catches the wrong `version`, `name`, chain or `salt` before the
+/// chain does. It says nothing about the *message*; that is `type_hash`.
 pub fn TypedDataDomain::check_separator(
   self : TypedDataDomain,
   on_chain~ : @types.Hex,

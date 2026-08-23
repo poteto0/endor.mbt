@@ -1,12 +1,9 @@
 ///|
 /// `endor-cli` — the command line tools that ship alongside `poteto0/endor`.
 ///
-/// The binary is a dispatcher and nothing else: it works out which subcommand
-/// was asked for, hands the rest of the arguments to that subcommand's handler,
-/// and turns what comes back into an exit code. Every subcommand lives in its
-/// own file (`abi.mbt`), answers with an `Int`, and prints its own diagnostics —
-/// so adding one is adding a file and an entry to `commands()` in
-/// `dispatch.mbt`, and none of it touches `main`.
+/// The binary is a dispatcher and nothing else. Every subcommand lives in its
+/// own file, answers with an `Int`, and prints its own diagnostics, so adding
+/// one is a file and an entry in `commands()` and touches no `main`.
 ///
 /// ```sh
 /// $ endor-cli abi
@@ -51,15 +48,10 @@ enum Invocation {
 ///|
 /// Work out what the argument vector is asking for, without acting on it.
 ///
-/// `argv[0]` is the path the binary was invoked by and is skipped. Options
-/// before the subcommand are handled here rather than in the handlers, because
-/// they are answers the CLI can give without knowing which subcommand it is
-/// about to run — and `--version` on a machine where `abi` would fail still has
-/// to print the version.
-///
-/// An unrecognised leading option is refused rather than stepped over. A flag
-/// silently ignored is the failure mode where somebody's build script has been
-/// passing `--dry-run` for a month to a tool that never had one.
+/// `argv[0]` is skipped. Options before the subcommand are handled here because
+/// they are answers the CLI can give without knowing which subcommand follows.
+/// An unrecognised leading option is refused rather than stepped over — a flag
+/// silently ignored is a build script passing `--dry-run` to a tool without one.
 fn parse_invocation(argv : Array[String]) -> Invocation {
   for i in 1..<argv.length() {
     match argv[i] {

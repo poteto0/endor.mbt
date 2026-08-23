@@ -1,11 +1,9 @@
 ///|
 /// A 32-byte transaction hash — what `eth_sendTransaction` answers with, and
-/// the handle every later question about the transaction (its receipt, its
-/// confirmations) is asked with.
+/// the handle every later question about the transaction is asked with.
 ///
-/// It is a `Hex` narrowed to exactly 32 bytes: a wallet answering with a
-/// truncated or over-long value is a broken answer, and parsing here is where
-/// that is caught rather than at the RPC that is later handed the value.
+/// A `Hex` narrowed to exactly 32 bytes: a wallet answering with a truncated
+/// value is caught here rather than at the RPC later handed it.
 ///
 /// ```
 /// let h = @types.TxHash::from_string(

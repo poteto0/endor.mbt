@@ -1,11 +1,10 @@
 ///|
 /// The parts every demo on the documentation site is built from: a card, the
-/// read-only fields it publishes, the inputs it reads back, and the two
-/// conversions between a currency's smallest unit and the digits a human types.
+/// read-only fields it publishes, the inputs it reads back, and the conversions
+/// between a currency's smallest unit and the digits a human types.
 ///
-/// Nothing here knows about wallets. Each island keeps its SDK code — the part
-/// a reader came to see — in one flow per button, and reaches for this package
-/// for everything around it.
+/// Nothing here knows about wallets. Each island keeps its SDK code in one flow
+/// per button, and reaches for this package for everything around it.
 using @element {
   div,
   p,
@@ -179,16 +178,12 @@ pub fn input_of(initial : String) -> @signals.Signal[String] {
 }
 
 ///|
-/// Parse a human amount ("0.01", "1", ".5") into the smallest unit of a
-/// currency with `decimals` decimal places, or `None` when it is not a decimal
-/// number that currency can carry.
+/// Parse a human amount ("0.01", "1", ".5") into the smallest unit of a currency
+/// with `decimals` decimal places, or `None` when it is not one it can carry.
 ///
-/// `Wei::from_units` is the SDK's, and it raises rather than answering an
-/// option — an amount finer than the currency carries is refused rather than
-/// rounded, because silently dropping a digit of somebody's money is worse than
-/// making them retype it. What is left out here is the option: a widget that
-/// re-parses on every keystroke asks the question far more often than it is
-/// answered yes, and a half-typed amount is not an error worth a `try`.
+/// `Wei::from_units` raises: an amount finer than the currency carries is
+/// refused rather than rounded. What is left out here is the option — a widget
+/// re-parsing on every keystroke asks far more often than it is answered yes.
 pub fn units_of_decimal(amount : String, decimals : Int) -> BigInt? {
   Some(@endor.Wei::from_units(amount.trim().to_owned(), decimals~).to_bigint()) catch {
     _ => None

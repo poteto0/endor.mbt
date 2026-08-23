@@ -2,17 +2,9 @@
 /// How an HTTP JSON-RPC request leaves the process: one POST of a JSON body,
 /// answered by the response body as text.
 ///
-/// `Endpoint` is the implementation almost everyone wants, and it is portable,
-/// so this trait is not what makes the SDK work off the browser — it is the
-/// seam for a caller whose HTTP is its own: a client with retries or a
-/// connection pool, an authenticating proxy, a recorded fixture in a test. It
-/// POSTs `body` with `content-type: application/json` and answers with the raw
-/// response body — the JSON-RPC envelope is parsed above, not here.
-///
-/// A network failure raises `@provider.Transport` and a non-2xx status
-/// `@provider.HttpStatus`: the transport reports *transport* failures, and a
-/// JSON-RPC `error` object is not one of them — that is a well-formed answer,
-/// and `HttpProvider` maps it.
+/// `Endpoint` is the implementation almost everyone wants; this trait is the
+/// seam for a caller whose HTTP is its own. A JSON-RPC `error` object is a
+/// well-formed answer, not a transport failure, and `HttpProvider` maps it.
 ///
 /// ```
 /// struct AlwaysEmpty {}
@@ -27,17 +19,12 @@ pub(open) trait HttpTransport {
 }
 
 ///|
-/// A `Provider` that speaks JSON-RPC over HTTP, so the read layer works with
-/// no browser wallet in sight: a node URL is enough.
-///
-/// Ids are assigned per provider instance, starting at 1 and incrementing with
-/// each request, and the id a response carries is checked against the one that
-/// was sent.
+/// A `Provider` that speaks JSON-RPC over HTTP, so the read layer works with no
+/// browser wallet in sight: a node URL is enough. Ids are assigned per instance
+/// and checked against the id a response carries.
 ///
 /// It deliberately does **not** implement `EventSource`. Plain HTTP pushes
-/// nothing: there is no `accountsChanged` and no `chainChanged` behind a POST
-/// endpoint, and that is exactly why `EventSource` is a trait of its own —
-/// a transport can answer RPC without being able to push anything back.
+/// nothing, which is exactly why `EventSource` is a trait of its own.
 ///
 /// ```
 /// async fn chain(
@@ -91,19 +78,11 @@ fn[T] HttpProvider::copied(
 
 ///|
 /// The same provider, folding concurrent calls into one JSON-RPC array: calls
-/// that start within `policy`'s window leave as a single POST, and each gets
-/// its own answer back by id.
+/// that start within `policy`'s window leave as a single POST.
 ///
-/// **Off unless you ask for it**, unlike `with_retry`. Retrying costs a caller
-/// nothing when nothing fails, but a window costs a lone read the whole `wait`
-/// before it is even sent — and whether that trade is right depends on what the
-/// endpoint is and what the caller is doing, which only the caller knows. A
-/// provider that never sees `with_batch` behaves exactly as it did before this
-/// existed.
-///
-/// The window belongs to **this provider value**, so folding is scoped to it:
-/// build it once and share it between the calls that should fold. One built
-/// per call folds nothing and pays the whole `wait`.
+/// **Off unless you ask for it**: a window costs a lone read the whole `wait`.
+/// It belongs to **this provider value**, so build it once and share it between
+/// the calls that should fold.
 ///
 /// ```
 /// async fn heights[T : @http.HttpTransport](
@@ -124,15 +103,12 @@ pub fn[T] HttpProvider::with_batch(
 }
 
 ///|
-/// The methods HTTP structurally cannot serve: they need a wallet UI — a
-/// prompt, a chain switch — and there is nothing behind an HTTP endpoint to
-/// prompt.
+/// The methods HTTP structurally cannot serve: they need a wallet UI, and there
+/// is nothing behind an HTTP endpoint to prompt.
 ///
 /// Deliberately short. `eth_sendTransaction`, `eth_accounts`, `personal_sign`
 /// and `eth_signTypedData_v4` are *not* here: a node with unlocked accounts
-/// (Anvil, a dev node) really does serve them, so refusing them locally would
-/// be a lie. A node that cannot serve a method answers `-32601`, which
-/// `ProviderError::from_code` maps already.
+/// really does serve them, and one that cannot answers `-32601`.
 fn needs_a_wallet(method_name : String) -> Bool {
   method_name.has_prefix("wallet_") || method_name == "eth_requestAccounts"
 }
@@ -142,9 +118,7 @@ fn needs_a_wallet(method_name : String) -> Bool {
 /// about this attempt rather than about the request.
 ///
 /// The retry sits here rather than in `HttpTransport`, because a hosted RPC
-/// asking for a moment often does it *inside a 200* — `-32005`, or a body
-/// carrying `{ code: 429 }` — which `post` cannot see and `send_once` has
-/// already turned into a `ProviderError` by the time this reads it.
+/// asking for a moment often does it *inside a 200*, which `post` cannot see.
 pub impl[T : HttpTransport] @provider.Provider for HttpProvider[T] with fn request(
   self,
   method_name~,

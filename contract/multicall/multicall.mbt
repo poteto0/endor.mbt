@@ -1,17 +1,10 @@
 ///|
 /// The [Multicall3](https://github.com/mds1/multicall) contract: several
-/// contract reads bundled into a single `eth_call`.
-///
-/// One read per RPC round trip is what a contract layer costs by default, and
-/// listing anything — a token's `name`, `symbol`, `decimals` and then a
-/// `balanceOf` per holder — turns that into an n+1 the caller pays for in
-/// latency. `aggregate3` is the chain's own answer to it: the calls are handed
-/// to a contract that makes them, so the node executes all of them against the
-/// same block and answers once.
+/// contract reads bundled into a single `eth_call`, evaluated against the same
+/// block. Listing anything otherwise costs an n+1 in round trips.
 ///
 /// The address is the same on every major chain, which is why `new` takes none;
-/// a chain where it is not deployed is what `is_deployed` is for, and passing an
-/// address is what a private deployment is for.
+/// `is_deployed` is for a chain where it is not.
 ///
 /// ```
 /// async fn[P : @provider.Provider] two_reads(
@@ -75,11 +68,9 @@ pub fn Multicall3::address(self : Multicall3) -> @types.Address {
 ///|
 /// Whether there is a contract at that address at all.
 ///
-/// The canonical deployment is on every major chain but not on *every* chain,
-/// and a batch sent to an address holding no code answers with empty return
-/// data rather than with an error — which reads as a decode failure and says
-/// nothing about the cause. Asking first is one `eth_getCode`, and a caller
-/// that finds `false` falls back to calling one at a time.
+/// A batch sent to an address holding no code answers with empty return data
+/// rather than an error, which reads as a decode failure and says nothing about
+/// the cause. Asking first is one `eth_getCode`.
 ///
 /// ```
 /// async fn[P : @provider.Provider] batchable(
@@ -104,10 +95,9 @@ pub async fn[P : @provider.Provider] Multicall3::is_deployed(
 /// One element of a batch: a prepared call, and whether the whole batch may
 /// survive its failure.
 ///
-/// `allow_failure` defaults to `true`, which is the reason to bundle reads in
-/// the first place — nineteen balances should not be lost because the twentieth
-/// address is not a token. Set it to `false` for a call whose failure makes the
-/// rest meaningless: `aggregate3` then reverts, and the batch raises.
+/// `allow_failure` defaults to `true`, which is the reason to bundle reads at
+/// all. Set it to `false` for a call whose failure makes the rest meaningless:
+/// `aggregate3` then reverts, and the batch raises.
 ///
 /// ```mbt check
 /// test "doc: one element of a batch" {
@@ -138,11 +128,9 @@ pub fn Call::new(
 ///|
 /// What one call of a batch answered.
 ///
-/// It is `pub(all)` for the reason every answer read off the wire is: the SDK
-/// builds these from the `(success, returnData)` pairs the contract returned
-/// and the caller matches on them. A failure is a *value* here rather than
-/// something raised, because the point of the batch is that the other elements
-/// still have answers.
+/// `pub(all)` for the reason every answer read off the wire is. A failure is a
+/// *value* here rather than something raised, because the point of the batch is
+/// that the other elements still have answers.
 pub(all) enum Outcome {
   /// The call succeeded and its return data decoded as the `outputs` the
   /// prepared call declared.
@@ -203,18 +191,11 @@ fn result_array() -> @types.AbiType {
 
 ///|
 /// Make every call in one `eth_call` and answer with what each of them said, in
-/// the order they were given.
+/// the order they were given. An empty batch asks the node nothing.
 ///
-/// This is the whole point: one round trip, and every call evaluated against
-/// the same block, which a caller looping over `Contract::call` gets neither
-/// of. An empty batch answers an empty array without asking the node anything.
-///
-/// A single call failing is not a failure of the batch — it comes back as
-/// `Failed`, carrying the revert decoded against that call's own `ErrorDef`s,
-/// and so does a call that succeeded but whose return data does not fit the
-/// types it declared. What *does* raise is the batch failing as a whole: the
-/// node refusing it, or `aggregate3` itself reverting because an element with
-/// `allow_failure = false` failed.
+/// A single call failing comes back as `Failed`, carrying the revert decoded
+/// against that call's own `ErrorDef`s. What *does* raise is the batch failing
+/// as a whole — the node refusing it, or `aggregate3` itself reverting.
 ///
 /// ```
 /// async fn[P : @provider.Provider] symbols(

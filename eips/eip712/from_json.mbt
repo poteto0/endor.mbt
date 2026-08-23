@@ -3,10 +3,8 @@
 /// `eth_signTypedData_v4` takes — `to_json`'s inverse, for code that *receives*
 /// a document rather than building one.
 ///
-/// It ends in `TypedData::new`, so parsing a document validates it. Three
-/// things the wire spells that the struct does not: `EIP712Domain` in `types`,
-/// accepted and dropped once it agrees with the domain it is derived from; a
-/// member nothing declares, refused; and `chainId` as a string.
+/// It ends in `TypedData::new`, so parsing a document validates it. The wire
+/// also spells `EIP712Domain` in `types`, which is accepted and dropped.
 ///
 /// ```mbt check
 /// test "doc: typed data from json" {

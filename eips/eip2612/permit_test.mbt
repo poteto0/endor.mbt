@@ -1,15 +1,10 @@
 ///|
 /// The example every test here shares: USDC on mainnet, approving one dollar.
-/// The hashes it is checked against were computed outside this SDK, with
-/// `cast` — and the type hash so computed is byte for byte the
-/// `PERMIT_TYPEHASH` constant every EIP-2612 token carries, which is what makes
-/// the rest of them a check against EIP-2612 rather than against yesterday's
-/// version of this file.
+/// The hashes were computed with `cast`, and the type hash so computed is the
+/// `PERMIT_TYPEHASH` every EIP-2612 token carries.
 ///
-/// `version="2"` is not a typo and not an alternative spelling: USDC's domain
-/// says `"2"`, most other tokens say `"1"`, and the two produce different
-/// signatures. It is the mistake `check_separator` exists to catch, so the fixture
-/// is the token that makes it.
+/// `version="2"` is not a typo: USDC's domain says `"2"` and most others say
+/// `"1"`. It is the mistake `check_separator` exists to catch.
 fn usdc() -> @eip712.TypedDataDomain raise @types.CodecError {
   @eip2612.domain(
     name="USD Coin",

@@ -2,14 +2,9 @@
 /// Whether `url` is an HTTP endpoint this transport can POST to: an `http://`
 /// or `https://` scheme, and a host standing after it.
 ///
-/// The host is what makes this worth checking. A URL missing one — `http://`,
-/// `http://:8545`, `http://user@/path` — is a typo that would otherwise
-/// surface as a connection error at the first request, one call away from the
-/// mistake. Anything past the host is the node's business: a path, a query, a
-/// fragment and credentials all pass.
-///
-/// The scheme is matched as written, so `HTTP://` fails. Normalising case is
-/// the caller's, above this.
+/// The host is what makes this worth checking — a URL missing one is a typo that
+/// would otherwise surface as a connection error one call away. Anything past
+/// the host passes. The scheme is matched as written, so `HTTP://` fails.
 fn validate_http_url(url : String) -> Bool {
   let parts = split_url(url)
   guard parts.scheme is Some("http" | "https") else { return false }

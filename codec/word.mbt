@@ -26,8 +26,7 @@ fn two_pow(bits : Int) -> BigInt {
 /// at or above `2^255` is that much below zero (two's complement).
 ///
 /// A narrower `intN` is sign-extended to the whole word on the wire, so the
-/// width never enters here — which is why `abi`'s `int8` and EIP-712's `int256`
-/// can share one function.
+/// width never enters here.
 pub fn word_to_signed(val : BigInt) -> BigInt {
   if val >= two_pow(WORD_BITS - 1) {
     val - two_pow(WORD_BITS)
@@ -108,11 +107,9 @@ pub fn digits_right_pad(digits : String) -> String {
 }
 
 ///|
-/// One word's worth of zero digits. Padding is most of what an encoded word is,
-/// and both functions above ask for at most a word of it, so the run is written
-/// once here and sliced. Core's `pad_start` would read better, but it fills a
-/// character at a time and the `js` backend turns that into one string concat
-/// per digit — around 20× the cost, on the hottest loop the encoder has.
+/// One word's worth of zero digits, written once and sliced. Core's `pad_start`
+/// would read better, but it fills a character at a time and `js` turns that
+/// into one string concat per digit — around 20× the cost, on the hottest loop.
 let word_zeros : String = "0".repeat(WORD_DIGITS)
 
 ///|

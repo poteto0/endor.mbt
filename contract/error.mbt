@@ -2,13 +2,9 @@
 /// What can go wrong calling a contract: the wallet's problem, the ABI's, or
 /// the contract's own refusal.
 ///
-/// The halves are kept apart because they call for different handling. An
-/// `Rpc` is the wallet or the node answering — the user rejected the prompt,
-/// the node is unreachable — and a dapp already has UI for it. An `Abi` means
-/// the contract at that address is not the contract the caller described: a bad
-/// address, or an ABI that has drifted from what is deployed. No retry helps.
-/// The last three are the contract itself saying no, which is neither: the call
-/// was well-formed and it arrived, and what came back is a *reason*.
+/// `Rpc` is the wallet or the node answering, which a dapp already has UI for.
+/// `Abi` means the contract at that address is not the one the caller described,
+/// and no retry helps. The last three are the contract itself saying no.
 ///
 /// ```
 /// try @contract.Erc20::new(token).balance_of(wallet, who) catch {
@@ -78,9 +74,7 @@ pub impl Show for ContractError with fn output(self, logger) {
 
 ///|
 /// One line to put in front of a person, the same question `ProviderError` and
-/// `CodecError` answer. The wallet's and the ABI's failures delegate, so a
-/// dapp that catches a `ContractError` says the same thing about a declined
-/// prompt as one that catches the `ProviderError` directly.
+/// `CodecError` answer. The wallet's and the ABI's failures delegate.
 ///
 /// `Revert` is the interesting one: the string a `require(cond, "…")` carries
 /// was written by the contract's author *for this purpose*, so it is passed

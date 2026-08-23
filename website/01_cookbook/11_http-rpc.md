@@ -13,20 +13,6 @@ what a balance is.
 `@endpoint.at` is that: a `Provider` that speaks JSON-RPC 2.0 over HTTP, built
 from nothing but a URL.
 
-<div class="alert alert--status" role="note">
-  <div class="alert__title">Why this page has no demo</div>
-  <div class="alert__description">
-
-Every other recipe here runs in your browser against your wallet. This one needs
-a node URL, and a public one that would accept a cross-origin POST from this site
-is either rate-limited into uselessness or an API key in plain sight. The code
-below is compiled by CI like every other block on this site, and it is what
-[`e2e/http_test.mbt`](https://github.com/poteto0/endor.mbt/blob/main/e2e/http_test.mbt)
-runs against a real node.
-
-  </div>
-</div>
-
 ## The import
 
 ```
@@ -319,6 +305,20 @@ own `HttpTransport` gets the rest of the SDK there anyway.
 
 [Call any contract](/cookbook/contract/) — the same reads, through an ABI. Every
 example there takes a `Provider`, so an endpoint works in place of the wallet.
+
+  </div>
+</div>
+
+<div class="alert alert--status" role="note">
+  <div class="alert__title">Why this page has no demo</div>
+  <div class="alert__description">
+
+Every other recipe here runs in your browser against your wallet. This one needs
+a node URL, and a public one that would accept a cross-origin POST from this site
+is either rate-limited into uselessness or an API key in plain sight. The code
+below is compiled by CI like every other block on this site, and it is what
+[`e2e/http_test.mbt`](https://github.com/poteto0/endor.mbt/blob/main/e2e/http_test.mbt)
+runs against a real node.
 
   </div>
 </div>

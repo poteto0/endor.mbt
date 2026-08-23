@@ -1,14 +1,10 @@
 ///|
-/// An ERC-20 token contract.
+/// An ERC-20 token contract, with the EIP-2612 permit extension.
 ///
 /// The interface is fixed, so the types are spelled here once instead of at
-/// every call site: this is the whole point of a preset. Amounts are `BigInt`
-/// in the token's own smallest unit — `decimals` says where the point goes, and
-/// dividing by it is a presentation concern the SDK stays out of, exactly as it
-/// does for `Wei`.
-/// This includes the EIP-2612 permit extension, which is not part of ERC-20 but is
-/// ERC20Permit.
-/// refs: https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts%2Ftoken%2FERC20%2Fextensions%2FIERC20Permit.sol
+/// every call site: this is the whole point of a preset. Amounts are `BigInt` in
+/// the token's own smallest unit — `decimals` says where the point goes, and
+/// dividing by it is a presentation concern the SDK stays out of.
 ///
 /// ```
 /// async fn[P : @provider.Provider] holdings(
@@ -38,14 +34,11 @@ pub fn Erc20::new(address : @types.Address) -> Erc20 {
 
 ///|
 /// The errors [ERC-6093](https://eips.ethereum.org/EIPS/eip-6093) standardized
-/// for ERC-20, which is what OpenZeppelin's implementation reverts with since
-/// v5 — `transfer` beyond a balance is `ERC20InsufficientBalance(sender,
-/// balance, needed)` rather than a string.
+/// for ERC-20, which is what OpenZeppelin reverts with since v5 — `transfer`
+/// beyond a balance is `ERC20InsufficientBalance(sender, balance, needed)`.
 ///
-/// They are declared here because a preset is where an interface is spelled
-/// once, and a token that reverts with none of them loses nothing: a
-/// declaration only ever *decodes* a revert, and one whose selector does not
-/// match is not tried.
+/// A token that reverts with none of them loses nothing: a declaration only ever
+/// *decodes* a revert, and one whose selector does not match is not tried.
 ///
 /// ```mbt check
 /// test "doc: the errors an ERC-20 may revert with" {
@@ -218,13 +211,10 @@ pub async fn[P : @provider.Provider] Erc20::approve(
 ///|
 /// `owner`'s permit counter — `nonces(address)`.
 ///
-/// Part of [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612) rather than of
-/// ERC-20, so a token without permit support has no such getter and this fails
-/// as any other call to a function an address does not have. It is what a
-/// `@eip2612.Permit` is signed against: it goes up by one each time a permit is
-/// used, so it has to be read afresh for each signature, and two permits signed
-/// against the same nonce are one permit of which only the first submitted
-/// takes effect.
+/// EIP-2612's rather than ERC-20's, so a token without permit support has no
+/// such getter. It goes up by one each time a permit is used, so it has to be
+/// read afresh for each signature: two permits signed against the same nonce
+/// are one permit, of which only the first submitted takes effect.
 pub async fn[P : @provider.Provider] Erc20::nonces(
   self : Erc20,
   provider : P,
@@ -246,12 +236,9 @@ pub async fn[P : @provider.Provider] Erc20::nonces(
 /// The EIP-712 domain the token verifies signatures under —
 /// `DOMAIN_SEPARATOR()`.
 ///
-/// Also EIP-2612's rather than ERC-20's. It is a hash, so it cannot be read
-/// back into a domain — what it is for is the other direction: hand it to
-/// `@eip712.TypedDataDomain::check_separator` on the domain you built, and a
-/// `name`, `version`
-/// or chain that is not the token's own is caught before the user is asked to
-/// sign something the token will reject.
+/// Also EIP-2612's. It is a hash, so it reads only the other way: hand it to
+/// `@eip712.TypedDataDomain::check_separator` and a `name`, `version` or chain
+/// that is not the token's own is caught before the user is asked to sign.
 pub async fn[P : @provider.Provider] Erc20::domain_separator(
   self : Erc20,
   provider : P,
@@ -277,13 +264,9 @@ pub fn Erc20::transfer_topic() -> @types.Hex {
 /// One `Transfer` log, read back as `(from, to, value)`.
 ///
 /// The other half of `transfer_topic`: that one finds a transfer among a
-/// receipt's logs, this one says who sent what to whom. `from` and `to` are
-/// `indexed`, so they were topics rather than data — which is exactly the
-/// reassembly a caller should not be doing by hand.
-///
-/// A log of another event raises `Abi`: a receipt holds the logs of every
-/// contract the transaction touched, so filtering by `topics[0]` is not
-/// optional.
+/// receipt's logs, this one says who sent what to whom. A log of another event
+/// raises `Abi` — a receipt holds the logs of every contract the transaction
+/// touched, so filtering by `topics[0]` is not optional.
 ///
 /// ```
 /// fn transfers(

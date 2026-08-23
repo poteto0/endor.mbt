@@ -2,12 +2,9 @@
 /// A backend the end-to-end suite can run against: a real node, plus whatever
 /// has to be in place before the SDK can reach it.
 ///
-/// The SDK is driven through the `Provider` abstraction, so what differs
-/// between backends is not the calls — it is the *environment*. Anvil needs an
-/// EIP-1193 wallet injected at `globalThis.ethereum` before `BrowserProvider`
-/// finds anything; an HTTP transport (#19) would need nothing at all. This
-/// trait is that difference, and `run` is the protocol every backend shares:
-/// skip when unconfigured, install once, run the body in a task group.
+/// What differs between backends is not the calls but the *environment*. `run`
+/// is the protocol every backend shares: skip when unconfigured, install once,
+/// run the body in a task group.
 pub(open) trait Backend {
   /// Named when the suite reports a skip.
   fn name(Self) -> String

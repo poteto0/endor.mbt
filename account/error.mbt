@@ -1,13 +1,10 @@
 ///|
 /// What can go wrong asking an account to act.
 ///
-/// The variants are three different mistakes: `InvalidPrivateKey` is material
-/// that is not a key, `SigningFailed` is a key that could not be used on this
-/// input, and `InvalidAccountType` / `NotSupported` are about the account
-/// itself — being asked for something the kind of account it is cannot do.
-///
-/// It is `pub(all)` for the same reason `CodecError` is: an implementation of
-/// `Account` living outside this package has the same things to say.
+/// `InvalidPrivateKey` is material that is not a key, `SigningFailed` a key that
+/// could not be used on this input, and `InvalidAccountType` / `NotSupported`
+/// are about the account itself. `pub(all)`, so an `Account` implemented
+/// outside this package can say the same things.
 pub(all) suberror AccountError {
   /// The account cannot do this at all — a hardware wallet asked for a raw
   /// key, a read-only account asked to sign.

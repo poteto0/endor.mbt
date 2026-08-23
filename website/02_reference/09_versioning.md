@@ -6,7 +6,7 @@ description: What counts as a breaking change, how much 0.x may break, and what 
 # Versioning policy
 
 `poteto0/endor` follows [Semantic Versioning](https://semver.org/). It is
-currently `0.4.0`, and pre-1.0 the rule is short:
+currently `0.8.0`, and pre-1.0 the rule is short:
 
 > **Until 1.0, breaking changes are accepted whenever they make the API right,
 > and they land on a minor bump.**
@@ -83,13 +83,13 @@ not something the SDK can hold back.
 
 Every breaking change is listed in
 [`CHANGELOG.md`](https://github.com/poteto0/endor.mbt/blob/main/CHANGELOG.md)
-under **Changed**, marked `**Breaking:**`, with the issue number and with what to
-do about it. The entry says the migration, not just the fact:
+under **Changed**, marked `**Breaking:**`, with what to do about it. The entry
+says the migration, not just the fact:
 
-> **Breaking:** EIP-712 typed data moved out of `types` into its own package:
-> `@types.TypedData` / `TypedDataDomain` / `TypedDataField` are now `@eip712.…`.
-> … `@endor.TypedData` is unchanged — the root re-exports the three types from
-> their new home, so a caller that spells them `@endor.…` needs no change. (#55)
+> **Breaking:** EIP-712 typed data moved out of `types` into its own package,
+> `endor/eips/eip712`. Every method is unchanged, as is `@endor.TypedData` — the
+> root re-exports the three types, so a caller that spells them `@endor.…` needs
+> no change.
 
 Where a rename can be softened, it is: deprecated blocks live in a
 `deprecated.mbt` per package rather than disappearing in the same release that

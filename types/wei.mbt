@@ -47,10 +47,8 @@ pub fn Wei::to_hex(self : Wei) -> String {
 /// Read a decimal amount written the way a human writes one — `"1.5"`, `"0.05"`
 /// — as the integer of `10^-decimals` units it stands for.
 ///
-/// The amount is a `String` and never a `Double`: `0.1` is not representable in
-/// binary, so a `Double` has lost the value before this could see it. An amount
-/// finer than `decimals` raises rather than being truncated, for the same
-/// reason — a dropped digit is a digit of somebody's money.
+/// A `String` and never a `Double`: `0.1` is not representable in binary. An
+/// amount finer than `decimals` raises rather than being truncated.
 ///
 /// ```
 /// let amount = @types.Wei::from_units("1.5", decimals=18)
@@ -76,12 +74,9 @@ pub fn Wei::from_units(value : String, decimals~ : Int) -> Wei raise CodecError 
 ///|
 /// Write the amount back as a decimal string, `decimals` places from the right.
 ///
-/// Trailing zeros are folded: at 18 decimals `1500000000000000000` is `"1.5"`
-/// and `1000000000000000000` is `"1"`. What comes back is the number and
-/// nothing else — no thousands separators, no symbol, no padding to a fixed
-/// width. Those are the application's, and an SDK that formatted them would be
-/// wrong in some locale. A `decimals` of zero or less is no scale at all, and
-/// the amount is written as the whole number it is.
+/// Trailing zeros are folded: at 18 decimals `1500000000000000000` is `"1.5"`.
+/// What comes back is the number and nothing else — separators and symbols are
+/// the application's. A `decimals` of zero or less is no scale at all.
 ///
 /// ```
 /// let balance = @types.Wei::from_int(1500000)

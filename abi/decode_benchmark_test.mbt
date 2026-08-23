@@ -38,13 +38,9 @@ fn plain_log_data() -> @types.Hex {
 ///|
 /// Reading back what a node answered.
 ///
-/// Every row is the same word reader seen from a side it is called from — once
-/// per element of an array, once per member of a log — so what it measures is
-/// what one word costs, multiplied by the only thing a caller can change. The
-/// two array rows differ only in whether the element's width has to be proven,
-/// which is the one check that goes through `BigInt` rather than digits; the
-/// two log rows differ only in the address, which is the one member whose cost
-/// is not word reading at all.
+/// Every row is the same word reader seen from a side it is called from, so what
+/// it measures is what one word costs. The two array rows differ only in whether
+/// the element's width has to be proven; the two log rows only in the address.
 test "bench: decode" (b : @bench.T) {
   let wide_types : Array[@abi.AbiType] = [Array(Uint(256))]
   let narrow_types : Array[@abi.AbiType] = [Array(Uint(64))]

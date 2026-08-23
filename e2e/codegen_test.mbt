@@ -2,21 +2,9 @@
 /// What `abi/codegen` produces from `fixtures/abi/erc20.abi`, checked against a
 /// real EVM rather than against a string.
 ///
-/// The unit tests in `abi/codegen` compare generated source to expected source.
-/// That catches a template that changed shape; it cannot catch the mistake that
-/// actually costs money, which is a *correct-looking* preset that dispatches to
-/// the wrong function — a signature assembled with a parameter type subtly
-/// wrong (`uint256` where the contract said `uint128`, a `uint` alias not
-/// expanded) hashes to a selector no contract answers, and reads back as
-/// garbage or reverts. Nothing about the source text says so.
-///
-/// So the fixture is taken end to end: read off disk, run through the
-/// generator, and the signatures it says the generated file covers are hashed
-/// into selectors and deployed as `@anvil.deploy_selector_gate` contracts — a
-/// contract that answers `42` for exactly those four bytes and reverts for any
-/// other. The hand-written `@erc20.Erc20`, whose calls the generator is
-/// supposed to reproduce, is then pointed at each gate. It answers only if both
-/// halves agreed on the function, on a real EVM, over the real wire.
+/// Comparing source catches a template that changed shape, not a
+/// *correct-looking* preset that dispatches to the wrong function. So the
+/// fixture's signatures are deployed as gates and called through `@erc20.Erc20`.
 
 ///|
 /// Read a file from the repository.
@@ -78,11 +66,10 @@ async test "the fixture generates every member the hand-written preset has" {
 ///|
 /// Every reading getter, dispatched for real.
 ///
-/// The gate is deployed for the selector the *fixture* yields, and called
-/// through the *hand-written* preset. A `42` back means the two agreed on all
-/// four bytes; a revert would mean the generator built a signature the preset
-/// does not send, which is exactly the bug no amount of comparing source text
-/// finds.
+/// The gate is deployed for the selector the *fixture* yields, and called through
+/// the *hand-written* preset. A `42` back means the two agreed on all four
+/// bytes; a revert would mean the generator built a signature the preset does
+/// not send.
 async test "a getter the fixture describes is the getter the preset calls" {
   @anvil.on(provider => {
     let members = fixture_generated().members
@@ -205,17 +192,10 @@ const ANSWER_FIXTURE = "fixtures/abi/answer.json"
 ///|
 /// The creation code the generator embedded, put on a real chain.
 ///
-/// The unit tests compare the emitted `deploy` to expected source and
-/// `just codegen-check` compiles it. Neither can say the *bytes* that reached
-/// the literal are still creation code a node accepts — a generator that lost a
-/// digit on the way in emits a file that compiles, formats and deploys nothing.
-/// So the literal is checked against the bytes the fixture holds, and those
-/// bytes are deployed and called.
-///
-/// The deployment is `@contract.deploy` spelled out rather than the generated
-/// `deploy` itself, because `e2e/` cannot compile MoonBit the generator wrote
-/// mid-suite; it is the same call the emitted body makes, and the assertion
-/// above it is what ties the two together.
+/// Neither the source comparison nor `just codegen-check` can say the *bytes*
+/// are still creation code a node accepts. So the literal is checked against the
+/// fixture's bytes, and those bytes are deployed and called — spelled as
+/// `@contract.deploy`, since `e2e/` cannot compile MoonBit written mid-suite.
 async test "the creation code the fixture embeds deploys and answers" {
   @anvil.on(provider => {
     let out = @codegen.generate("Answer", read_file(ANSWER_FIXTURE))

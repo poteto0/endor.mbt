@@ -6,15 +6,9 @@ const REDACTED : String = "***"
 /// `url` with what a hosted node hides in it dropped, for a message a program
 /// will print.
 ///
-/// The URL of a hosted endpoint carries the API key: in the path
-/// (`…/v2/<KEY>`), in a query value (`?key=…`), or as userinfo
-/// (`https://user:pass@host/`). An error that quotes the URL as written puts
-/// that key in a log, a console or a UI, so nothing above this ever sees the
-/// URL as written.
-///
-/// What is left is what says *which* node answered — the reason an error
-/// carries a URL at all: the scheme, the host and its port, and the path down
-/// to its last segment.
+/// A hosted URL carries the API key, so nothing above this sees the URL as
+/// written. What is left says *which* node answered: scheme, host and port,
+/// and the path down to its last segment.
 fn display_url(url : String) -> String {
   let parts = split_url(url)
   let scheme = match parts.scheme {

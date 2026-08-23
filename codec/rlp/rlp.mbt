@@ -1,15 +1,10 @@
 ///|
 /// A value in the shape RLP can encode.
 ///
-/// RLP knows two things and no others: a run of bytes, and a list of items.
-/// There are no field names, no types and no lengths declared anywhere else —
-/// position alone says what a value means, which is why every party has to
-/// agree on the order of a transaction's fields to read one back.
-///
-/// Open, because an item has no invalid form: any bytes are a string, any
-/// items are a list. The rule that *is* worth enforcing — that a number is
-/// written without leading zeros — belongs to the number, so it lives in
-/// `Item::of_uint64` and `Item::of_bigint` rather than in the type.
+/// RLP knows a run of bytes and a list of items, and nothing else: position
+/// alone says what a value means. Open, because an item has no invalid form —
+/// the rule that a number carries no leading zeros belongs to the number, so it
+/// lives in `Item::of_uint64` and `Item::of_bigint`.
 pub(all) enum Item {
   /// A run of bytes, encoded as itself with a length in front.
   Bytes(Bytes)
@@ -82,10 +77,8 @@ fn write_header(out : Array[Byte], length : Int, offset : Int) -> Unit {
 /// How many bytes it takes to spell `value` — none at all for zero, which is
 /// what makes RLP write it as the empty string.
 ///
-/// Counting first and writing once is what keeps a small number cheap: the
-/// obvious form, eight bytes then trim, allocates twice and does eight shifts
-/// to encode a nonce that is usually one byte — and on `js` those shifts are
-/// `BigInt` arithmetic.
+/// Counting first and writing once keeps a small number cheap: eight bytes then
+/// trim allocates twice, and on `js` those shifts are `BigInt` arithmetic.
 fn byte_width(value : UInt64) -> Int {
   let mut width = 0
   let mut left = value

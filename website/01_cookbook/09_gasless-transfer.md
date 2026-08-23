@@ -15,18 +15,6 @@ What is signed is an EIP-712 document, so this is [Sign a message](../sign/) wit
 the document fixed by the standard rather than written by you — which is exactly
 what `eips/eip3009` builds.
 
-<div class="alert alert--note" role="note">
-  <div class="alert__title">No demo on this page</div>
-  <div class="alert__description">
-
-Every other recipe here carries a widget you can click. This one does not: the
-other half of the transfer needs a _submitter_ — a service holding gas, willing
-to relay yours — and this site has none. The SDK's side of that is
-`contract/stablecoin`: [Move a stablecoin](../stablecoin/).
-
-  </div>
-</div>
-
 ## The domain is the token's
 
 An EIP-3009 signature is bound to one token on one chain, and getting that wrong
@@ -185,3 +173,15 @@ stablecoin](../stablecoin/).
 And if you are verifying rather than submitting,
 `auth.transfer_typed_data(domain).digest()` is what the signature was made over —
 the same hash the token recovers the signer from.
+
+<div class="alert alert--note" role="note">
+  <div class="alert__title">No demo on this page</div>
+  <div class="alert__description">
+
+Every other recipe here carries a widget you can click. This one does not: the
+other half of the transfer needs a _submitter_ — a service holding gas, willing
+to relay yours — and this site has none. The SDK's side of that is
+`contract/stablecoin`: [Move a stablecoin](../stablecoin/).
+
+  </div>
+</div>

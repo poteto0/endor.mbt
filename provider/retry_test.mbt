@@ -1,11 +1,9 @@
 ///|
 /// Drive `method_name` through `retry_loop` against `mock`, inside the task
-/// group every async call needs, and answer with the error it ended on (or
-/// `None` when it answered).
+/// group every async call needs, and answer with the error it ended on.
 ///
-/// `Immediate` unless a test says otherwise: what these tests are about is
-/// which attempt happens and which does not, and the real 150ms backoff would
-/// only make them slow.
+/// `Immediate` unless a test says otherwise: these tests are about which attempt
+/// happens, and the real 150ms backoff would only make them slow.
 async fn drive(
   mock : @provider.MockProvider,
   method_name~ : String,

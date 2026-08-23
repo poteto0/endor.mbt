@@ -40,37 +40,6 @@ Everything below `provider/browser` — the types, the codecs, the ABI layer, th
 typed RPC helpers — is backend-agnostic, so a package that only builds calldata
 needs no such line.
 
-## Not in a browser?
-
-If what you are writing is a script, a CLI or a server, import the HTTP
-transport instead of the browser one and point it at a node:
-
-```
-import {
-  "poteto0/endor/provider",               // @provider — Provider, typed RPC, errors
-  "poteto0/endor/provider/http/endpoint", // @endpoint — a node at a URL
-}
-```
-
-```moonbit
-async fn first_call_over_http(url : String) -> Unit raise {
-  let node = @endpoint.at(url) // no wallet, no extension, no `js`
-  println("chain \{@provider.chain_id(node).to_uint64()}")
-}
-```
-
-No `supported_targets` line for this one either: `@endpoint` is written against
-`moonbitlang/async`'s HTTP client, which is `fetch` on `js` and sockets with TLS
-on `native` and `wasm`. [Read without a wallet](/cookbook/http-rpc/) is the rest
-of it — headers for a hosted node, what HTTP cannot serve, and how to plug in
-your own HTTP client.
-
-An endpoint has no user to prompt, so signing there is the account's job rather
-than the transport's: `@wallet.WalletClient` pairs the provider with an
-`@local.LocalAccount` holding a private key, and `send` signs here and
-broadcasts as `eth_sendRawTransaction`. [Sign with a local
-key](/cookbook/local-account/) is that page, warning included.
-
 ## The first call
 
 ```moonbit
@@ -123,6 +92,37 @@ just example        # builds it and serves http://localhost:8000
 ```
 
 Open that in a browser with a wallet extension installed.
+
+## Not in a browser?
+
+If what you are writing is a script, a CLI or a server, import the HTTP
+transport instead of the browser one and point it at a node:
+
+```
+import {
+  "poteto0/endor/provider",               // @provider — Provider, typed RPC, errors
+  "poteto0/endor/provider/http/endpoint", // @endpoint — a node at a URL
+}
+```
+
+```moonbit
+async fn first_call_over_http(url : String) -> Unit raise {
+  let node = @endpoint.at(url) // no wallet, no extension, no `js`
+  println("chain \{@provider.chain_id(node).to_uint64()}")
+}
+```
+
+No `supported_targets` line for this one either: `@endpoint` is written against
+`moonbitlang/async`'s HTTP client, which is `fetch` on `js` and sockets with TLS
+on `native` and `wasm`. [Read without a wallet](/cookbook/http-rpc/) is the rest
+of it — headers for a hosted node, what HTTP cannot serve, and how to plug in
+your own HTTP client.
+
+An endpoint has no user to prompt, so signing there is the account's job rather
+than the transport's: `@wallet.WalletClient` pairs the provider with an
+`@local.LocalAccount` holding a private key, and `send` signs here and
+broadcasts as `eth_sendRawTransaction`. [Sign with a local
+key](/cookbook/local-account/) is that page, warning included.
 
 ## The code on this site compiles
 

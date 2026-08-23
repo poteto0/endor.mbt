@@ -1,25 +1,17 @@
 ///|
 /// The offset `v` carries for a signature that is not a typed transaction's.
-/// `personal_sign` and `eth_signTypedData_v4` both answer with `27` or `28`;
-/// a typed transaction carries the bare parity bit instead, because its chain
-/// id is already one of the signed fields.
-///
-/// The 27 predates EIP-155 — that is the one that made `v` carry a chain id,
-/// and it applies to legacy transactions rather than to these.
+/// `personal_sign` and `eth_signTypedData_v4` both answer with `27` or `28`; a
+/// typed transaction carries the bare parity bit, its chain id being signed
+/// already. The 27 predates EIP-155, which applies to legacy transactions.
 const V_OFFSET = 27
 
 ///|
 /// An account that signs with a private key this process holds.
 ///
-/// It signs locally and reaches no node and no wallet, which is what makes it
-/// the account for a script, a backend, or a test. It is also the account that
-/// can lose the key: anything that can read this value can sign anything at
-/// all with it, so a browser is the wrong place for one — there the wallet
-/// holds the key and `@provider` asks it to sign.
-///
-/// The address is derived in the constructor, from the key itself. It is not
-/// something a caller passes in, so an account cannot claim an address its key
-/// does not sign for.
+/// It reaches no node and no wallet, which makes it the account for a script, a
+/// backend, or a test — and the account that can lose the key, so a browser is
+/// the wrong place for one. The address is derived in the constructor, so an
+/// account cannot claim an address its key does not sign for.
 pub struct LocalAccount {
   priv priv_key : @secp256k1.PrivateKey
   priv address : @types.Address

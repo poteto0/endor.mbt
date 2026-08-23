@@ -19,11 +19,10 @@ fn format_quantity(value : UInt64) -> String {
 
 ///|
 /// A JSON-RPC quantity: an unsigned number carried on the wire as a minimal
-/// `0x`-prefixed hex string. Block numbers, nonces and gas amounts all use this
-/// encoding, so they all decode through this one type.
+/// `0x`-prefixed hex string. Block numbers, nonces and gas amounts all decode
+/// through this one type.
 ///
-/// Values larger than 64 bits (only reachable for wei-denominated fields) are
-/// out of range here; use `Wei` for those.
+/// Values larger than 64 bits are out of range here; use `Wei` for those.
 pub struct Quantity {
   priv value : UInt64
 } derive(Eq, Debug)

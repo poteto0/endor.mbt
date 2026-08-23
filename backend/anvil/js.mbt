@@ -1,16 +1,10 @@
 ///|
 /// Install a fake injected wallet at `globalThis.ethereum` forwarding EIP-1193
 /// requests to Anvil over HTTP JSON-RPC. Anvil's dev accounts are unlocked, so
-/// the node answers everything except `wallet_*` methods, which have no
-/// node-side counterpart and are emulated here — as is refusing to sign, which
-/// the shim does with 4001 for sends from `reject_from`.
+/// only `wallet_*` and refusing to sign are emulated here.
 ///
-/// Why a shim rather than a headless extension, and what that does and does not
-/// prove: `docs/e2e.md`.
-///
-/// This is the one `extern "js"` outside `ffi/js`: that package binds the
-/// wallet a browser really injected, while this fabricates one. Test-only, and
-/// excluded from the published archive — see `docs/e2e.md`.
+/// The one `extern "js"` outside `ffi/js`: that package binds the wallet a
+/// browser really injected, this fabricates one. Test-only — `docs/e2e.md`.
 extern "js" fn install_wallet(rpc_url : String, reject_from : String) -> Unit =
   #| (rpcUrl, rejectFrom) => {
   #|   // tests share one JS context and run concurrently, so the wallet is

@@ -9,10 +9,9 @@ const MIXED_ADDRESS : String = "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed"
 ///|
 /// Parsing an address, from either side of the checksum rule.
 ///
-/// The rows differ only in whether the input claims a checksum: lowercase is
-/// what every decode path carries, so it is the row that has to stay free of
-/// `keccak256`, and mixed case is the one that still proves one. The last two
-/// price a display — the first one, which hashes, and every one after.
+/// Lowercase is what every decode path carries, so it is the row that has to
+/// stay free of `keccak256`; mixed case still proves one. The last two price a
+/// display — the first one, which hashes, and every one after.
 test "bench: address" (b : @bench.T) {
   let parsed = address(LOWER_ADDRESS)
   b.bench(name="from_string, lowercase", fn() {

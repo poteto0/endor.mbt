@@ -1,17 +1,10 @@
 ///|
 /// Why a run of bytes is not a key, or a signature.
 ///
-/// The cases are different mistakes: `InvalidLength` is about the **form** — a
-/// scalar has to be 32 bytes, a digest too, a signature 65 — `InvalidKey` is
-/// about the
-/// **value** of a key: correctly sized bytes that name no point, being zero or
-/// at or past the group order. `InvalidSignature` is the same about a
-/// signature, whose halves have their own range and whose recovery has its own
-/// ways to have no answer.
-///
-/// It lives here rather than in `types/` because this package sits below the
-/// domain types — `types` is built on `crypto`, and the layers only point one
-/// way — so an error raised down here cannot be one `types` owns.
+/// `InvalidLength` is about the **form** — a scalar is 32 bytes, a signature 65
+/// — while `InvalidKey` and `InvalidSignature` are about the **value**. It lives
+/// here rather than in `types/` because this package sits below the domain
+/// types, and the layers only point one way.
 ///
 /// ```
 /// try @secp256k1.PrivateKey::from_bytes(Bytes::make(32, b'\x00')) |> ignore catch {

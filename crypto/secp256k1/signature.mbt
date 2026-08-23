@@ -1,18 +1,10 @@
 ///|
 /// An ECDSA signature over secp256k1, in the form Ethereum uses.
 ///
-/// `r` and `s` are the signature proper. `recovery_id` is the two bits that
-/// say which of the up-to-four points `r` could have come from is the signer's,
-/// so a verifier can recover the public key instead of being handed it — which
-/// is why an Ethereum transaction carries no public key at all. It is `v` minus
-/// whatever offset the context adds (27 for `eth_sign`, none for a typed
-/// transaction), so this type holds the raw `0..=3` and leaves the offset to
-/// the caller that knows which context it is in.
-///
-/// `s` is always the lower of the two values that verify. Negating `s` gives
-/// another signature that passes verification, which would let anyone flip a
-/// transaction's hash without the key; EIP-2 made the high form invalid, so
-/// this type only ever holds the low one.
+/// `recovery_id` is the two bits saying which of the points `r` could name is
+/// the signer's. It is `v` minus whatever offset the context adds, so this type
+/// holds the raw `0..=3`. `s` is always the lower of the two values that verify:
+/// EIP-2 made the high form invalid, since it re-spells a transaction's hash.
 pub struct Signature {
   priv r : @bigint.BigInt
   priv s : @bigint.BigInt
@@ -24,11 +16,8 @@ pub struct Signature {
 /// recovery id as a single byte.
 ///
 /// `v_offset` is added to that last byte, and which offset to use is the
-/// caller's context rather than the curve's: a typed transaction carries the
-/// bare parity bit, because its chain id is already one of the signed fields,
-/// while `personal_sign` and `eth_signTypedData_v4` answer with `27` or `28`.
-/// The 27 is the older convention, from before EIP-155 made `v` carry a chain
-/// id at all.
+/// caller's context: a typed transaction carries the bare parity bit, while
+/// `personal_sign` and `eth_signTypedData_v4` answer with `27` or `28`.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
@@ -68,19 +57,12 @@ pub fn Signature::recovery_id(self : Signature) -> Int {
 const SIGNATURE_BYTES : Int = COORD_BYTES * 2 + 1
 
 ///|
-/// Read a signature back off the wire: the exact inverse of `to_bytes`.
-///
-/// `v_offset` is subtracted from the last byte, and it is the caller's context
-/// in the same way it is on the way out — nothing in the 65 bytes says whether
-/// they came from a `personal_sign` answer (`27` or `28`) or from a typed
-/// transaction (`0` or `1`), so the side that knows says. Pass the same offset
-/// both directions and the round trip is the identity.
+/// Read a signature back off the wire: the exact inverse of `to_bytes`. Pass the
+/// same `v_offset` both directions and the round trip is the identity.
 ///
 /// Everything the type promises is checked here, because this is the only way
 /// bytes become a `Signature`: both halves in `[1, N)`, an `s` in the low half
-/// per EIP-2 — the high form verifies just as well, which is why accepting one
-/// would let a transaction be re-spelled without the key — and a recovery id in
-/// `0..=3`.
+/// per EIP-2, and a recovery id in `0..=3`.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(

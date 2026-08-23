@@ -3,10 +3,7 @@
 ///
 /// This and the four below are the ABI's rules as plain predicates, with no
 /// error type of their own: the layer that holds `AbiType` turns them into an
-/// `AbiError` naming the type, `@eip712` turns two of them into a `CodecError`
-/// naming the field, and its `classify_elementary` only asks the question (a
-/// type name it does not recognize is not an error — it is a struct name).
-/// Stating them here is what keeps one answer per rule.
+/// `AbiError`, `@eip712` into a `CodecError`. One answer per rule.
 pub fn is_valid_bits(bits : Int) -> Bool {
   bits >= 8 && bits <= 256 && bits % 8 == 0
 }

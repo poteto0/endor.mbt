@@ -1,7 +1,7 @@
 ///|
 /// An in-memory `Provider` for tests: a table mapping JSON-RPC method names to
-/// canned JSON responses or errors. Every call is recorded so tests can assert
-/// that the RPC layer built the expected method name and params.
+/// canned JSON responses or errors, recording every call. It is also an
+/// `EventSource`, so event handling is testable without a wallet.
 ///
 /// ```
 /// let mock = @provider.MockProvider::new().on(
@@ -11,9 +11,6 @@
 /// ignore(mock)
 /// ```
 ///
-/// It is also an `EventSource`: `emit` fires an EIP-1193 event at whatever
-/// `subscribe` (or a typed helper such as `on_accounts_changed`) registered, so
-/// event handling is testable without a wallet.
 pub struct MockProvider {
   priv responses : Map[String, Json]
   priv errors : Map[String, ProviderError]
@@ -74,12 +71,8 @@ pub fn MockProvider::on_error(
 
 ///|
 /// Register a run of answers for `method_name`: the first call gets the first
-/// answer, the second the second, and so on. Once they run out, calls fall back
-/// to whatever `on` / `on_error` registered.
-///
-/// This is what a flow that retries needs — a wallet answering
-/// `wallet_switchEthereumChain` with 4902 and then succeeding once the chain
-/// has been added.
+/// answer, and so on. Once they run out, calls fall back to whatever `on` /
+/// `on_error` registered — which is what a flow that retries needs.
 ///
 /// ```
 /// let mock = @provider.MockProvider::new().on_sequence(

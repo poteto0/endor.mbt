@@ -3,10 +3,8 @@
 /// argument list of a call, or the return list of one.
 ///
 /// The types come alongside the values because the encoding depends on them:
-/// only the type says whether a `uint` is 8 or 256 bits wide (and therefore
-/// whether the value fits), and only the type tells a fixed-length array from a
-/// dynamic one, which decides whether the value is written inline or as an
-/// offset into the tail.
+/// only the type says how wide a `uint` is, and only the type tells a fixed
+/// array from a dynamic one — inline, or an offset into the tail.
 ///
 /// ```
 /// let data = @abi.encode(
@@ -36,9 +34,8 @@ pub fn encode(
 /// with no detour through `Bytes` and back.
 ///
 /// `_encode_block` writes nothing but whole words of lowercase digits, so the
-/// check `from_digits` makes cannot fail from either caller; making it anyway
-/// is what keeps the shortcut past the representation from also being a
-/// shortcut past the rule.
+/// check cannot fail; making it anyway keeps the shortcut past the
+/// representation from also being a shortcut past the rule.
 fn _hex_of_digits(digits : String) -> @types.Hex raise AbiError {
   @types.Hex::from_digits(digits) catch {
     e => raise InvalidValue("encoded calldata: \{e}")

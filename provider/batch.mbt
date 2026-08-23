@@ -35,18 +35,9 @@ pub fn BatchCall::params(self : BatchCall) -> Json {
 /// Answer `calls` with one `request` each, run concurrently, in the order they
 /// were given.
 ///
-/// The round trips stay N — this is not a fold into one request, and there is
-/// no transport-independent way to have one: EIP-1193 has no batch. What it
-/// takes away is the waiting: N reads that do not depend on each other cost
-/// one round trip's time instead of N, which is the win an async message port
-/// can actually give.
-///
-/// A call that fails keeps its failure as a value, so the answers that did
-/// arrive are still there. Only a cancellation of the whole run is raised.
-///
-/// `max_concurrent` bounds how many are in flight at once, for the endpoint
-/// that answers a fan-out of two hundred reads with rate limiting rather than
-/// with answers. Unbounded by default.
+/// The round trips stay N — EIP-1193 has no batch. What it takes away is the
+/// waiting. A call that fails keeps its failure as a value, and `max_concurrent`
+/// bounds how many are in flight for an endpoint that rate-limits a fan-out.
 ///
 /// ```
 /// async fn balances[P : @provider.Provider](

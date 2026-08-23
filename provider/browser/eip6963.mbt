@@ -11,14 +11,9 @@ let request_event : String = "eip6963:requestProvider"
 /// What a wallet says about itself when it announces over
 /// [EIP-6963](https://eips.ethereum.org/EIPS/eip-6963).
 ///
-/// This is read off the wire and never built by a caller, so every field is
-/// public and `from_json` is the only thing that makes one. `rdns` is the
-/// stable identity — a reverse-DNS name the wallet owns (`io.metamask`) — and
-/// is what a dapp should key on; `uuid` is fresh per page load, and `name` and
-/// `icon` are for showing the user.
-///
-/// Every field is the wallet's own claim: any installed extension can
-/// announce, so neither the name nor the `rdns` is a reason to trust one.
+/// Read off the wire and never built by a caller. `rdns` is the stable identity
+/// a dapp should key on; `uuid` is fresh per page load. Every field is the
+/// wallet's own claim: any installed extension can announce.
 pub(all) struct ProviderInfo {
   uuid : String
   name : String
@@ -27,18 +22,12 @@ pub(all) struct ProviderInfo {
 }
 
 ///|
-/// Decode an announcement's `info`. All four fields are required by EIP-6963
-/// and three of them are spelled a particular way, so an announcement that
-/// breaks either rule is not one this SDK can key on and is answered with
-/// `None` — the caller drops it.
+/// Decode an announcement's `info`. All four fields are required by EIP-6963 and
+/// three are spelled a particular way, so an announcement breaking either rule
+/// is answered with `None`.
 ///
-/// The spelling is read here rather than left to each dapp: an announcement
-/// comes from whichever extension is installed, and `icon` — which the EIP
-/// pins to a data URI — is what a page puts in an `<img src>`, where a
-/// `javascript:` or remote URL would be the wallet reaching into it.
-///
-/// Public for the page that already has its own `eip6963:announceProvider`
-/// listener and wants the same reading of it.
+/// `icon` is what a page puts in an `<img src>`, where a `javascript:` URL would
+/// be the wallet reaching into it. Public for a page with its own listener.
 pub fn ProviderInfo::from_json(json : Json) -> ProviderInfo? {
   guard json is Object(obj) else { return None }
   fn field(name : String) -> String? {
@@ -119,16 +108,9 @@ pub(all) struct DiscoveredWallet {
 /// Subscribe to EIP-6963 announcements, and ask every installed wallet to
 /// announce itself.
 ///
-/// This is the honest shape of the protocol: **enumeration never finishes**.
-/// Wallets announce unprompted at load and again whenever anyone asks, and an
-/// extension can be woken after the page is up, so the answer is a stream, not
-/// a list. A wallet may announce more than once — the same `rdns` arriving
-/// twice is normal and is not filtered here.
-///
-/// `unsubscribe` on the returned handle stops delivery, and is safe to call
-/// twice or on a host with no `window` at all.
-///
-/// Use `discover` instead when what you want is a list to draw a picker from.
+/// **Enumeration never finishes**: wallets announce at load and again whenever
+/// anyone asks, so the answer is a stream and the same `rdns` may arrive twice.
+/// Use `discover` for a list to draw a picker from.
 ///
 /// ```
 /// fn watch() -> @provider.Subscription {
@@ -156,23 +138,12 @@ pub fn BrowserProvider::on_announce(
 }
 
 ///|
-/// Collect the wallets that announce themselves within `timeout_ms`, for
-/// drawing a picker with.
+/// Collect the wallets that announce themselves within `timeout_ms`, for drawing
+/// a picker with. Duplicates are collapsed by `rdns`, keeping the first.
 ///
-/// Enumeration has no end (see `on_announce`), so this puts a deadline on it
-/// and answers with what arrived: wallets answer the request synchronously, so
-/// a short wait is enough in practice and the default is deliberately small.
-/// Duplicate announcements are collapsed by `rdns`, keeping the first.
-///
-/// When nothing announced, this falls back to `globalThis.ethereum` — a single
-/// `DiscoveredWallet` with no `info` — so a dapp written against EIP-6963 still
-/// works with a wallet that only injects. The injection is read *before* the
-/// wait rather than after it: it is there from document start, so a wallet that
-/// is not injected when discovery begins is not going to appear because we
-/// waited. The array is empty only when there is no wallet at all.
-///
-/// A host with no `window` — a bare node runtime, a worker — skips the wait
-/// entirely: nobody there can answer.
+/// When nothing announced, this falls back to `globalThis.ethereum`, read
+/// *before* the wait — it is there from document start. The array is empty only
+/// when there is no wallet at all, and a host with no `window` skips the wait.
 ///
 /// ```
 /// async fn pick() -> Array[@browser.DiscoveredWallet] {

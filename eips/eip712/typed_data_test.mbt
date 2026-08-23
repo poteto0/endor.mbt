@@ -308,10 +308,8 @@ test "error uint256 as a number that lost precision" {
 ///|
 /// `encodeType` is names joined with `(`, `,` and `)`, so a name allowed to
 /// carry those characters chooses its own type hash: the document below and a
-/// well-formed `Mail(address to,uint256 amount)` declare different fields and
-/// would otherwise hash as one. It cannot be built — and neither can the type
-/// name a suffix has grown onto, which belongs to a reference and not to a
-/// declaration.
+/// well-formed `Mail(address to,uint256 amount)` would hash as one. Neither it
+/// nor a type name a suffix has grown onto can be built.
 test "error type name that is not an identifier" {
   for name in ["Mail(address to,uint256 amount)Evil", "Person[]"] {
     try

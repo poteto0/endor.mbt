@@ -240,16 +240,11 @@ pub async fn[P : Provider] code(
 
 ///|
 /// Return the raw contents of one storage slot of `who` (`eth_getStorageAt`),
-/// as the 32-byte word the EVM holds there. A slot that was never written reads
-/// as thirty-two zero bytes rather than as an absence.
+/// as the 32-byte word the EVM holds there. A slot never written reads as
+/// thirty-two zero bytes rather than as an absence.
 ///
-/// This is the only way to read state a contract does not expose: no ABI
-/// declares a storage layout, so what the word *means* is the caller's to
-/// know. The use that motivates it is a proxy's implementation address, which
-/// EIP-1967 puts at a fixed slot, in the word's low 20 bytes.
-///
-/// `slot` goes out as it is spelled, so it is the caller that decides whether to
-/// send the full word or the short form a node also accepts.
+/// The only way to read state a contract does not expose: no ABI declares a
+/// storage layout, so what the word means is the caller's to know.
 ///
 /// ```
 /// async fn[P : @provider.Provider] implementation_slot(
@@ -299,12 +294,8 @@ pub async fn[P : Provider] is_contract(
 
 ///|
 /// Evaluate `request` against the node's state without broadcasting anything
-/// (`eth_call`) and return the raw return data. This is how a contract's view
-/// functions are read: no signature, no gas, no wallet prompt.
-///
-/// `block` is the state the call is evaluated against — `Latest` by default, or
-/// any other `BlockTag`. There is no ABI layer yet, so the answer is the callee's
-/// return data as `Hex` for the caller to decode.
+/// (`eth_call`) and return the raw return data — no signature, no gas, no
+/// wallet prompt. `block` is the state it is evaluated against.
 ///
 /// A call that reverts is a wallet-side failure, not a decode failure: the node
 /// answers with an error and it propagates as the `ProviderError` it mapped to.
@@ -333,14 +324,11 @@ pub async fn[P : Provider] call(
 
 ///|
 /// Estimate how much gas `request` would need (`eth_estimateGas`). The node
-/// simulates the call the way `call` does, so this too needs no signature and no
-/// prompt.
+/// simulates the call the way `call` does, so this needs no signature either.
 ///
-/// The result is an upper estimate, not a guarantee: it is measured against
-/// current state, and a transaction reaching a different state can still run out
-/// of gas. A request the node cannot execute at all — one that reverts — comes
-/// back as a `ProviderError`, which is what makes this a cheap way to check a
-/// transaction before asking the user to sign it.
+/// An upper estimate, not a guarantee: it is measured against current state. A
+/// request the node cannot execute comes back as a `ProviderError`, which makes
+/// this a cheap way to check a transaction before asking the user to sign.
 ///
 /// ```
 /// async fn[P : @provider.Provider] gas_for(
@@ -367,12 +355,8 @@ pub async fn[P : Provider] estimate_gas(
 /// (`eth_getBlockByNumber`).
 ///
 /// A height past the head is not an error — a node that has not seen the block
-/// answers `null`, and that is what `None` reports. `Latest` (the default) and
-/// the other named tags always resolve, so those only answer `None` on a node
-/// that has no chain at all.
-///
-/// The transactions come back as hashes, not as full objects: the SDK asks for
-/// the cheap form and `transaction_receipt` is how each of them is followed up.
+/// answers `null`. The transactions come back as hashes, not full objects;
+/// `transaction_receipt` is how each is followed up.
 ///
 /// ```
 /// async fn[P : @provider.Provider] head_timestamp(
@@ -427,14 +411,10 @@ pub async fn[P : Provider] block_by_hash(
 ///|
 /// Return how many transactions the block at `block` holds
 /// (`eth_getBlockTransactionCountByNumber`), or `None` when the node does not
-/// know the block.
+/// know the block — this asks for the number alone, not for every hash.
 ///
-/// The same count is `block_by_number(…).transactions.length()`, but this asks
-/// the node for the number alone rather than for every hash in the block.
-///
-/// A height past the head is where nodes disagree: some answer `null`, which
-/// reads as `None`, and others — Anvil among them — call it a bad parameter and
-/// raise. `None` is therefore the answer to expect, not the answer to rely on.
+/// A height past the head is where nodes disagree: some answer `null`, others —
+/// Anvil among them — raise. `None` is the answer to expect, not to rely on.
 ///
 /// ```
 /// async fn[P : @provider.Provider] head_is_empty(
@@ -494,17 +474,11 @@ async fn[P : Provider] block_transaction_count(
 
 ///|
 /// Ask the wallet to sign `request` and broadcast it (`eth_sendTransaction`),
-/// returning the hash of the transaction it accepted.
-///
-/// This is the first call in the SDK that spends the user's money, so it is
-/// also the first that always prompts: the wallet — not the dapp — holds the
-/// key, and a user who declines the prompt is reported as
-/// `ProviderError::UserRejected` (4001). Everything the request leaves absent
-/// (nonce, gas, fees) the wallet fills in.
+/// returning the hash of the transaction it accepted. It always prompts, and a
+/// user who declines is `ProviderError::UserRejected` (4001).
 ///
 /// The hash comes back as soon as the transaction is *broadcast*, which is not
-/// the same as mined: it may still be dropped or replaced. `wait_for_receipt`
-/// is what turns it into an answer about what the transaction did.
+/// the same as mined. `wait_for_receipt` says what the transaction did.
 ///
 /// ```
 /// async fn[P : @provider.Provider] tip(
@@ -534,15 +508,9 @@ pub async fn[P : Provider] send_transaction(
 /// Broadcast a transaction that is *already signed* (`eth_sendRawTransaction`),
 /// returning the hash the node accepted it under.
 ///
-/// No wallet is involved and nothing prompts: `raw` is a signed, RLP-encoded
-/// transaction, and whoever signed it pays for it. The SDK holds no keys, so it
-/// never builds one — this is the entrance for a transaction signed elsewhere,
-/// which is how a *relayer* submits work somebody else authorized (EIP-3009's
-/// `transferWithAuthorization`, above all).
-///
-/// Like `send_transaction`, the hash says only that the transaction was
-/// broadcast. `wait_for_receipt` is what turns it into an answer about what it
-/// did.
+/// No wallet is involved and nothing prompts: whoever signed `raw` pays for it.
+/// This is the entrance for a transaction signed elsewhere, which is how a
+/// relayer submits work somebody else authorized.
 ///
 /// ```
 /// async fn[P : @provider.Provider] relay(
@@ -596,16 +564,9 @@ pub async fn[P : Provider] transaction_receipt(
 /// Return the transaction with `tx_hash` as the node holds it, or `None` when
 /// it has never seen the hash (`eth_getTransactionByHash`).
 ///
-/// This answers while `transaction_receipt` still cannot: a transaction is
-/// readable from the moment it reaches the mempool, and `inclusion` says
-/// whether it is still there (`Pending`) or in a block (`Mined`). So `None` and
-/// `Pending` are different facts — `None` is a hash the node knows nothing
-/// about, `Pending` is one it is holding.
-///
-/// It is also what says how the transaction was actually sent, which the hash
-/// `send_transaction` answered with does not: the `fee` and `gas` the wallet
-/// settled on, and the `nonce` it chose — the one a speed-up or a cancel has to
-/// re-use.
+/// It answers while `transaction_receipt` still cannot, and `inclusion` says
+/// whether the transaction is in the mempool or in a block. It also says the
+/// `nonce` the wallet chose — the one a speed-up or a cancel has to re-use.
 ///
 /// ```
 /// async fn[P : @provider.Provider] fee_of(
@@ -629,23 +590,11 @@ pub async fn[P : Provider] transaction_by_hash(
 
 ///|
 /// Poll until `tx_hash` has a receipt with `confirmations` confirmations, and
-/// return it. This is the other half of `send_transaction`: the hash it answers
-/// with says the transaction was broadcast, and this says it was mined.
+/// return it — the other half of `send_transaction`.
 ///
-/// A receipt in the head block counts as one confirmation, so the default
-/// `confirmations=1` returns as soon as the transaction is mined at all. Ask for
-/// more to wait out the reorgs that can still take it back out; asking for
-/// fewer than one is a caller error and is raised rather than rounded up.
-///
-/// Both remaining knobs are milliseconds: `timeout` is how long the wait may
-/// take in total, `poll_interval` how long to wait between polls.
-///
-/// Running out of time raises `Timeout`, which is deliberately not the same
-/// answer as `transaction_receipt`'s `None`: `None` says the node has no
-/// receipt *right now*, `Timeout` says it still had none after being asked for
-/// as long as the caller allowed. A transaction that reverted has a receipt and
-/// so returns normally, with `status` set to `Reverted` — check it rather than
-/// reading a successful return as a successful transaction.
+/// `timeout` and `poll_interval` are milliseconds, and running out raises
+/// `Timeout`. A transaction that reverted has a receipt and so returns normally,
+/// with `status` set to `Reverted` — check it.
 ///
 /// ```
 /// async fn[P : @provider.Provider] confirm(
@@ -719,14 +668,9 @@ async fn poll_again(
 /// Ask the wallet to sign an EIP-712 typed-data structure with `who`'s key
 /// (`eth_signTypedData_v4`), and return the signature.
 ///
-/// `typed_data` is an `@eip712.TypedData`: it validated the document when it was
-/// built, so what reaches the wallet is one it can be expected to accept, and
-/// a field with the wrong type was already reported by name. It goes over the
-/// wire *serialized* — v4 takes the document as a string, not as a nested
-/// object.
-///
-/// The wallet, not this SDK, computes the digest: nothing here hashes anything.
-/// The address comes *first*, the opposite way round from `sign_message`.
+/// `typed_data` validated the document when it was built, and goes over the wire
+/// *serialized* — v4 takes a string, not a nested object. The wallet computes
+/// the digest; nothing here hashes anything.
 ///
 /// ```
 /// async fn[P : @provider.Provider] sign_permit(

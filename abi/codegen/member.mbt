@@ -33,12 +33,11 @@ fn scalar(ty : @abi.AbiType) -> Scalar? {
 
 ///|
 /// One `AbiType` as MoonBit source, for every type the ABI has — wider than
-/// `scalar`, because a declaration the SDK only reads against (a contract's
-/// `error`s) carries whatever the ABI said.
+/// `scalar`, because a declaration the SDK only reads against carries whatever
+/// the ABI said.
 ///
-/// Spelled out rather than taken from the derived `Debug`, which would make a
-/// formatting change able to emit uncompilable files. `codegen_test.mbt`
-/// asserts the two agree.
+/// Spelled out rather than taken from the derived `Debug`, which would let a
+/// formatting change emit uncompilable files. `codegen_test.mbt` asserts both.
 fn type_literal(ty : @abi.AbiType) -> String {
   match ty {
     Address => "Address"
@@ -305,12 +304,9 @@ fn deploy_block(
 ///|
 /// The creation code as the generated file carries it.
 ///
-/// Public, because `deploy` passes none of `@contract.deploy`'s waiting knobs:
-/// a caller who needs the wait described their own way passes this to it.
-///
-/// A `Bytes` literal, not the hex string it was read from (#113):
-/// `Hex::from_bytes` is total, so the generated function needs no `abort` and
-/// no `raise` nothing can trigger.
+/// Public, because `deploy` passes none of `@contract.deploy`'s waiting knobs.
+/// A `Bytes` literal, not the hex string it was read from: `Hex::from_bytes` is
+/// total, so the generated function needs no `abort` and no `raise`.
 fn creation_code_block(struct_name : String, code : String) -> String {
   (
     $|///|

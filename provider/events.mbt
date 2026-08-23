@@ -1,15 +1,10 @@
 ///|
-/// A provider that can also be *subscribed to*, i.e. one that implements the
+/// A provider that can also be *subscribed to*: one that implements the
 /// EIP-1193 event API (`on` / `removeListener`) on top of `request`.
 ///
-/// It is deliberately **not** part of `Provider`: a transport can answer RPC
-/// without being able to push anything back, and the typed RPC helpers must
-/// stay usable against such a transport. `MockProvider` and `BrowserProvider`
-/// implement both traits, independently.
-///
-/// The single method here is the raw one — event name in, JSON payload out.
-/// Prefer the typed helpers below (`on_accounts_changed`, `on_chain_changed`,
-/// `on_disconnect`); reach for `subscribe` only for an event they do not cover.
+/// Deliberately **not** part of `Provider`, since a transport can answer RPC
+/// without being able to push. The single method here is the raw one; prefer the
+/// typed helpers below and reach for `subscribe` only for an event they miss.
 ///
 /// ```
 /// // Any `EventSource` can be driven by the typed helpers:
@@ -73,18 +68,8 @@ pub fn Subscription::unsubscribe(self : Subscription) -> Unit {
 /// disconnected the dapp.
 ///
 /// The handler receives the full authorized list, most-recently-selected first,
-/// exactly as `accounts` would answer. An **empty array means disconnected** —
-/// the user revoked the dapp's permission — which is the one payload a dapp must
-/// handle rather than index into.
-///
-/// The SDK keeps no state of its own: it does not cache the current account, and
-/// subscribing does not read one. The handler is the only place the new value
-/// arrives, so a dapp that needs the current account holds it itself (and reads
-/// the initial value with `@provider.accounts`).
-///
-/// A payload that does not decode as an array of addresses is dropped: the
-/// handler is not called and nothing is raised, since an event arrives outside
-/// any call the dapp made and has nowhere to raise to.
+/// and an **empty array means disconnected**. The SDK caches nothing, so a dapp
+/// that needs the current account holds it itself.
 ///
 /// ```mbt check
 /// test "doc: watch accounts" {
@@ -136,18 +121,12 @@ fn[E : EventSource, T] on_decoded(
 }
 
 ///|
-/// Subscribe to `chainChanged`: the wallet moved to a different chain, either
-/// on its own or because `switch_chain` asked it to.
-///
-/// The payload is the new chain id as a hex quantity, decoded here into a
-/// `ChainId`. As with accounts, the SDK caches nothing — the handler is the only
-/// notification, and `@provider.chain_id` reads the current value.
+/// Subscribe to `chainChanged`: the wallet moved to a different chain, either on
+/// its own or because `switch_chain` asked it to.
 ///
 /// EIP-1193 recommends dapps reload on this event, since anything read from the
-/// old chain (balances, contract addresses, call results) is now about a
-/// different network.
-///
-/// A payload that is not a hex quantity is dropped, as for the other events.
+/// old chain is now about a different network. As with accounts, the SDK caches
+/// nothing, and a payload that is not a hex quantity is dropped.
 ///
 /// ```mbt check
 /// test "doc: watch chain" {
@@ -181,15 +160,9 @@ pub fn[E : EventSource] on_chain_changed(
 /// Subscribe to `disconnect`: the provider lost its connection to every chain
 /// and can no longer answer requests until it reconnects.
 ///
-/// EIP-1193 carries a `ProviderRpcError` here — `{ code, message }` — so the
-/// handler receives it through the same `ProviderError::from_code` mapping the
-/// RPC layer uses, typically `Disconnected` (4900) or an `Rpc` variant for a
-/// code with no dedicated case.
-///
-/// This is not the "user disconnected the dapp" event; that one is
-/// `accountsChanged` with an empty array.
-///
-/// A payload without a numeric `code` is dropped.
+/// EIP-1193 carries a `ProviderRpcError` here, so the handler receives it
+/// through the same `ProviderError::from_code` mapping. This is not the "user
+/// disconnected the dapp" event — that one is `accountsChanged` with `[]`.
 ///
 /// ```mbt check
 /// test "doc: watch disconnect" {

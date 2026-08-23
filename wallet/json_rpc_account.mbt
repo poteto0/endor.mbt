@@ -2,18 +2,9 @@
 /// An account whose key is behind a JSON-RPC endpoint: the browser wallet the
 /// page is talking to, or a node with the account unlocked.
 ///
-/// It holds no key. Every signature is a request over the same transport the
-/// reads go over, and — for a browser wallet — a prompt the user has to
-/// approve, which is why the `Account` methods are asynchronous.
-///
-/// The address is given rather than derived: this side cannot compute an
-/// address it has no key for. Pass one the endpoint actually controls
-/// (`@provider.require_account`), or the wallet will refuse with
-/// `Unauthorized`.
-///
-/// It lives here and not in `account/` because it needs a `Provider`, and
-/// `account` sits below `provider` — an account that reaches a transport is a
-/// client-layer thing.
+/// It holds no key — every signature is a request over the same transport, which
+/// is why the `Account` methods are asynchronous. The address is given rather
+/// than derived, so pass one the endpoint controls.
 pub struct JsonRpcAccount[P] {
   priv provider : P
   priv address : @types.Address

@@ -1,11 +1,9 @@
 ///|
-/// What a mock cannot prove about a revert: that a real node hands the data
-/// back at all, and where in its JSON-RPC error it puts it.
+/// What a mock cannot prove about a revert: that a real node hands the data back
+/// at all, and where in its JSON-RPC error it puts it.
 ///
-/// Every decoding step below is unit-tested against strings in
-/// `contract/revert_test.mbt`. What is only true on the wire is the step before
-/// them — `error.data` — and it is the step the standards leave open, so it is
-/// checked here against Anvil, once per shape a contract can revert in.
+/// Every decoding step below is unit-tested in `contract/revert_test.mbt`. Only
+/// `error.data` is left, and it is the step the standards leave open.
 
 ///|
 /// `require(cond, "…")`, which is `Error(string)`.
@@ -83,13 +81,8 @@ async test "a custom error is decoded when the contract declares it" {
 /// `eth_estimateGas`, which is where a wallet finds out that the transaction it
 /// is about to prompt for would revert.
 ///
-/// It is a plain RPC helper rather than a contract call, so the revert arrives
-/// as `ProviderError::Reverted` with the data still encoded — what to make of
-/// those bytes is the ABI's business, and this layer has no ABI.
-///
-/// A bare node has no such stage for `eth_sendTransaction`: it broadcasts the
-/// transaction and mines it as `Reverted`, which is why there is no e2e case
-/// here for a `send` refused with a reason.
+/// A plain RPC helper, so the revert arrives as `ProviderError::Reverted` with
+/// the data still encoded. A bare node has no such stage for a send.
 async test "estimating gas for a call that reverts carries the revert" {
   @anvil.on(provider => {
     let at = @anvil.deploy_reverter(provider, revert_data=error_string("nope"))

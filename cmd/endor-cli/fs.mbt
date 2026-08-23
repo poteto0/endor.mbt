@@ -9,11 +9,9 @@
 ///|
 /// The files of a directory, sorted.
 ///
-/// Sorted because the order `read_dir` answers in is the filesystem's, and a
-/// generator whose output order depends on that produces a different summary
-/// on a different machine for the same input. Directories are stepped over
-/// rather than descended into: an `abi/` holding a subdirectory is far more
-/// likely to be someone's own layout than a request to recurse.
+/// Sorted because `read_dir`'s order is the filesystem's, and a generator whose
+/// output order depends on that differs per machine. Directories are stepped
+/// over rather than descended into.
 fn list_inputs(dir : String) -> Array[String] raise {
   let files = []
   for entry in @fs.read_dir(dir) {

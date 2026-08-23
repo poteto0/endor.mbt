@@ -1,19 +1,10 @@
 ///|
 /// `endor-cli abi` — write one MoonBit contract preset per ABI document.
 ///
-/// The command is deliberately argument-free: what it reads and where it
-/// writes is in `endor.yaml`, which is checked in, so the generated files a
-/// repository holds are reproducible by anyone who clones it rather than
-/// dependent on the flags whoever ran it last happened to type. An argument
-/// that would change the output is therefore not merely unsupported but
-/// refused — accepting and ignoring one is how the checked-in config quietly
-/// stops being the truth. `--help` never reaches here: `dispatch` answers it
-/// from the command table, for this command and every one after it.
-///
-/// Nothing here raises. One unreadable ABI among twenty is worth reporting and
-/// stepping over, not worth throwing away the other nineteen — so failures are
-/// counted, printed as they happen, and answered for in the exit code, which is
-/// what a build script actually reads.
+/// Deliberately argument-free: what it reads and where it writes is in the
+/// checked-in `endor.yaml`, so an argument that would change the output is
+/// refused rather than ignored. Nothing here raises — one unreadable ABI among
+/// twenty is counted, printed, and answered for in the exit code.
 fn handle_abi(args : Array[String]) -> Int {
   guard args is [] else {
     return refuse(
@@ -141,16 +132,9 @@ const CONFIG_FILE = "endor.yaml"
 ///|
 /// Read and parse the config.
 ///
-/// `path` is a parameter only so a test can point at a scratch file; the CLI
-/// never passes it, because a config found somewhere other than the current
-/// directory would make the generated output depend on where the command was
-/// run from.
-///
-/// The `raise` is untyped because two unrelated errors reach it — `@fs`'s, for
-/// a file that is not there, and `ConfigError`, for one that is there and
-/// wrong — and MoonBit names one type or none. Naming one would mean wrapping
-/// the other, and the only caller prints both the same way, so nothing yet
-/// wants them apart. The day something does, that wrapper is what to add.
+/// `path` is a parameter only so a test can point at a scratch file. The `raise`
+/// is untyped because two unrelated errors reach it — `@fs`'s and
+/// `ConfigError` — and the only caller prints both the same way.
 fn read_config(path? : String = CONFIG_FILE) -> Config raise {
   parse_config(@fs.read_file_to_string(path))
 }
@@ -193,9 +177,7 @@ fn generate_one(input : String, config : Config) -> Result[Int, String] {
 /// package that compiles rather than source nobody can build.
 ///
 /// An existing one is never overwritten and never merged into: it is the
-/// caller's file, it may import things the generator has no idea about, and
-/// silently dropping those would be a worse failure than printing what is
-/// missing and letting them add it.
+/// caller's file, and it may import things the generator has no idea about.
 fn write_package_config(dir : String) -> Unit {
   let path = join(dir, "moon.pkg")
   if @fs.path_exists(path) {

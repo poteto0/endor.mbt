@@ -1,14 +1,10 @@
 ///|
 /// A call encoded but not yet sent.
 ///
-/// `Contract::call` is an encode, a request and a decode welded together, and
-/// welded together they cannot be bundled: to put several calls into one
-/// `eth_call` something has to hold "the calldata for this function, and how to
-/// read its answer" as a *value*. That value is this one — `prepare` makes it,
-/// `target` and `data` are what a batcher needs to build its element, and
-/// `decode` reads whatever comes back. It carries the contract's `errors` along
-/// too, so a revert stays readable wherever the call is finally executed
-/// (`revert`), which is not necessarily the layer that built it.
+/// `Contract::call` welds an encode, a request and a decode together, and welded
+/// together they cannot be bundled. This holds the two halves as a value:
+/// `target` and `data` are what a batcher builds its element from, `decode`
+/// reads the answer, and the contract's `errors` come along for `revert`.
 ///
 /// ```mbt check
 /// test "doc: a call encoded but not sent" {
@@ -110,20 +106,9 @@ pub fn PreparedCall::decode(
 /// Read raw revert bytes as a `ContractError`, against this call's own error
 /// declarations.
 ///
-/// This exists because a *bundled* sub-call's failure arrives as bytes and
-/// nothing else: Multicall3 hands back `(success, returnData)`, with no
-/// JSON-RPC error wrapped around the revert the way a plain `eth_call` has one.
-/// So one is put back — `code=3`, `"execution reverted"`, which is what a node
-/// says for exactly this — and `revert_error` reads it the way it reads any
-/// other: `Revert` / `Panic` / `CustomError`, the last named only when a
-/// matching `ErrorDef` came along with the call.
-///
-/// Putting the wrapper back rather than decoding the bytes on their own is the
-/// point rather than a shortcut. A revert that says nothing readable has to
-/// come back as *something*, and the only honest something is the revert
-/// itself — which is `Rpc(Reverted(…))`, a `ProviderError`. Rebuilding it here
-/// is what makes a batched call's failure identical to the same call made
-/// directly, which is the one thing batching must not change.
+/// A bundled sub-call's failure arrives as bytes and nothing else, so the
+/// JSON-RPC wrapper a plain `eth_call` would have is put back and `revert_error`
+/// reads it as any other — a batched failure is identical to a direct one.
 ///
 /// ```mbt check
 /// test "doc: what a bundled sub-call refused with" {

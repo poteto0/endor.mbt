@@ -2,9 +2,8 @@
 /// A 32-byte block hash: what a block and every receipt mined into it are
 /// identified by, and what `eth_getBlockByHash` is asked with.
 ///
-/// It is the same shape as a `TxHash` and deliberately not the same type: a
-/// block hash and a transaction hash are never interchangeable, and handing one
-/// to an RPC expecting the other is a mistake worth catching at compile time.
+/// Deliberately not the same type as `TxHash`: handing one to an RPC expecting
+/// the other is a mistake worth catching at compile time.
 ///
 /// ```mbt check
 /// test "doc: block hash" {

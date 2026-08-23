@@ -2,14 +2,9 @@
 /// The two halves of a plain decimal number — the digits before the point and
 /// the digits after it — or `None` when `s` is not one.
 ///
-/// The grammar is deliberately narrow: decimal digits, at most one `.`, at
-/// least one digit somewhere, and nothing else. No sign (the quantities this
-/// serves are unsigned), no exponent, no separators — a caller writing `1e18`
-/// or `1_000` means something the wire has no notion of, and reading it as `1`
-/// would be worse than refusing it.
-///
-/// Either half may be empty (`"1."`, `".5"`): a point on one end is a number
-/// with nothing on that side of it, not a malformed one.
+/// The grammar is narrow: decimal digits, at most one `.`, at least one digit,
+/// nothing else. No sign, no exponent, no separators. Either half may be empty
+/// (`"1."`, `".5"`).
 pub fn decimal_parts(s : StringView) -> (StringView, StringView)? {
   let mut point = -1
   for i in 0..<s.length() {
@@ -32,11 +27,8 @@ pub fn decimal_parts(s : StringView) -> (StringView, StringView)? {
 /// places to the right: the two runs of digits, concatenated, padded on the
 /// right with however many zeros are left over.
 ///
-/// `None` when `frac_digits` is longer than `decimals`, which is digits the
-/// target cannot hold. What to say about that is the caller's — the layer above
-/// knows what it is holding, and `@types.Wei::from_units` raises rather than
-/// dropping them silently — but the rule itself is stated here, so the answer
-/// is never a wrongly scaled number.
+/// `None` when `frac_digits` is longer than `decimals`. What to say about that
+/// is the caller's; the rule itself is stated here.
 pub fn decimal_scale(
   int_digits : StringView,
   frac_digits : StringView,
@@ -55,12 +47,8 @@ pub fn decimal_scale(
 /// with the point where it belongs. A `decimals` of zero or less is no scale at
 /// all, and the digits are the number.
 ///
-/// Trailing zeros in the fraction are folded, and a fraction that is all zeros
-/// takes the point with it — at 18 decimals `1500000000000000000` is `"1.5"`
-/// and `1000000000000000000` is `"1"`, not `"1.500000000000000000"`. That is
-/// the one convention here: a caller wanting a fixed number of places is
-/// formatting for a human to read, which is its business and not this
-/// package's.
+/// Trailing zeros in the fraction are folded, and an all-zero fraction takes the
+/// point with it: at 18 decimals `1500000000000000000` is `"1.5"`.
 pub fn decimal_unscale(digits : StringView, decimals~ : Int) -> String {
   guard decimals > 0 else { return digits.to_owned() }
   // where the point falls, plus the zeros in front of a fraction narrower than

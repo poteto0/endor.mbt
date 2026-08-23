@@ -13,14 +13,11 @@ fn hmac_sha256(key : Bytes, message : Bytes) -> Bytes {
 
 ///|
 /// The generator RFC 6979 specifies: HMAC-SHA-256 in counter mode, seeded with
-/// the private key and the digest, producing candidate nonces one after
-/// another.
+/// the private key and the digest, producing candidate nonces one after another.
 ///
 /// Deterministic on purpose. ECDSA leaks the private key outright if a nonce
-/// ever repeats across two different messages, and a generator that cannot
-/// repeat unless the message does is a stronger guarantee than any source of
-/// randomness can give — which is why every Ethereum signer uses this rather
-/// than `@env.rand`.
+/// repeats across two messages, and a generator that cannot repeat unless the
+/// message does beats any source of randomness.
 priv struct Nonces {
   mut key : Bytes
   mut value : Bytes
@@ -74,8 +71,7 @@ fn Nonces::next(self : Nonces) -> @bigint.BigInt {
 /// bits on this curve.
 ///
 /// A scalar and not the octets RFC 6979 names, because both callers want the
-/// number — serialising it only for the seed to parse it straight back was a
-/// round trip for nothing.
+/// number and serialising it only to parse it back was a round trip for nothing.
 fn digest_scalar(digest : Bytes) -> @bigint.BigInt {
   // A digest of zero is a scalar of zero. Nothing rules it out, and the
   // generator takes it like any other.
@@ -104,15 +100,10 @@ fn digest_scalar_checked(digest : Bytes) -> @bigint.BigInt raise CurveError {
 ///|
 /// Sign a 32-byte digest.
 ///
-/// The nonce is derived from the key and the digest by RFC 6979, so signing
-/// the same digest with the same key always produces the same signature and
-/// nothing here needs a source of randomness.
-///
-/// This takes a digest and not a message: what gets hashed, and how, is the
-/// caller's decision — `keccak256` of an RLP-encoded transaction, of an
-/// EIP-191 prefixed message, of an EIP-712 struct. Getting that wrong is how
-/// a signature ends up valid for something other than what it was shown for,
-/// so this layer does not guess.
+/// The nonce is derived from the key and the digest by RFC 6979, so nothing here
+/// needs randomness and the same digest always signs the same. It takes a digest
+/// and not a message because what gets hashed is the caller's decision, and
+/// getting that wrong is how a signature ends up valid for something else.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(

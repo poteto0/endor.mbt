@@ -2,19 +2,9 @@
 /// Errors raised when parsing or validating on-the-wire representations (hex
 /// strings, JSON) into domain types.
 ///
-/// It is `pub(all)` for the same reason `AbiError` is: a layer built on the
-/// domain types validates the wire the same way and has the same things to say
-/// about it.
-///
-/// The variants are four different mistakes, and they are kept apart by *what
-/// is wrong with the value* rather than by which decoder noticed:
-/// `InvalidHex` / `InvalidLength` / `InvalidChecksum` / `InvalidJson` are all
-/// about the **form** — the alphabet, the byte count, the self-check, the JSON
-/// shape — and `InvalidValue` is about the **meaning**: a well-formed value
-/// that says something the type cannot hold. A number too large for the width
-/// its field is declared at is `InvalidValue`, not `InvalidLength`; an EIP-712
-/// document whose `primaryType` it never defines is `InvalidValue`, not
-/// `InvalidJson`, since the JSON itself parsed exactly as written.
+/// The variants are kept apart by *what is wrong with the value* rather than by
+/// which decoder noticed: `InvalidHex` / `InvalidLength` / `InvalidChecksum` /
+/// `InvalidJson` are about the **form**, `InvalidValue` about the **meaning**.
 ///
 /// ```
 /// try @types.Address::from_string("nope") catch {
@@ -79,22 +69,10 @@ pub fn CodecError::is_retryable(_self : CodecError) -> Bool {
 ///|
 /// What can go wrong translating between MoonBit values and the contract ABI.
 ///
-/// The three cases are three different mistakes: `InvalidAbiType` is a type
-/// that no contract can declare (`uint7`, `bytes33`), `InvalidValue` is a value
-/// that does not fit a type that does exist, and `InvalidData` is encoded bytes
-/// that cannot be read back as the types the caller expected — the only one of
-/// the three that a well-written dapp still sees at runtime, since it means the
-/// contract answered with something other than what its ABI promised.
-///
-/// It lives here rather than in `abi/` for the same reason `AbiType` does: the
-/// rules about ABI types are checked at both levels — `AbiType::name` here,
-/// `@abi.encode` / `@abi.decode` there — and `abi` depends on `types`, so the
-/// error both raise has to live at this level. `abi` re-exports it
-/// (`@abi.AbiError`).
-///
-/// It is `pub(all)` so a layer built on this one can raise an `InvalidData` of
-/// its own: a preset that knows a getter must answer a number has the same
-/// thing to say when it does not.
+/// `InvalidAbiType` is a type no contract can declare (`uint7`), `InvalidValue`
+/// a value that does not fit one that exists, and `InvalidData` encoded bytes
+/// that cannot be read back — the one a well-written dapp still sees at
+/// runtime, since it means the contract broke its own ABI.
 ///
 /// ```
 /// try @types.AbiValue::checked_uint(300N, bits=8) |> ignore catch {
