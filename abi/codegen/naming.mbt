@@ -79,14 +79,20 @@ pub fn snake_case(name : String) -> String {
 /// from them. `$` is in here because Solidity allows it in an identifier; it is
 /// inert in MoonBit source, which has no `$`-interpolation.
 fn is_abi_ident(name : String) -> Bool {
-  ident_like(name, dollar=true)
+  @codec.is_solidity_ident(name)
 }
 
 ///|
 /// Whether a string can be spelled as a MoonBit value identifier — and is not
 /// a keyword, which would parse as something else entirely.
+///
+/// MoonBit's spelling is Solidity's minus `$`, which MoonBit has no character
+/// for, plus the keywords: writing it as that difference is what keeps the
+/// character class itself in one place.
 fn is_value_ident(name : String) -> Bool {
-  ident_like(name, dollar=false) && !keywords.contains(name)
+  @codec.is_solidity_ident(name) &&
+  !name.iter().any(c => c == '$') &&
+  !keywords.contains(name)
 }
 
 ///|
@@ -94,24 +100,6 @@ fn is_value_ident(name : String) -> Bool {
 /// identifier that starts with a capital.
 fn is_type_ident(name : String) -> Bool {
   is_value_ident(name) && name.get_char(0) is Some(c) && c.is_ascii_uppercase()
-}
-
-///|
-/// The grammar both identifier questions share: a letter or `_` — or `$`, for
-/// the Solidity one — and then letters, digits and the same.
-///
-/// The two callers differ in that one character and in the keyword check, and
-/// that is all they differ in. Written out twice, the shared half is something
-/// two doc comments each claim to be about a different language; written once,
-/// what is actually different is what is visible.
-fn ident_like(name : String, dollar~ : Bool) -> Bool {
-  let extra = c => c == '_' || (dollar && c == '$')
-  guard name.get_char(0) is Some(c) && (c.is_ascii_alphabetic() || extra(c)) else {
-    return false
-  }
-  name
-  .iter()
-  .all(c => c.is_ascii_alphabetic() || c.is_ascii_digit() || extra(c))
 }
 
 ///|

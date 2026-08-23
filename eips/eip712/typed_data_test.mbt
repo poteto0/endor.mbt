@@ -304,3 +304,85 @@ test "error uint256 as a number that lost precision" {
     _ => fail("expected fail, but success")
   }
 }
+
+///|
+/// `encodeType` is names joined with `(`, `,` and `)`, so a name allowed to
+/// carry those characters chooses its own type hash: the document below and a
+/// well-formed `Mail(address to,uint256 amount)` declare different fields and
+/// would otherwise hash as one. It cannot be built — and neither can the type
+/// name a suffix has grown onto, which belongs to a reference and not to a
+/// declaration.
+test "error type name that is not an identifier" {
+  for name in ["Mail(address to,uint256 amount)Evil", "Person[]"] {
+    try
+      @eip712.TypedData::new(
+        mail_domain(),
+        primary_type=name,
+        types=Map([(name, [@eip712.TypedDataField::new("contents", "string")])]),
+        message={ "contents": "Hello" },
+      )
+      |> ignore
+    catch {
+      @types.InvalidValue(m) =>
+        assert_eq(m, "type name is not an identifier: \{name}")
+      e => fail("expected an invalid value for \{name}, but not \{e}")
+    } noraise {
+      _ => fail("expected \{name} to be refused")
+    }
+  }
+}
+
+///|
+/// The same for a member's own two names — the other half of what is joined,
+/// and the types, where only the array suffixes that parse come off before the
+/// spelling is checked.
+test "error field names that are not identifiers" {
+  let cases = [
+    (
+      "to,uint256 amount", "address", "typed data field is not an identifier: to,uint256 amount",
+    ),
+    ("from", "Person)", "typed data field from has an invalid type: Person)"),
+    (
+      "from", "uint256[x]", "typed data field from has an invalid type: uint256[x]",
+    ),
+    (
+      "from", "Person[]extra", "typed data field from has an invalid type: Person[]extra",
+    ),
+    ("from", "[]", "typed data field from has an invalid type: []"),
+  ]
+  for c in cases {
+    try @eip712.TypedDataField::new(c.0, c.1) |> ignore catch {
+      @types.InvalidValue(m) => assert_eq(m, c.2)
+      e => fail("expected an invalid value for \{c.0} \{c.1}, but not \{e}")
+    } noraise {
+      _ => fail("expected \{c.0} \{c.1} to be refused")
+    }
+  }
+}
+
+///|
+/// The suffixes that do parse still resolve, so the check refuses only what
+/// EIP-712 does.
+test "can declare array types" {
+  let mail = @eip712.TypedData::new(
+    mail_domain(),
+    primary_type="Mail",
+    types={
+      "Person": [@eip712.TypedDataField::new("wallet", "address")],
+      "Mail": [
+        @eip712.TypedDataField::new("to", "Person[]"),
+        @eip712.TypedDataField::new("grid", "uint256[2][]"),
+        @eip712.TypedDataField::new("$fee", "uint256"),
+      ],
+    },
+    message={
+      "to": [{ "wallet": "0x52908400098527886e0f7030069857d2e4169ee7" }],
+      "grid": [[Json::number(1), Json::number(2)]],
+      "$fee": Json::number(3),
+    },
+  )
+  inspect(
+    mail.encode_type("Mail"),
+    content="Mail(Person[] to,uint256[2][] grid,uint256 $fee)Person(address wallet)",
+  )
+}
