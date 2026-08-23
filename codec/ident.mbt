@@ -17,16 +17,17 @@
 /// inspect(@codec.is_solidity_ident("Mail(address to)"), content="false")
 /// ```
 pub fn is_solidity_ident(name : String) -> Bool {
-  let mut first = true
+  guard !name.is_empty() else { return false }
+  // the one rule that is not the same for every character: a digit is allowed
+  // from the second on, never as the first
+  let mut digits_allowed = false
   for c in name {
     let ok = c.is_ascii_alphabetic() ||
       c == '_' ||
       c == '$' ||
-      (!first && c.is_ascii_digit())
+      (digits_allowed && c.is_ascii_digit())
     guard ok else { return false }
-    first = false
+    digits_allowed = true
   }
-  // `first` is still set when the loop never ran, and the empty string is no
-  // more an identifier than a digit is
-  !first
+  true
 }
