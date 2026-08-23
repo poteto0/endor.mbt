@@ -11,38 +11,24 @@
 /// The scheme is matched as written, so `HTTP://` fails. Normalising case is
 /// the caller's, above this.
 fn validate_http_url(url : String) -> Bool {
-  let rest = if url.has_prefix("http://") {
-    url[7:]
-  } else if url.has_prefix("https://") {
-    url[8:]
-  } else {
-    return false
-  }
-
-  // the authority runs to the first delimiter; a `@` means everything so far
-  // was credentials, and the host starts after it
-  let host = []
-  for c in rest {
-    if c is ('/' | '?' | '#') {
-      break
-    } else if c == '@' {
-      host.clear()
-    } else {
-      host.push(c)
-    }
-  }
-  guard host is [first, ..] else { return false }
-
-  // drop the port. In an IPv6 literal the colons are inside the brackets and
-  // the port follows `]`, so read the brackets first
-  let hostname = if first == '[' {
-    guard host.search(']') is Some(close) else { return false }
-    host[1:close]
-  } else {
-    match host.search(':') {
-      Some(colon) => host[:colon]
-      None => host[:]
-    }
-  }
+  let parts = split_url(url)
+  guard parts.scheme is Some("http" | "https") else { return false }
+  guard hostname_of(parts.authority) is Some(hostname) else { return false }
   !hostname.is_empty() && !hostname.iter().any(Char::is_whitespace)
+}
+
+///|
+/// The authority without its port. In an IPv6 literal the colons are inside
+/// the brackets and the port follows `]`, so the brackets are read first; an
+/// unclosed one is no hostname at all.
+fn hostname_of(authority : String) -> StringView? {
+  guard authority is [first, ..] else { return Some(authority[:]) }
+  if first == '[' {
+    guard authority.find("]") is Some(close) else { return None }
+    return Some(authority[1:close])
+  }
+  match authority.find(":") {
+    Some(colon) => Some(authority[:colon])
+    None => Some(authority[:])
+  }
 }
