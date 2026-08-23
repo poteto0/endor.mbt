@@ -3,22 +3,12 @@
 const EIP1559_TYPE : Byte = 0x02
 
 ///|
-/// A transaction with everything filled in, ready to be signed.
+/// A transaction with everything filled in, ready to be signed — the other half
+/// of `TransactionRequest`. Nothing may be left open, because every field is
+/// part of what the signature commits to.
 ///
-/// This is the other half of `TransactionRequest`. That one is what a dapp
-/// hands a *wallet*, so it leaves out what the wallet is expected to decide —
-/// the nonce, the gas, often the fees. This one is what gets hashed: nothing
-/// may be left open, because every field is part of what the signature commits
-/// to and a node recomputes the same bytes to check it.
-///
-/// EIP-1559 (type `0x02`) only. A legacy transaction is a different encoding
-/// with a different digest rule, and nothing in this SDK creates one — the
-/// fee-market choice already lives in `Fee`, where `Legacy` means "opt out",
-/// and opting out of a signature format is not the same decision.
-///
-/// The access list is always empty. It is part of the signed bytes so it has
-/// to be encoded, but nothing here builds one, and an empty list is what a
-/// transaction that touches no pre-declared storage carries.
+/// EIP-1559 (type `0x02`) only, and the access list is always empty: it is part
+/// of the signed bytes, but nothing here builds one.
 pub struct UnsignedTransaction {
   priv chain_id : ChainId
   priv nonce : Quantity
@@ -95,10 +85,9 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
 ///|
 /// The same transaction as a request to hand a wallet.
 ///
-/// A wallet that holds the key fills in nothing here — every field is already
-/// decided — but it signs and broadcasts in one step (`eth_sendTransaction`),
-/// so it has to be asked in the shape that call takes. `from` is the account
-/// the wallet is to sign with, which is the one thing this side does not know.
+/// A wallet holding the key fills in nothing here, but it signs and broadcasts
+/// in one step, so it has to be asked in the shape that call takes. `from` is
+/// the one thing this side does not know.
 pub fn UnsignedTransaction::to_request(
   self : UnsignedTransaction,
   from~ : Address,
@@ -139,13 +128,9 @@ fn envelope(fields : Array[@rlp.Item]) -> Bytes {
 /// The transaction as it goes to `eth_sendRawTransaction`: the same fields
 /// again with the signature appended, under the same type byte.
 ///
-/// Takes the signature in parts rather than a `Signature`, so this package
-/// stays independent of the curve that produced it: `r` and `s` big-endian in
-/// 32 bytes, and `y_parity` the recovery id.
-///
-/// Raises if `y_parity` is not 0 or 1. A recovery id of 2 or 3 says the
-/// signature's `r` wrapped past the group order, which no Ethereum transaction
-/// can carry — a node has nowhere to put the missing bit.
+/// Takes the signature in parts, so this package stays independent of the curve
+/// that produced it. Raises unless `y_parity` is 0 or 1 — a recovery id of 2 or
+/// 3 says `r` wrapped past the group order, which no transaction can carry.
 pub fn UnsignedTransaction::encode_signed(
   self : UnsignedTransaction,
   r~ : Bytes,

@@ -1,18 +1,10 @@
 ///|
 /// The single number a getter answered with.
 ///
-/// `Contract::call` answers with an `Array[AbiValue]`, because a function may
-/// return any number of values of any type. A getter returns one number, and a
-/// preset that knows that should not make every one of its call sites
-/// pattern-match to say "the answer is one number, and here it is".
-///
-/// A getter whose answer does not decode as one number is an address that is
-/// not the token it was taken for — the most likely mistake in this whole
-/// package, so it names the getter that was asked. `@abi.decode` has already
-/// checked the *bytes* against the expected types by the time this runs; what
-/// is left to check is that the caller asked for a shape this helper can hand
-/// back, and an empty answer (which is what an address with no code gives) is
-/// the case that gets here.
+/// `Contract::call` answers with an `Array[AbiValue]`, since a function may
+/// return anything; a preset that knows better should not make every call site
+/// pattern-match. An answer that does not decode as one number is an address
+/// that is not the token it was taken for, so it names the getter that was asked.
 ///
 /// ```
 /// async fn[P : @provider.Provider] supply(
@@ -38,12 +30,9 @@ pub fn uint_answer(
 ///|
 /// The single signed number a getter answered with.
 ///
-/// Deliberately not folded into `uint_answer`. A caller sees `BigInt` either
-/// way, so it is tempting to accept both variants and be done — but `uint256`
-/// and `int256` are the same thirty-two bytes on the wire and differ only in
-/// how the top bit is read, so a contract declaring `int256` where the caller
-/// expected `uint256` turns a large positive number into a negative one and
-/// vice versa. Silently accepting either variant here would hide exactly that.
+/// Deliberately not folded into `uint_answer`: `uint256` and `int256` are the
+/// same thirty-two bytes and differ only in how the top bit is read, so
+/// accepting either would silently turn a large positive number negative.
 pub fn int_answer(
   values : Array[@abi.AbiValue],
   what~ : String,
@@ -91,11 +80,9 @@ pub fn bool_answer(
 ///|
 /// The single run of bytes a getter answered with — `bytes`, or any `bytesN`.
 ///
-/// The width is not checked here because it has already been checked: `bytes32`
-/// in the caller's `outputs` is what makes `@abi.decode` refuse an answer of
-/// any other length, and a helper re-deciding it would let the two disagree.
-/// What is left, as for every helper above, is that the answer was one value at
-/// all.
+/// The width has already been checked: `bytes32` in the caller's `outputs` is
+/// what makes `@abi.decode` refuse another length, and re-deciding it here would
+/// let the two disagree. What is left is that the answer was one value at all.
 pub fn bytes_answer(
   values : Array[@abi.AbiValue],
   what~ : String,

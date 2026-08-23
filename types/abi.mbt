@@ -1,19 +1,10 @@
 ///|
 /// A parameter type as a contract's ABI declares it.
 ///
-/// It is what tells `@abi.encode` how to lay a value out and `@abi.decode` how
-/// to read one back: ABI data carries no type tags, so the schema has to come
-/// from the caller. `Uint` / `Int` take the bit width and `FixedBytes` the
-/// byte count, so `uint256` is `Uint(256)`, `uint8` is `Uint(8)` and `bytes32`
-/// is `FixedBytes(32)`.
-///
-/// It lives here rather than in `abi/` because EIP-712's own atomic types are
-/// the same set by design — `@eip712` hashes an atomic value the way the ABI
-/// encodes it — and both `abi` and `eip712` depend on `types`, not the other way
-/// around, so a type both layers need has to live at this level. `abi`
-/// re-exports it (`@abi.AbiType`) and owns what is built on top: `encode`,
-/// `decode`, the selector. The word arithmetic its rules are stated in —
-/// valid widths, `2^bits`, one word's worth of hex digits — is `@codec`'s.
+/// It tells `@abi.encode` how to lay a value out and `@abi.decode` how to read
+/// one back: ABI data carries no type tags. `Uint` / `Int` take the bit width
+/// and `FixedBytes` the byte count, so `uint256` is `Uint(256)` and `bytes32`
+/// is `FixedBytes(32)`. It lives here because `abi` and `eip712` both need it.
 ///
 /// ```
 /// // (address to, uint256 amount)
@@ -52,11 +43,9 @@ pub impl Show for AbiType with fn output(self, logger) {
 ///|
 /// One ABI-encoded value, in the MoonBit shape that matches its `AbiType`.
 ///
-/// It is `pub(all)` because a decoded value is read, not built by the SDK's
-/// rules: `@abi.decode` answers with these and the caller pattern-matches
-/// them. Encoding takes the type alongside the value, so a `Uint` carries a
-/// plain `BigInt` and its width comes from the `AbiType` it is paired with —
-/// that is also where an out-of-range value is caught.
+/// `pub(all)` because a decoded value is read, not built by the SDK's rules.
+/// Encoding takes the type alongside the value, so a `Uint` carries a plain
+/// `BigInt` and its width — and its range check — comes from the `AbiType`.
 ///
 /// ```
 /// let args : Array[@types.AbiValue] = [
@@ -145,9 +134,8 @@ pub fn AbiValue::checked_int(n : BigInt, bits~ : Int) -> BigInt raise AbiError {
 /// The canonical name the ABI spec gives this type — what a function signature
 /// is spelled with, and therefore what the selector is hashed from.
 ///
-/// It validates as it renders, because a type that cannot exist has no
-/// canonical name: hashing `uint7(…)` would produce a selector no contract
-/// answers to, which is worse than raising.
+/// It validates as it renders: hashing `uint7(…)` would produce a selector no
+/// contract answers to, which is worse than raising.
 ///
 /// ```mbt check
 /// test "doc: abi type" {

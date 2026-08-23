@@ -54,13 +54,10 @@ let hashes : Map[String, SignatureHash] = Map([])
 ///|
 /// How many signatures are remembered before the table is dropped and refilled.
 ///
-/// The signatures an ABI declares are a fixed set well under this, so a program
-/// that hashes what it was written against never reaches it. One that *discovers*
-/// signatures instead — a decoder UI hashing what is typed into it, an indexer
-/// reading ABIs it has never seen — would otherwise grow this table for as long
-/// as it runs. Dropping it caps that at a known size and costs such a caller a
-/// rehash, which is what it paid before the table existed; keeping the newest
-/// entries instead would mean tracking use, for a table this cheap to refill.
+/// An ABI's signatures are a fixed set well under this. One that *discovers*
+/// signatures — a decoder UI, an indexer reading unknown ABIs — would otherwise
+/// grow the table for as long as it runs; dropping it caps that and costs a
+/// rehash, which is what such a caller paid before the table existed.
 const CACHED_SIGNATURES = 1024
 
 ///|

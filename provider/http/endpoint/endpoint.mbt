@@ -2,12 +2,9 @@
 /// A node's JSON-RPC endpoint: the URL to POST to, and any headers that go with
 /// every request — the API key a hosted provider wants, most often.
 ///
-/// The `HttpTransport` almost every caller wants, and the reason
-/// `at` exists to skip naming it. It is written against
-/// `moonbitlang/async`'s HTTP client, which is implemented per backend —
-/// `fetch` on `js`, sockets and TLS on `native` and `wasm` — so this SDK needs
-/// no FFI of its own and the same code reads a chain from a browser, a CLI or
-/// a server.
+/// Written against `moonbitlang/async`'s HTTP client, which is implemented per
+/// backend, so this SDK needs no FFI of its own and the same code reads a chain
+/// from a browser, a CLI or a server.
 ///
 /// ```
 /// async fn chain(
@@ -55,12 +52,11 @@ fn Endpoint::new(
 
 ///|
 /// A provider reading from the node at `url` — the whole of what an HTTP-only
-/// caller needs, and the shape every doc example uses. `headers` and `timeout`
-/// are what `Endpoint::new` takes them to be.
+/// caller needs. `headers` and `timeout` are what `Endpoint::new` takes them
+/// to be.
 ///
 /// Raises `Config` when `url` is not an HTTP URL, or when `timeout` is not a
-/// positive number of milliseconds — both are typos in the program, caught
-/// before anything is sent.
+/// positive number of milliseconds — both typos, caught before anything is sent.
 ///
 /// ```
 /// let provider = @endpoint.at("http://127.0.0.1:8545")
@@ -85,16 +81,10 @@ pub fn at(
 ///|
 /// POST the body and answer with the response text.
 ///
-/// The three ways this fails are three different things to do about it, so
-/// they are three variants: nothing got through (`Transport`), something
-/// answered with a status that is not 2xx (`HttpStatus`, which carries the
-/// status so `429` and `503` can be retried and `401` cannot), and nothing
-/// answered inside `timeout` (`Timeout`). A 2xx body is handed up untouched:
-/// reading JSON-RPC out of it is `HttpProvider`'s.
-///
-/// The deadline covers the whole exchange rather than each half of it,
-/// because a node that dribbles a response out forever is no better than one
-/// that never connects.
+/// The three ways this fails are three things to do about it: nothing got
+/// through (`Transport`), something answered non-2xx (`HttpStatus`, carrying the
+/// status), and nothing answered inside `timeout` (`Timeout`). The deadline
+/// covers the whole exchange, since a dribbled response is no better than none.
 pub impl @http.HttpTransport for Endpoint with fn post(self, body) {
   // `with_timeout_opt` raises `Error`, so `send`'s `ProviderError` crosses it
   // as a value and is re-raised on the far side
@@ -144,14 +134,9 @@ async fn Endpoint::send(
 ///|
 /// The `Retry-After` a `429` or a `503` asked for, in seconds.
 ///
-/// Only the delta-seconds form is read. The other form the header allows is an
-/// HTTP-date, which needs a clock and a date parser to compare against and is
-/// not what a rate limiter sends; anything unreadable is `None`, and whoever
-/// retries backs off on its own as if the header had not been there.
-///
-/// What the value *says* is all that is decided here. How long the SDK is
-/// actually willing to sit on a request is the retry loop's, and is decided
-/// there — a header this reads is one a caller can read too.
+/// Only the delta-seconds form is read; the HTTP-date form needs a clock and is
+/// not what a rate limiter sends. Anything unreadable is `None`. How long the
+/// SDK will actually sit on a request is the retry loop's to decide.
 fn retry_after_seconds(headers : Map[String, String]) -> Int? {
   // header names arrive lowercased, on every backend
   guard headers.get("retry-after") is Some(value) else { return None }

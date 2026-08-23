@@ -19,20 +19,12 @@ pub struct TypedDataField {
 } derive(Eq, Debug)
 
 ///|
-/// Declare a member. Whether the type resolves — whether a struct name is one
-/// the document defines — is `TypedData::new`'s job, since it is the only place
-/// that knows the whole registry; here the spelling itself is checked.
+/// Declare a member. Whether the type resolves is `TypedData::new`'s job, since
+/// it is the only place that knows the whole registry; here the spelling is.
 ///
 /// Both halves have to be Solidity identifiers, which is what stops a document
-/// from choosing its own `encodeType` string: `struct_signature` joins names
-/// with `(`, `,` and `)` and hashes the result, so a name free to carry those
-/// characters is a string injection — two documents declaring different fields
-/// can be spelled to produce one `typeHash`, and a signature over what the user
-/// read then means something else to the contract that checks it.
-///
-/// A type is that spelling plus array suffixes, which `base_type` takes off
-/// first — and only the ones that parse, so `uint256[x]` is checked whole and
-/// refused.
+/// from choosing its own `encodeType` string. A type is that spelling plus array
+/// suffixes, and only the ones that parse — `uint256[x]` is refused whole.
 pub fn TypedDataField::new(
   name : String,
   type_name : String,
@@ -60,11 +52,8 @@ pub fn TypedDataField::to_json(self : TypedDataField) -> Json {
 /// signature made for one dapp, one chain or one contract from being replayed
 /// against another.
 ///
-/// Every field is optional, and **only the ones present take part** — the
-/// domain separator is hashed over exactly the fields the document declares, so
-/// adding one later changes every signature. That is also why the
-/// `EIP712Domain` type entry is derived from this rather than spelled by the
-/// caller: the two cannot then disagree.
+/// Every field is optional, and **only the ones present take part**, so adding
+/// one later changes every signature.
 ///
 /// ```mbt check
 /// test "doc: typed data domain" {
@@ -111,19 +100,11 @@ pub fn TypedDataDomain::new(
 
 ///|
 /// The domain a **token extension** binds to, which is the same four fields
-/// every time: `verifyingContract` is the token, `chainId` is where it lives,
-/// `version` is a string the token chose, and only `name` has to be read off
-/// the token — it is `name()`, and it must match byte for byte.
+/// every time: the token as `verifyingContract`, its chain, the `version` it
+/// chose, and `name()` read off the token, matching byte for byte.
 ///
-/// EIP-2612 and EIP-3009 are both this shape, which is why it is spelled once
-/// here rather than in each of them. Getting it wrong is silent: a document
-/// with a domain the token does not recognize signs perfectly well, is
-/// displayed perfectly well, and is then rejected on chain. `check_separator`
-/// is how that is caught before the user is asked to sign.
-///
-/// A token whose domain is `salt`-based rather than `chainId`-based is not this
-/// helper's: build it with `TypedDataDomain::new`, which takes all five fields
-/// and requires none.
+/// EIP-2612 and EIP-3009 are both this shape. Getting it wrong is silent, which
+/// `check_separator` catches; a `salt`-based domain wants `TypedDataDomain::new`.
 pub fn TypedDataDomain::for_token(
   name~ : String,
   version? : String = "1",
@@ -187,24 +168,11 @@ pub fn TypedDataDomain::to_json(self : TypedDataDomain) -> Json {
 
 ///|
 /// An EIP-712 typed-data document: the struct types, which of them the message
-/// is, the domain it is bound to, and the message itself.
+/// is, the domain it is bound to, and the message itself — what
+/// `@provider.sign_typed_data` sends.
 ///
-/// This is what `@provider.sign_typed_data` sends. Building one validates it —
-/// `primaryType` has to be defined, every type a field refers to has to be
-/// defined or elementary, and the message has to match the type it claims to
-/// be, member for member — so a document a wallet would reject is caught here,
-/// where the error can say which field went wrong, rather than coming back as
-/// an opaque wallet-side failure.
-///
-/// The message stays `Json` because a value is only meaningful against the type
-/// it is declared as, and that declaration lives in `types`: checking the two
-/// against each other is what this does, and a second typed value tree would
-/// only restate it.
-///
-/// Sending a document hashes nothing: the wallet computes the digest, so
-/// neither the domain separator nor `hashStruct` is needed to sign. They are
-/// computed here anyway — `digest.mbt`, #45 — for the callers that need the
-/// hash itself rather than a signature over it, EIP-1271 being the first.
+/// Building one validates it, so a document a wallet would reject is caught
+/// where the error can name the field.
 ///
 /// ```mbt check
 /// test "doc: typed data" {
@@ -235,14 +203,10 @@ pub struct TypedData {
 ///|
 /// Assemble and validate a document.
 ///
-/// Every type name here is checked to be an identifier, the same way a field's
-/// two names are: the keys of `types` are half of what `encode_type` writes,
-/// and the name a document gives its own type is no more free than the names
-/// inside it.
-///
-/// `types` holds the caller's own struct types only: `EIP712Domain` is derived
-/// from `domain` and declaring it here is an error, since a document carrying
-/// two answers for it would sign one and display the other.
+/// Every type name is checked to be an identifier: the keys of `types` are half
+/// of what `encode_type` writes. `types` holds the caller's own struct types
+/// only — `EIP712Domain` is derived from `domain`, and a document carrying two
+/// answers for it would sign one and display the other.
 pub fn TypedData::new(
   domain : TypedDataDomain,
   primary_type~ : String,
@@ -364,17 +328,11 @@ fn parse_size(s : String) -> Int? {
 
 ///|
 /// Classify `type_name` as one of EIP-712's own atomic types — `address`,
-/// `bool`, `string`, `bytes`, `bytes1`…`bytes32`, `uint8`…`uint256` and
-/// `int8`…`int256` in steps of 8 — or `None` if it is neither elementary nor
-/// (necessarily) a struct name.
+/// `bool`, `string`, `bytes`, `bytesN`, `uintN`, `intN` — or `None` if it is
+/// neither elementary nor (necessarily) a struct name.
 ///
-/// This reuses `@types.AbiType` rather than a type of its own: EIP-712's atomic
-/// types are, by design, exactly the ABI's own (EIP-712 hashes an atomic
-/// value the way the ABI encodes it), and the two now live in the same
-/// package. Only the seven atomic variants are ever returned here —
-/// `Array`/`FixedArray`/`Tuple` are the ABI's compound types, which have no
-/// place in this classification (an EIP-712 array or struct field is handled
-/// by `array_element` / the document's own `types` map instead).
+/// It reuses `@types.AbiType` because EIP-712's atomic types are by design
+/// exactly the ABI's. Only the seven atomic variants are ever returned.
 fn classify_elementary(type_name : String) -> @types.AbiType? {
   match type_name {
     "string" => Some(String)

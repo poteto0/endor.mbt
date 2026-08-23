@@ -1,16 +1,10 @@
 ///|
-/// A stablecoin: an ERC-20 token that also lets its holder *sign* what should
-/// happen and leaves the transaction to somebody else. That is what USDC, JPYC
-/// and the rest of the regulated stablecoins are — an ERC-20 with
-/// [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009) *transfer with
-/// authorization* and [EIP-2612](https://eips.ethereum.org/EIPS/eip-2612)
-/// *permit* on top — so this preset is `@erc20.Erc20` plus the calls that
-/// submit those signatures.
+/// A stablecoin: an ERC-20 that also lets its holder *sign* what should happen
+/// and leaves the transaction to somebody else — `@erc20.Erc20` plus the calls
+/// that submit EIP-3009 and EIP-2612 signatures. USDC and JPYC are these.
 ///
 /// The split is by who pays: `eips/eip3009` and `eips/eip2612` build the
-/// document the *holder* signs and reach no node, this sends the transaction
-/// the *submitter* pays for. A dapp doing both halves uses both packages; a
-/// relayer that was handed an authorization and a signature uses only this one.
+/// document the *holder* signs, this sends the transaction the *submitter* pays.
 ///
 /// ```
 /// async fn[P : @provider.Provider] relay(
@@ -37,11 +31,9 @@ pub fn Stablecoin::new(address : @types.Address) -> Stablecoin {
 
 ///|
 /// The token as an `@erc20.Erc20` — for handing to something that takes one.
-/// Every call it answers this answers too, so reaching for it to *make* a call
-/// is never necessary. The ERC-20 event helpers are the exception:
-/// `transfer_topic()` and `decode_transfer(log)` take no token, so they live
-/// only there. EIP-3009's own logs are read here, with
-/// `authorization_used_topic()` and the rest.
+/// Every call it answers this answers too. The ERC-20 event helpers are the
+/// exception: `transfer_topic()` and `decode_transfer(log)` take no token, so
+/// they live only there. EIP-3009's own logs are read here.
 pub fn Stablecoin::token(self : Stablecoin) -> @erc20.Erc20 {
   self.erc20
 }
@@ -192,19 +184,9 @@ pub async fn[P : @provider.Provider] Stablecoin::version(
 /// The EIP-712 domain the token verifies signatures under, read off the token
 /// itself and checked against the separator it publishes.
 ///
-/// A domain that is not the token's own is the expensive mistake of both
-/// standards: the document signs and displays perfectly well and is then
-/// rejected on chain, after the user has approved it. So this reads `name()`
-/// and `version()` rather than taking them, and then hands the result to
-/// `DOMAIN_SEPARATOR()` — which is the token saying yes or no to the whole
-/// domain at once, before anybody is asked to sign.
-///
-/// `version()` is not universal, and a token without it is answered as `"1"` —
-/// the guess that is right almost everywhere. It is a guess the separator
-/// check either confirms or refuses, which is why guessing is safe here.
-///
-/// `chain_id` defaults to the one the provider is on, since signing for a chain
-/// the caller is not connected to is the rarer half of the pair.
+/// A domain that is not the token's own signs and displays perfectly well and is
+/// then rejected on chain, so this reads `name()` and `version()` and hands the
+/// result to `DOMAIN_SEPARATOR()`. A token without `version()` is read as `"1"`.
 pub async fn[P : @provider.Provider] Stablecoin::domain(
   self : Stablecoin,
   provider : P,
@@ -263,13 +245,9 @@ pub async fn[P : @provider.Provider] Stablecoin::authorization_state(
 /// Submit a signed authorization —
 /// `transferWithAuthorization(…,uint8,bytes32,bytes32)`.
 ///
-/// `submitter` is who sends the transaction and pays the gas, and is *not* the
-/// account whose units move: that one is `authorization.from()`, and it signed
-/// instead of paying. Anybody at all may be the submitter of this form.
-///
-/// The signature is the holder's over `authorization.transfer_typed_data(...)`
-/// — a signature over the *receive* document is a different hash and the token
-/// will not take it.
+/// `submitter` sends the transaction and pays the gas, and is *not* the account
+/// whose units move — that one is `authorization.from()`. The signature must be
+/// over `transfer_typed_data(...)`; the *receive* document is a different hash.
 pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization(
   self : Stablecoin,
   provider : P,
@@ -290,17 +268,9 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization(
 /// The same transfer, for a signature a *contract* made —
 /// `transferWithAuthorization(…,bytes)`.
 ///
-/// FiatTokenV2_2 — what USDC runs today — added a second spelling of each of
-/// these calls that takes the signature as `bytes` and, when the signer is a
-/// contract, asks it to vouch for the signature itself
-/// ([EIP-1271](https://eips.ethereum.org/EIPS/eip-1271)). That is the only way
-/// a smart contract wallet can hold these tokens: it has no private key, so
-/// what it answers is not a 65-byte `(v, r, s)` and the other form refuses it
-/// here.
-///
-/// Which form to send is the caller's to say rather than this package's to
-/// guess from a length: a token older than V2_2 does not carry this selector at
-/// all, and the call reverts. An EOA's signature works under either.
+/// FiatTokenV2_2 added a second spelling that takes the signature as `bytes` and
+/// asks a contract signer to vouch for it (EIP-1271). Which form to send is the
+/// caller's to say: an older token lacks this selector, and the call reverts.
 pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_1271(
   self : Stablecoin,
   provider : P,
@@ -323,9 +293,7 @@ pub async fn[P : @provider.Provider] Stablecoin::transfer_with_authorization_127
 ///
 /// The same transfer, except that the token also requires `submitter` to be
 /// `authorization.to()`. That is what makes the payment and the recipient's
-/// reaction to it one transaction: a stranger cannot land the transfer out of
-/// band first and leave the call that meant to carry it failing against a
-/// contract that has already been paid.
+/// reaction to it one transaction.
 pub async fn[P : @provider.Provider] Stablecoin::receive_with_authorization(
   self : Stablecoin,
   provider : P,
@@ -474,11 +442,9 @@ pub fn Stablecoin::authorization_used_topic() -> @types.Hex {
 ///|
 /// One `AuthorizationUsed` log, read back as `(authorizer, nonce)`.
 ///
-/// The nonce is what a submitter cannot get any other way: a
-/// `transferWithAuthorization` also writes a `Transfer`, so *how much moved* is
-/// readable already, but a relayer that sent several at once has no way to tell
-/// those transfers apart. Both parameters are `indexed`, so `data` is empty. A
-/// log of another event raises `Abi`.
+/// The nonce is what a submitter cannot get any other way: a relayer that sent
+/// several `transferWithAuthorization` at once cannot tell their `Transfer` logs
+/// apart. Both parameters are `indexed`, so `data` is empty.
 ///
 /// ```
 /// fn burned(
@@ -567,9 +533,7 @@ fn authorization_event(name : String) -> @abi.Event {
 ///
 /// EIP-2612's half of the same idea: it sets an allowance the way `approve`
 /// does, but the owner only signed, so the spender can raise the allowance and
-/// spend it in one transaction of their own. The `nonce` the permit was signed
-/// against is a counter — `nonces` — and goes up by one here,
-/// which makes a second permit signed against the same one worthless.
+/// spend it in one transaction. The `nonce` counter goes up by one here.
 pub async fn[P : @provider.Provider] Stablecoin::permit(
   self : Stablecoin,
   provider : P,
@@ -637,16 +601,12 @@ fn bytes_tail(signature : @types.Hex) -> SignatureTail {
 }
 
 ///|
-/// The `(v, r, s)` triple the V2 form ends with, split out of the
-/// 65 bytes a wallet answers with.
+/// The `(v, r, s)` triple the V2 form ends with, split out of the 65 bytes a
+/// wallet answers with.
 ///
-/// The split is checked rather than sliced: `r` and `s` in range and `s` the
-/// low one of the pair, since the `ecrecover` behind all of these refuses the
-/// high form. A malformed signature is therefore refused here, for the price of
-/// no transaction, instead of on chain for the price of one.
-///
-/// `v` is `27` or `28`. A wallet that answers `0` or `1` is spelling the same
-/// signature the way a typed transaction does, and is read as such.
+/// Checked rather than sliced — `r` and `s` in range, `s` the low one — so a
+/// malformed signature is refused for the price of no transaction. `v` is `27`
+/// or `28`; a wallet answering `0` or `1` spells it as a typed transaction does.
 fn vrs_tail(
   signature : @types.Hex,
 ) -> SignatureTail raise @contract.ContractError {

@@ -2,12 +2,9 @@
 /// Opaque handle to a listener registered on the *window*, not on a provider.
 ///
 /// Some wallet protocols talk over `window` events rather than the EIP-1193
-/// emitter, so this is a separate path from `Listener`: a different target, a
-/// different pair of register / unregister functions, and a payload that can
-/// carry a live provider object next to its JSON description.
-///
-/// Like `Listener`, it exists because `removeEventListener` matches on the
-/// *identity* of the function that was registered.
+/// emitter: a different target, a different register / unregister pair, and a
+/// payload that can carry a live provider object next to its JSON description.
+/// Like `Listener`, it exists because `removeEventListener` matches on identity.
 #external
 pub type WindowListener
 
@@ -26,19 +23,10 @@ pub fn has_window_events() -> Bool {
 ///|
 /// Register `handler` for the window event named `event`.
 ///
-/// The payload is half data and half object: an event that offers a provider
-/// puts the live EIP-1193 object in `detail.provider` and everything else in
-/// `detail`. Only the second half can cross as a string, so the handler takes
-/// both — the JSON text of `detail`, and the object handle. An event carrying
-/// no provider is dropped here, because there is no null `Ethereum` for it to
-/// cross as; *what else* makes a payload usable is not this layer's to say.
-///
-/// `provider` is left out of the string. A wallet's provider object is live —
-/// event handlers holding it back, getters that run — and more than one real
-/// wallet is not serialisable at all, so stringifying the whole detail throws
-/// and takes that wallet's event down with it. It crosses as the handle, which
-/// is the only useful form of it anyway. A detail that still will not stringify
-/// is dropped rather than raised, for the same reason a malformed one is.
+/// The payload is half data and half object: the live EIP-1193 object goes in
+/// `detail.provider` and everything else in `detail`, so the handler takes both.
+/// An event carrying no provider is dropped, as is a detail that will not
+/// stringify — a wallet's provider object is often not serialisable at all.
 extern "js" fn _on_window_event(
   event : String,
   handler : (String, Ethereum) -> Unit,
@@ -65,13 +53,10 @@ extern "js" fn _on_window_event(
 
 ///|
 /// Subscribe `handler` to the window event `event`, parsing the detail back out
-/// of the string the boundary carries — the same split as `on` /
-/// `remove_listener`, so no package above this one has to know the wire is a
-/// string.
+/// of the string the boundary carries.
 ///
-/// A detail that is not valid JSON is dropped: the handler is not called. An
-/// event arrives outside any call the dapp made, so there is nowhere to raise
-/// to.
+/// A detail that is not valid JSON is dropped: the handler is not called, since
+/// an event arrives outside any call the dapp made.
 pub fn on_window_event(
   event~ : String,
   handler~ : (Json, Ethereum) -> Unit,

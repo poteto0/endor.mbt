@@ -1,13 +1,10 @@
 ///|
 /// Subscribe to an EIP-1193 event on the injected wallet.
 ///
-/// A payload that is not valid JSON is dropped at the boundary (see `@js.on`),
-/// and one that does not decode into the expected type is dropped by the typed
-/// helper: an event arrives outside any call the dapp made, so there is nowhere
-/// to raise to.
-///
-/// Wallets that expose no event API at all are handled the same way — nothing
-/// is registered, the handler never fires, and `unsubscribe` is still safe.
+/// A payload that is not valid JSON is dropped at the boundary, and one that
+/// does not decode is dropped by the typed helper: an event arrives outside any
+/// call the dapp made. A wallet with no event API registers nothing, and
+/// `unsubscribe` is still safe.
 ///
 /// ```
 /// fn watch(wallet : @browser.BrowserProvider) -> @provider.Subscription {

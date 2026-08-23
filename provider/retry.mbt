@@ -1,12 +1,10 @@
 ///|
 /// Run `call` again while it keeps failing in a way `is_retryable` says is
-/// worth another try, backing off between attempts.
-///
-/// The `Retry-After` preference below and the send-once list are not the
-/// policy's to override.
+/// worth another try, backing off between attempts. The `Retry-After` preference
+/// below and the send-once list are not the policy's to override.
 ///
 /// No jitter: several requests that hit the same `429` together come back
-/// together. That can wait until it is a problem someone has.
+/// together.
 #internal(internal, "the retry loop is not public API")
 #doc(hidden)
 pub async fn retry_loop(
@@ -21,13 +19,12 @@ pub async fn retry_loop(
 }
 
 ///|
-/// The loop itself, for a caller that has already settled idempotency some
-/// other way — a JSON-RPC batch does it by admission, keeping the send-once
-/// methods out of the window in the first place.
+/// The loop itself, for a caller that has already settled idempotency some other
+/// way — a JSON-RPC batch does it by admission.
 ///
 /// `label` names the thing being retried in a cancellation message and decides
-/// nothing. Splitting it off the method name is what keeps such a caller from
-/// having to invent a name that misses the send-once list.
+/// nothing. Splitting it off the method name keeps such a caller from inventing
+/// a name that misses the send-once list.
 #internal(internal, "the retry loop is not public API")
 #doc(hidden)
 pub async fn retry_loop_of(
@@ -71,14 +68,11 @@ pub async fn retry_loop_of(
 
 ///|
 /// The longest wait this loop sits through, in seconds. A node that asks for
-/// longer is not asking for a moment — it is saying the quota is spent — and
-/// the loop hands the failure back rather than either ignoring what it asked
-/// (coming back sooner is another `429`) or holding the caller's request for an
-/// hour. The `Retry-After` is on the error, so a caller who does want to wait
-/// that long can read it and decide for itself.
+/// longer is saying the quota is spent, so the loop hands the failure back; the
+/// `Retry-After` is on the error for a caller who does want to wait.
 ///
-/// A minute: past every backoff this loop runs, and short of the quota windows
-/// a hosted RPC hands out when the day's requests are spent.
+/// A minute: past every backoff this loop runs, and short of the quota windows a
+/// hosted RPC hands out.
 const MAX_RETRY_AFTER_S : Int = 60
 
 ///|
@@ -117,26 +111,12 @@ fn next_delay(strategy : @async.RetryMethod, delay : Int) -> Int {
 }
 
 ///|
-/// The methods that must be sent at most once, whatever the failure looked
-/// like: sending them twice is not the same as sending them once.
+/// The methods that must be sent at most once. A **deliberate difference from
+/// viem**: behind a wallet these are prompts, and a retry is a second dialog for
+/// a request the user may already have answered.
 ///
-/// A **deliberate difference from viem**, whose `shouldRetry` never looks at
-/// the method name. Behind a wallet these are prompts, and a retry is a second
-/// dialog in the user's face for a request they may already have answered.
-///
-/// `eth_sendRawTransaction` is deliberately **not** here: the transaction is
-/// already signed, so a resend is byte-identical and hashes the same, and the
-/// node drops the duplicate.
-///
-/// It reads a list of its own rather than sharing one with `needs_a_wallet` in
-/// `provider/http`, because the two ask opposite questions about the same
-/// names: a dev node with unlocked accounts really does serve
-/// `eth_sendTransaction`, which is why HTTP lets it through — and it is exactly
-/// the one that must not be sent twice.
-///
-/// The batch window in `provider/http` asks the same question for a second
-/// reason: a call that must be sent at most once must not ride in an array that
-/// a retry can resend whole.
+/// `eth_sendRawTransaction` is deliberately **not** here — a resend is
+/// byte-identical and the node drops the duplicate.
 #internal(internal, "the send-once list is not public API")
 #doc(hidden)
 pub fn is_not_idempotent(method_name : String) -> Bool {

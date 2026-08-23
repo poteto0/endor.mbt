@@ -2,10 +2,6 @@
 
 <https://endor.poteto-mahiro.com>, whose source is [`website/`](../website/).
 
-Kept here rather than as `website/README.md` because astra renders every markdown
-file it finds under the site root into a page, and its `exclude` list matches
-directories only — a README in there would be published as `/README/`.
-
 Rendered by [astra](https://mooncakes.io/docs/mizchi/astra), a static site
 generator written in MoonBit, and deployed to Cloudflare Workers static assets as
 the `endor-docs` worker.
@@ -183,3 +179,9 @@ work.
 
 The first deploy is therefore the one to watch: after it, `wrangler deployments
 list` and a plain `curl -I https://endor.poteto-mahiro.com` are enough.
+
+---
+
+Kept here rather than as `website/README.md` because astra renders every markdown
+file it finds under the site root into a page, and its `exclude` list matches
+directories only — a README in there would be published as `/README/`.

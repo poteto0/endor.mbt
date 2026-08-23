@@ -2,11 +2,9 @@
 /// Where a transaction is: still in the mempool, or in a block.
 ///
 /// A node reports `blockHash`, `blockNumber` and `transactionIndex` as `null`
-/// for a transaction it has accepted but not mined, and as values for one it
-/// has — the three are absent together and present together. An enum makes
-/// that the type's own rule rather than a convention three `Option`s hope the
-/// caller knows: a caller holding a `block_number` holds it because it matched
-/// `Mined`, and "pending" is a case to handle rather than a `None` to unwrap.
+/// until it is mined — the three are absent together and present together. An
+/// enum makes that the type's own rule rather than a convention three
+/// `Option`s hope the caller knows.
 pub(all) enum Inclusion {
   /// Broadcast and in the mempool, not in a block yet.
   Pending
@@ -25,23 +23,12 @@ pub impl Show for Inclusion with fn output(self, logger) {
 }
 
 ///|
-/// A transaction the chain already knows about, as
-/// `eth_getTransactionByHash` reports it: what was actually broadcast, from the
-/// moment it enters the mempool until long after it is mined.
+/// A transaction the chain already knows about, as `eth_getTransactionByHash`
+/// reports it — the state between a `TransactionRequest` and a
+/// `TransactionReceipt`. The only way to see the `nonce` the wallet chose.
 ///
-/// This is the state between a `TransactionRequest` (what was asked for) and a
-/// `TransactionReceipt` (what mining it cost). It is the only way to see what
-/// the wallet made of the request — it may raise the fees or fill in a `gas`
-/// the request left out — and the only way to learn the `nonce` it chose, which
-/// is what re-sending at a higher fee to speed up or cancel needs.
-///
-/// `inclusion` says whether it is still pending. `to` is absent exactly when
-/// the transaction is a deployment, and `input` is the creation code then.
-///
-/// Fields this SDK does not model are dropped rather than rejected, so a
-/// transaction of a type newer than this release still decodes: the signature
-/// (`v` / `r` / `s`, `yParity`), an access list, and EIP-4844's blob fields all
-/// read back through `@provider.request` if they are wanted.
+/// Fields this SDK does not model (the signature, an access list, blob fields)
+/// are dropped rather than rejected, so a newer type still decodes.
 pub(all) struct Transaction {
   hash : TxHash
   /// Whether it is still in the mempool, and where it landed if not.

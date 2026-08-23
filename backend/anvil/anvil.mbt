@@ -72,8 +72,7 @@ pub fn reject_account() -> @types.Address {
 
 ///|
 /// Creation code of a contract whose runtime always returns the 32-byte word
-/// `42`, so `call` / `estimate_gas` / `is_contract` run against real EVM code
-/// rather than a mock's answer.
+/// `42`, so `call` / `estimate_gas` / `is_contract` run against real EVM code.
 ///
 /// `600a600c600039600a6000f3` copies the 10 runtime bytes at offset 12 and
 /// returns them; the runtime `602a60005260206000f3` stores `0x2a` and returns
@@ -100,20 +99,11 @@ pub fn answer_contract_runtime() -> @types.Hex {
 
 ///|
 /// Deploy creation code from the unlocked dev account and answer with the
-/// address it was mined at.
+/// address it was mined at — `send_transaction` then `wait_for_receipt`, with no
+/// `to`. Generic over `Provider`, since deploying is a property of the chain.
 ///
-/// Both halves are the typed API — `send_transaction` then `wait_for_receipt`
-/// — with no `to`, since a transaction without a recipient deploys `data`.
-/// Generic over `Provider`, not tied to `BrowserProvider`: deploying a contract
-/// is a property of the chain, so a second backend (#19) reuses it as is.
-///
-/// Anvil automines, so the receipt is normally there on the first poll; the
-/// interval is short and the timeout small so a node that is not mining fails
-/// the test rather than holding the suite for a minute.
-///
-/// Shared by `deploy_answer_contract` and `deploy_selector_gate`: both are
-/// this same deploy-and-locate mechanism applied to different bytecode, so it
-/// is written once here rather than once per contract.
+/// Anvil automines, so the timeout is small: a node that is not mining fails the
+/// test rather than holding the suite.
 async fn[P : @provider.Provider] deploy_creation_code(
   provider : P,
   data : @types.Hex,
@@ -147,12 +137,9 @@ pub async fn[P : @provider.Provider] deploy_answer_contract(
 /// A contract that answers `42` for exactly one function selector and reverts
 /// for every other — the negative half `deploy_answer_contract` cannot give.
 ///
-/// The answer contract ignores its calldata, so a call reaching it proves the
-/// SDK produced *some* well-formed transaction; it cannot prove the SDK
-/// produced the *right* one. This one dispatches: the four bytes it was
-/// deployed for are the only four bytes it accepts, so a caller whose selector
-/// is wrong by one bit gets a revert from a real EVM rather than a passing
-/// test. That is what makes it worth deploying a contract to check a hash.
+/// The answer contract ignores its calldata, so it cannot prove the SDK produced
+/// the *right* transaction. This one dispatches, so a selector wrong by one bit
+/// gets a revert from a real EVM rather than a passing test.
 ///
 /// ```mbt check
 /// async test "doc: selector gate" {
@@ -221,11 +208,10 @@ pub async fn[P : @provider.Provider] deploy_reverter(
 ///|
 /// `CODECOPY(0, REVERTER_PROGRAM_BYTES, length)` followed by `RETURN(0, length)`
 /// or `REVERT(0, length)` — the twelve bytes both halves of the reverter are,
-/// since returning a contract's runtime and reverting with a reason are the same
-/// copy with a different last byte.
+/// since returning a runtime and reverting with a reason are the same copy with
+/// a different last byte.
 ///
-/// The offset it copies from is where this program ends, so it is written out of
-/// `REVERTER_PROGRAM_BYTES` rather than as another literal `0c`.
+/// The offset it copies from is where this program ends.
 fn copy_program(length~ : Int, ending_in~ : String) -> String {
   let n = push_byte(length)
   let at = push_byte(REVERTER_PROGRAM_BYTES)
@@ -245,12 +231,8 @@ const REVERTER_PROGRAM_BYTES = 12
 
 ///|
 /// The two halves of the selector gate's creation code, with the four selector
-/// bytes spliced between them.
-///
-/// The initcode is the same shape as the answer contract's — `CODECOPY` the
-/// runtime out of itself and return it — for a runtime of `0x1e` bytes at
-/// offset `0x0c`. The runtime is:
-///
+/// bytes spliced between them. The initcode `CODECOPY`s the runtime out of
+/// itself and returns it, as the answer contract's does. The runtime is:
 /// ```text
 /// 6000 35        CALLDATALOAD(0)      the first word of the calldata
 /// 60e0 1c        SHR(0xe0)            keep its top four bytes: the selector
@@ -262,9 +244,8 @@ const REVERTER_PROGRAM_BYTES = 12
 /// 602a 6000 52   MSTORE(0, 42)
 /// 6020 6000 f3   RETURN(0, 32)        one word holding 42
 /// ```
-/// Digits, not a `Hex`: neither half is a byte string on its own, and the
-/// selector goes between them. `Hex::from_digits` puts the `0x` back once the
-/// three are one.
+/// Digits, not a `Hex`: neither half is a byte string on its own, and
+/// `Hex::from_digits` puts the `0x` back once the three are one.
 const SELECTOR_GATE_INIT : String = "601e600c600039601e6000f360003560e01c63"
 
 ///|

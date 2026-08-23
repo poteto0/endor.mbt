@@ -3,9 +3,8 @@
 /// position may take rather than a single one: a node matches the log when the
 /// topic at that index is any of them.
 ///
-/// A position with no constraint at all is spelled `None` in the
-/// `Array[Topic?]` a filter carries, not by a `Topic` — which is why this type
-/// has no "anything" case.
+/// An unconstrained position is `None` in the filter's `Array[Topic?]`, which
+/// is why this type has no "anything" case.
 ///
 /// ```mbt check
 /// test "doc: topic alternatives" {
@@ -35,8 +34,7 @@ pub fn Topic::exactly(topic : Hex) -> Topic raise CodecError {
 
 ///|
 /// Match this position against any of `topics` — the OR a single topic cannot
-/// express, which is how one filter follows several events, or one event from
-/// several senders.
+/// express, which is how one filter follows several events.
 ///
 /// Raises on an empty list: a position that matches nothing is `None` in the
 /// filter's `topics`, and an empty set would silently mean the opposite.

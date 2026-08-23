@@ -9,13 +9,12 @@ priv struct Pending {
 }
 
 ///|
-/// The window itself. No background task and no lifecycle: `HttpProvider` is a
-/// value that `at()` hands back, and a resident flusher would make it a
-/// resource that has to be closed. The call that finds the window empty becomes
-/// the sender instead, and the rest wait on `flushed` for their own answer.
+/// The window itself. No background task and no lifecycle: a resident flusher
+/// would make `HttpProvider` a resource that has to be closed, so the call that
+/// finds the window empty becomes the sender and the rest wait on `flushed`.
 ///
 /// `filled` is the other direction: a call that fills the window to `max_size`
-/// wakes the sender early, so a burst does not sit out the whole `wait`.
+/// wakes the sender early.
 priv struct Window {
   policy : @provider.BatchPolicy
   pending : Array[Pending]
@@ -47,11 +46,9 @@ fn Window::drop(self : Window, slot : Pending) -> Unit {
 /// Put this call in the window and wait for the answer that comes back for its
 /// id.
 ///
-/// The loop is the whole cancellation story. Every pass asks three questions in
-/// order: is my answer here, is somebody sending, and — if not — am I now the
-/// sender. A sender that is cancelled while the window is still open hands the
-/// role back and broadcasts, so the next one awake picks it up; nothing in the
-/// window is stranded by the departure of the call that happened to be first.
+/// The loop is the whole cancellation story: is my answer here, is somebody
+/// sending, am I now the sender. A sender cancelled while the window is open
+/// hands the role back and broadcasts, so nothing is stranded.
 async fn[T : HttpTransport] HttpProvider::send_batched(
   self : HttpProvider[T],
   window : Window,

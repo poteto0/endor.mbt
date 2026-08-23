@@ -3,10 +3,8 @@
 /// banner and the exit code — driven against scratch directories on a real
 /// filesystem.
 ///
-/// It runs against the repository's own `fixtures/abi/erc20.abi` rather than
-/// an inlined copy: the file the generator is pointed at in anger is a file on
-/// disk, with whatever whitespace and ordering a compiler gave it, and reading
-/// it here is what keeps the fixture and the tool from drifting apart.
+/// It runs against `fixtures/abi/erc20.abi` rather than an inlined copy, which
+/// is what keeps the fixture and the tool from drifting apart.
 
 ///|
 /// `moon test` runs with the module root as its working directory, so the

@@ -81,20 +81,9 @@ pub fn ChainId::to_hex(self : ChainId) -> String {
 /// Parse a [CAIP-2](https://chainagnostic.org/CAIPs/caip-2) chain identifier —
 /// `"eip155:8453"`, the spelling x402 writes its `network` field in.
 ///
-/// Which chain family a CAIP-2 string names is not inferred from the number:
-/// the namespace is written out in front of it, so this accepts `eip155:` and
-/// nothing else. A well-formed identifier in another namespace (`solana:…`) is
-/// `InvalidValue` — the form is fine, it just names a chain this type cannot
-/// hold — and so is a reference that is not a plain decimal number.
-///
-/// The reference must be spelled the one way `to_caip2` spells it, which is
-/// checked by comparing against that spelling: `@string.parse_uint64` on its
-/// own also reads `"007"` and `"+7"` as 7, and accepting those would make the
-/// round trip a thing that only usually holds.
-///
-/// This is the second of `ChainId`'s two wire spellings: `from_hex` / `to_hex`
-/// are the `0x`-prefixed quantity JSON-RPC carries (`eth_chainId`),
-/// `from_caip2` / `to_caip2` the CAIP-2 string.
+/// The namespace is written out, so this accepts `eip155:` and nothing else; a
+/// well-formed `solana:…` is `InvalidValue`. The reference must be spelled the
+/// one way `to_caip2` spells it, so that the round trip always holds.
 ///
 /// ```mbt check
 /// test "doc: chain id from caip-2" {

@@ -2,10 +2,8 @@
 /// A mined EIP-1559 transfer as a node reports it. Tests below edit a copy, so
 /// what each of them is about is the field it changed.
 ///
-/// It carries `gasPrice` next to the dynamic-fee pair because that is what a
-/// node answers with — the price the transaction ended up paying — and the
-/// keys this SDK models nothing for (`v` / `r` / `s`, `accessList`) because
-/// they are what tolerating an unknown field has to mean.
+/// It carries `gasPrice` next to the dynamic-fee pair, and keys this SDK models
+/// nothing for, because that is what a node actually answers with.
 fn a_transaction_json() -> Map[String, Json] {
   {
     "hash": A_HASH.to_json(),

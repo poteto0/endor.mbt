@@ -44,12 +44,10 @@ pub fn digits_of_bytes(bytes : Bytes) -> String {
 ///|
 /// The bytes an even-length run of hex digits spells. Total for the same reason
 /// `nibble` is: a trailing half byte is dropped rather than raising, because
-/// every caller either holds a validated `@types.Hex` or slices whole words out
-/// of one.
+/// every caller holds a validated `@types.Hex` or a whole word out of one.
 ///
-/// Takes a view so a caller that holds the digits inside a longer string — a
-/// `@types.Hex` holds them after its `0x` — can hand over the part it means
-/// without copying it out first.
+/// Takes a view, so a caller holding the digits inside a longer string can hand
+/// over the part it means without copying it out.
 pub fn bytes_of_digits(digits : StringView) -> Bytes {
   Bytes::makei(digits.length() / 2, i => {
     let high = nibble_of_code(digits.unsafe_get(i * 2).to_int())
@@ -103,10 +101,8 @@ fn scan_digits(s : StringView, lower_only~ : Bool) -> Bool {
 
 ///|
 /// The digits of a `0x`-prefixed hex value, or `None` when the string is not
-/// one: the prefix and the alphabet are the wire's spelling rules, so every
-/// layer that parses hex — `@types.Hex` and `Address`, a quantity, an EIP-712
-/// document's wide integers — asks the same question here and raises whichever
-/// error is its own.
+/// one. The prefix and the alphabet are the wire's spelling rules, so every
+/// layer that parses hex asks the same question here and raises its own error.
 pub fn hex_body(s : String) -> String? {
   guard s.has_prefix("0x") else { return None }
   let body = s[2:]

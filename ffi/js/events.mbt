@@ -2,10 +2,8 @@
 /// Opaque handle to a listener registered with `eth.on(...)`.
 ///
 /// EIP-1193 providers follow the Node `EventEmitter` contract, where
-/// `removeListener` matches on the *identity* of the function that was
-/// registered. The wrapper closure `on` installs is therefore not discardable:
-/// it is handed back as this handle so `remove_listener` can pass the very same
-/// JS function reference.
+/// `removeListener` matches on the *identity* of the registered function, so the
+/// wrapper closure `on` installs is handed back here for `remove_listener`.
 #external
 pub type Listener
 
@@ -24,16 +22,10 @@ pub fn has_events(eth : Ethereum) -> Bool {
 ///|
 /// Register `handler` for `event` and return the handle identifying it.
 ///
-/// The payload crosses the boundary as a JSON string, the way `request`'s
-/// answer does, so nothing but strings and numbers has to survive it: the
-/// wrapper `JSON.stringify`s whatever the wallet emitted, mapping the
-/// `undefined` an argument-less event carries onto `null`. Unlike `request` it
-/// carries no `{ok}` / `{err}` envelope, because an event has no error channel
-/// to encode.
-///
-/// A wallet with no event API is not an error here — the handle comes back
-/// unregistered and `remove_listener` is a no-op on it, which keeps
-/// unsubscribing safe on every wallet.
+/// The payload crosses as a JSON string, the way `request`'s answer does, with
+/// the `undefined` of an argument-less event mapped onto `null`. There is no
+/// `{ok}` / `{err}` envelope, since an event has no error channel. A wallet with
+/// no event API is not an error: the handle comes back unregistered.
 extern "js" fn _on(
   eth : Ethereum,
   event : String,
@@ -50,12 +42,11 @@ extern "js" fn _on(
 
 ///|
 /// Subscribe `handler` to `event`, parsing the payload back out of the string
-/// the boundary carries — the same split as `request` / `decode_envelope`, so
-/// no package above this one has to know the wire is a string.
+/// the boundary carries, so no package above has to know the wire is a string.
 ///
-/// A payload that is not valid JSON is dropped: the handler is not called. An
-/// event arrives outside any call the dapp made, so there is nowhere to raise
-/// to, and a wallet emitting nonsense must not take the page down.
+/// A payload that is not valid JSON is dropped: an event arrives outside any
+/// call the dapp made, and a wallet emitting nonsense must not take the page
+/// down.
 pub fn on(
   eth : Ethereum,
   event~ : String,

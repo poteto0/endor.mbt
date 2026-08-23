@@ -3,12 +3,8 @@
 /// its base fee, how full each was, and — when percentiles were asked for —
 /// what the transactions in it actually tipped.
 ///
-/// This is a value read back off the wire and built by `from_json` alone, so
-/// its fields are the answer rather than accessors in front of one.
-///
-/// The three arrays are aligned and oldest first, `oldest_block` naming the
-/// height of their first element — with one exception, stated on the field:
-/// `base_fee_per_gas` is one longer than the others.
+/// The three arrays are aligned and oldest first, `oldest_block` naming their
+/// first element's height; `base_fee_per_gas` is one longer than the others.
 pub(all) struct FeeHistory {
   /// The height of the oldest block in the range.
   oldest_block : UInt64

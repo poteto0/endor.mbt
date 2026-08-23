@@ -21,34 +21,12 @@ pub(all) struct Generated {
 }
 
 ///|
-/// Render a contract preset from an ABI document.
+/// Render a contract preset from an ABI document — the shape `@erc20.Erc20` is
+/// hand-written in, produced mechanically. **Experimental.**
 ///
-/// **Experimental.** What comes out is a `pub struct <name>` wrapping a
-/// `@contract.Contract`, a `<name>::new(address)`, and one method per ABI
-/// function — reads through `Contract::call` with the answer decoded, writes
-/// through `Contract::send` — plus a topic getter per event. It is the shape
-/// `@erc20.Erc20` is hand-written in, produced mechanically.
-///
-/// It generates only what it can type unambiguously: parameters and single
-/// return values of `address`, `bool`, `string`, `uintN` and `intN`. A member
-/// using anything else — `bytes`, `bytesN`, arrays, tuples, several return
-/// values — is **skipped**, not approximated: emitting a plausible-looking
-/// wrong signature would be worse than emitting nothing, and
-/// `@contract.Contract::call` still reaches it by hand. Events are exempt,
-/// since a topic needs only the signature. `fallback` and `receive` are
-/// dropped, since nothing generated dispatches to them.
-///
-/// Whatever `error`s the document declares become a `<name>::errors()`, which
-/// `new` hands to the `Contract` — so a reverting call comes back as a
-/// `CustomError` with its name and arguments rather than as a selector. Those
-/// carry every ABI type, since nothing is passed *to* an error.
-///
-/// `document` is either the JSON array of ABI members or a compiler
-/// **artifact** holding one — `solc --combined-json abi,bin`, solc's standard
-/// JSON, a Foundry or Hardhat artifact. An artifact also carries the creation
-/// code, and then two more things are generated: a `creation_code()` and a
-/// `deploy` over `@contract.deploy`, which takes the constructor's arguments
-/// and answers with the contract it created.
+/// Only what it can type unambiguously (`address`, `bool`, `string`, `uintN`,
+/// `intN`) is generated; anything else is **skipped**, not approximated. An
+/// artifact carrying creation code also gets a `creation_code()` and a `deploy`.
 ///
 /// ```
 /// let out = @codegen.generate("Erc20", abi_json)

@@ -23,20 +23,10 @@ pub(all) struct Config {
 ///|
 /// The `endor.yaml` `endor-cli init` writes.
 ///
-/// It lives beside the reader rather than in `init.mbt` because a default
-/// config the reader would reject is the one bug neither file can catch on its
-/// own — and this project has already shipped one, in the sample the `abi`
-/// usage text printed. `config_wbtest.mbt` parses this constant and checks it
-/// comes back as the values it names.
-///
-/// The comments are the point of writing a file at all rather than telling
-/// someone the four lines: what `in` and `out` mean is what a caller opening
-/// this for the first time needs, and it is two words each.
-///
-/// The version is the CLI's own, so the file a binary writes says which binary
-/// wrote it. Nothing acts on it — the generator emits source against whatever
-/// `poteto0/endor` the consuming module resolves — but it is what makes a
-/// checked-in `endor.yaml` say when it was last regenerated from.
+/// It lives beside the reader because a default config the reader would reject
+/// is the one bug neither file catches alone; `config_wbtest.mbt` parses this
+/// constant. The comments are the point of writing a file at all. The version
+/// is the CLI's own, so the file says which binary wrote it.
 fn default_config() -> String {
   (
     $|version: v\{VERSION}
@@ -69,17 +59,10 @@ pub impl Show for ConfigError with fn output(self, logger) {
 ///|
 /// Read an `endor.yaml`.
 ///
-/// This is **not** a YAML parser and is not meant to grow into one: it reads
-/// the fixed two-level shape above — top-level `key: value`, and one level of
-/// two-space-indented keys under a section — and nothing else. Flow
-/// collections, anchors, multi-line scalars and lists are all unsupported, and
-/// a document using them is rejected rather than half-understood. Unknown keys
-/// are ignored, so a newer `endor.yaml` still works with an older CLI.
-///
-/// Comments are understood wherever YAML puts them, on their own line and
-/// after a value, because a config file people are meant to edit by hand is a
-/// config file people annotate — and a `#` swallowed into a path fails much
-/// later, as a directory that is not there, naming a string nobody typed.
+/// **Not** a YAML parser: it reads the fixed two-level shape above and nothing
+/// else, rejecting flow collections, anchors and lists rather than
+/// half-understanding them. Unknown keys are ignored. Comments are understood
+/// wherever YAML puts them, since a hand-edited config is one people annotate.
 ///
 /// ```
 /// let config = parse_config("abi:\n  in: ./abi\n  out: ./gen\n")
@@ -133,21 +116,12 @@ pub fn parse_config(text : String) -> Config raise ConfigError {
 }
 
 ///|
-/// What a `key:` is actually worth: the scalar, with its quotes and its
-/// trailing comment gone.
+/// What a `key:` is actually worth: the scalar, with its quotes and its trailing
+/// comment gone.
 ///
-/// Both in one pass, because they are one question. Where the quote ends is
-/// where the comment may begin — `"./a # b"` is a path and `"./a" # b` is a
-/// path with a comment after it — so finding the closing quote twice, once to
-/// know what to strip and once to know what to unwrap, is finding out the same
-/// thing twice.
-///
-/// The `#` has to be preceded by a space to open a comment, which is what
-/// keeps `./abi#2` whole. YAML draws the same line, and a directory with a `#`
-/// in its name is likelier than a caller who wanted an empty value. An
-/// unterminated quote is left exactly as written: it is not a scalar this
-/// reader understands, and the caller seeing back what they typed is the
-/// clearest thing it can do about that.
+/// Both in one pass, because where the quote ends is where the comment may
+/// begin. The `#` has to be preceded by a space to open one, which keeps
+/// `./abi#2` whole; an unterminated quote is left exactly as written.
 fn scalar(value : String) -> String {
   guard value.has_prefix("\"") || value.has_prefix("'") else {
     return match value.find(" #") {

@@ -1,18 +1,10 @@
 ///|
 /// How a transaction offers to pay for its gas.
 ///
-/// The two fee markets are mutually exclusive on the wire: geth rejects a
-/// request carrying both `gasPrice` and `maxFeePerGas` / `maxPriorityFeePerGas`
-/// with *"both gasPrice and (maxFeePerGas or maxPriorityFeePerGas)
-/// specified"*, so this is an enum rather than three optional fields — the
-/// invalid combination cannot be spelled.
-///
-/// `Auto` is what a dapp normally wants: it sends no fee field at all and lets
-/// the wallet fill them in. Since London, geth defaults such a request to an
-/// EIP-1559 (dynamic-fee, type-`0x02`) transaction — `maxPriorityFeePerGas`
-/// from its own tip oracle and `maxFeePerGas` from `2 * baseFee + tip` — and
-/// only falls back to a legacy transaction when `gasPrice` is given. `Legacy`
-/// therefore means "opt out of EIP-1559", not "the default".
+/// The two fee markets are mutually exclusive on the wire — geth rejects a
+/// request carrying both — so this is an enum rather than three optional
+/// fields. `Auto` sends no fee field and lets the wallet decide, which since
+/// London means EIP-1559; `Legacy` means "opt out of it", not "the default".
 pub(all) enum Fee {
   /// Send no fee field; the wallet decides (EIP-1559 on a London chain).
   Auto
@@ -32,15 +24,11 @@ pub impl Show for Fee with fn output(self, logger) {
 
 ///|
 /// Read a fee back off the wire, out of the fields of a transaction a node
-/// reported. The mirror of `TransactionRequest::to_json`'s fee arm, and here
-/// beside it so the two directions of the same rule stay together.
+/// reported. The mirror of `TransactionRequest::to_json`'s fee arm.
 ///
-/// A dynamic-fee transaction is reported with `gasPrice` *as well* — the price
-/// it ended up paying — so the EIP-1559 pair is what decides, and `gasPrice`
-/// alone is what makes it legacy. A transaction of a type that prices gas some
-/// other way falls through to `Auto`, which reads here as "the node named no
-/// fee field this release knows": the point of the fall-through is that a
-/// future type still decodes.
+/// A dynamic-fee transaction is reported with `gasPrice` *as well*, so the
+/// EIP-1559 pair is what decides. A type that prices gas some other way falls
+/// through to `Auto`, so that a future type still decodes.
 fn Fee::from_fields(fields : Map[String, Json]) -> Fee raise CodecError {
   match
     (
@@ -57,15 +45,11 @@ fn Fee::from_fields(fields : Map[String, Json]) -> Fee raise CodecError {
 
 ///|
 /// A transaction to be signed and broadcast: what `eth_sendTransaction` takes.
-/// Unlike a `CallRequest`, this one costs the user money and prompts the
-/// wallet, so `from` — the account that will sign — is required and comes
-/// first.
+/// Unlike a `CallRequest` it costs the user money and prompts the wallet, so
+/// `from` — the account that will sign — is required and comes first.
 ///
-/// `to` is optional because a transaction without one *deploys* the contract
-/// whose creation code is `data`. Everything the wallet can work out for
-/// itself is left absent: an absent `nonce` lets the wallet order the
-/// transaction, an absent `gas` makes it estimate, and an absent fee (`Auto`)
-/// lets it price the transaction.
+/// `to` is optional because a transaction without one *deploys* `data`.
+/// Everything the wallet can work out for itself is left absent.
 ///
 /// ```
 /// let req = @types.TransactionRequest::new(

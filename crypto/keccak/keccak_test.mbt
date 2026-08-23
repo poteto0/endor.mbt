@@ -48,8 +48,8 @@ test "hashes non-ascii text" {
 
 ///|
 /// Real ERC-20 selectors — `keccak256(signature)[0..4]`. These are the values a
-/// contract layer will put at the head of `data`, so they double as a check
-/// that the digest is usable for #18.
+/// contract layer puts at the head of `data`, so they double as a check that the
+/// digest is usable.
 test "derives erc-20 function selectors" {
   inspect(
     @keccak.keccak256_string("transfer(address,uint256)")[0:4],

@@ -67,17 +67,9 @@ pub fn snake_case(name : String) -> String {
 /// Whether a string is a Solidity identifier: what a member's `name` is allowed
 /// to be, and therefore what may be written into generated source verbatim.
 ///
-/// This is not the same question as `is_value_ident`, and the difference is the
-/// whole point. `snake_case` maps every character it does not recognise to `_`,
-/// so a name full of quotes and newlines comes out of it as a perfectly good
-/// MoonBit identifier — while the *original* name is what a generated method
-/// carries in `name="…"`, in `what="…"` and in its doc comment. Checking only
-/// the transformed name would let the untransformed one close the string
-/// literal and keep writing, in a file the caller then compiles.
-///
-/// So the bytes that reach the source text are checked, not the bytes derived
-/// from them. `$` is in here because Solidity allows it in an identifier; it is
-/// inert in MoonBit source, which has no `$`-interpolation.
+/// Not the same question as `is_value_ident`: `snake_case` maps unknown
+/// characters to `_`, so the bytes that reach the source text are what is
+/// checked, not the bytes derived from them. `$` is inert in MoonBit source.
 fn is_abi_ident(name : String) -> Bool {
   @codec.is_solidity_ident(name)
 }
@@ -119,11 +111,10 @@ let keywords : Set[String] = Set::Set(
 ///|
 /// The same name, moved out of the way of everything already in scope.
 ///
-/// A generated parameter competes with MoonBit's keywords and with the names
-/// the template itself binds (`self`, `provider`, and `from` / `value` on a
-/// sending function), so a Solidity `transferFrom(address from, …)` has to
-/// spell its first parameter something else. Suffixing `_` is the change that
-/// stays closest to what the ABI said.
+/// A generated parameter competes with MoonBit's keywords and with what the
+/// template binds (`self`, `provider`, `from`, `value`), so Solidity's
+/// `transferFrom(address from, …)` has to spell its first parameter something
+/// else. Suffixing `_` stays closest to what the ABI said.
 fn dodge(name : String, taken : Set[String]) -> String {
   let mut out = name
   while taken.contains(out) || keywords.contains(out) {

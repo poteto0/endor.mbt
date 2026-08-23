@@ -3,8 +3,7 @@
 /// `status` field reports it.
 ///
 /// A reverted transaction is still mined and still charged for its gas, so a
-/// receipt existing says nothing about the transaction having done what it was
-/// sent to do — this field does.
+/// receipt existing says nothing about the transaction having worked.
 pub(all) enum ReceiptStatus {
   /// `0x1` — the transaction executed to completion.
   Success
@@ -20,15 +19,10 @@ pub impl Show for ReceiptStatus with fn output(self, logger) {
 ///|
 /// What a node knows about a transaction once it is mined
 /// (`eth_getTransactionReceipt`): where it landed, what it cost, whether it
-/// succeeded, and what it emitted.
-///
-/// A receipt exists only for a mined transaction, which is why
-/// `@provider.transaction_receipt` answers with `TransactionReceipt?` and
-/// `@provider.wait_for_receipt` polls for one.
+/// succeeded, and what it emitted. Only a mined transaction has one.
 ///
 /// `to` is absent exactly when the transaction was a deployment, and
-/// `contract_address` is present exactly then — the address the code now lives
-/// at.
+/// `contract_address` is present exactly then.
 pub(all) struct TransactionReceipt {
   transaction_hash : TxHash
   /// The transaction's position in its block.

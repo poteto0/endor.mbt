@@ -13,8 +13,7 @@ pub(all) suberror JsError {
 
 ///|
 /// Render through the derived `Debug` representation, so the variant list stays
-/// the single source of truth for how errors print. It had none at all until
-/// #113, while `browser_provider.mbt` interpolated one into a message.
+/// the single source of truth for how errors print.
 pub impl Show for JsError with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }

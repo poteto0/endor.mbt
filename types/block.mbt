@@ -2,13 +2,8 @@
 /// A block header as `eth_getBlockByNumber` / `eth_getBlockByHash` report it,
 /// with the hashes of the transactions it contains.
 ///
-/// `number` and `hash` are absent for the *pending* block: it has not been
-/// sealed, so it has neither yet. Every other field is what the node currently
-/// proposes for it.
-///
-/// The SDK asks for hashes rather than full transaction objects, so
-/// `transactions` is a list of `TxHash` — the handle each transaction's receipt
-/// is fetched with.
+/// `number` and `hash` are absent for the *pending* block. The SDK asks for
+/// hashes rather than full transaction objects, so `transactions` is `TxHash`.
 pub(all) struct Block {
   /// The block's height — absent while it is still pending.
   number : UInt64?

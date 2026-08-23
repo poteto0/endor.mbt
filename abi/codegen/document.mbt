@@ -81,15 +81,12 @@ priv struct Document {
 }
 
 ///|
-/// Read a document: either the JSON array of ABI members a compiler emits, or
-/// a compiler *artifact*, which carries that array plus the creation code. The
-/// array describes a contract already deployed; the artifact also says how to
-/// deploy one.
+/// Read a document: either the JSON array of ABI members a compiler emits, or a
+/// compiler *artifact*, which carries that array plus the creation code.
 ///
-/// A malformed member stops the whole document. The line this package draws
-/// throughout: what the ABI spec does not allow raises, because nothing in the
-/// file can be trusted; what this generator declines to translate goes in
-/// `skipped`.
+/// A malformed member stops the whole document — what the ABI spec does not
+/// allow raises, because nothing in the file can be trusted; what this generator
+/// declines to translate goes in `skipped`.
 fn Document::parse(source : String) -> Document raise CodegenError {
   let json = @json.parse(source) catch {
     e => raise InvalidJson("not JSON: \{e}")
@@ -151,13 +148,11 @@ fn read_artifact(
 
 ///|
 /// The one contract an artifact describes: its `abi`, and the object it was
-/// found in, which is also where the creation code is. Both come back because
-/// `abi` is what identifies a contract among these shapes.
+/// found in, which is also where the creation code is.
 ///
-/// A per-contract artifact *is* that object; `--combined-json` and standard
-/// JSON wrap them in `contracts`. Several contracts raise rather than picking
-/// one — the caller named the struct, so choosing which contract gets that
-/// name would be guessing at the one thing this was told.
+/// A per-contract artifact *is* that object; `--combined-json` wraps them in
+/// `contracts`. Several contracts raise rather than picking one — the caller
+/// named the struct, so choosing which contract gets that name would be guessing.
 fn single_contract(
   fields : Map[String, Json],
 ) -> (Json, Map[String, Json]) raise CodegenError {
@@ -221,13 +216,11 @@ fn read_members(abi : Json) -> Array[Json] raise CodegenError {
 }
 
 ///|
-/// The creation code out of an artifact, validated as something a generated
-/// file can put on the wire — here rather than at run time in the caller's
-/// generated code.
+/// The creation code out of an artifact, validated as something a generated file
+/// can put on the wire — here rather than at run time in the caller's code.
 ///
-/// Validated by `Hex::from_string` itself, which is where the prefix, the
-/// alphabet and the even length are stated. What is embedded is the `Hex` that
-/// came back, normal form and all, not the digits that went in.
+/// `Hex::from_string` is where the prefix, the alphabet and the even length are
+/// stated. What is embedded is the `Hex` that came back, normal form and all.
 fn read_creation_code(
   contract : Map[String, Json],
 ) -> CreationCode raise CodegenError {
@@ -381,13 +374,9 @@ fn read_error(
 /// A member's `name`. Not optional: anything without one is dropped before it
 /// gets here, so a nameless function or event is a truncated document.
 ///
-/// A name that is not a Solidity identifier is refused at the door, because
-/// the name is the one thing out of an ABI written into source text verbatim —
-/// one holding a quote would close the string literal and keep writing. It
-/// raises rather than skipping: a document containing such a member was not
-/// written by a compiler. A name that is a Solidity identifier but not a
-/// MoonBit one (`match`, `type`) is this generator's own limit, and is skipped
-/// in `function_block`.
+/// A name that is not a Solidity identifier is refused rather than skipped — it
+/// is written into source text verbatim, and a document holding one was not
+/// written by a compiler. A MoonBit keyword is skipped in `function_block`.
 fn read_name(
   fields : Map[String, Json],
   at~ : Int,

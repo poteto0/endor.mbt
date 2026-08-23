@@ -32,16 +32,11 @@ pub using @types {
 }
 
 ///|
-/// The two errors a dapp catches first. They are raised a package down —
-/// `@provider` speaks to the wallet and the node, `@contract` reads what a
-/// contract answered — but a caller should not have to import a package to
-/// name what it just caught, so the public error surface is all four of
-/// `@endor.CodecError`, `@endor.AbiError`, `@endor.ProviderError` and
-/// `@endor.ContractError`.
-///
-/// `JsError` (the FFI boundary) and `CodegenError` / `ConfigError` (the CLI)
-/// stay where they are: nothing above them raises them, and nothing outside
-/// them can catch them.
+/// The two errors a dapp catches first. They are raised a package down, but a
+/// caller should not have to import a package to name what it just caught, so
+/// the public error surface is `CodecError`, `AbiError`, `ProviderError` and
+/// `ContractError`. `JsError` and `CodegenError` / `ConfigError` stay where they
+/// are: nothing outside them can catch them.
 pub using @provider {type ProviderError}
 
 ///|

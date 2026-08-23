@@ -4,8 +4,7 @@
 ///
 /// Nothing in the data says what it is, so the types are what makes it
 /// readable. Data that does not fit them raises `InvalidData` rather than
-/// answering with a truncated or invented value: a contract whose ABI says one
-/// thing and whose answer says another is a mismatch worth hearing about.
+/// answering with a truncated or invented value.
 ///
 /// ```
 /// let values = @abi.decode(

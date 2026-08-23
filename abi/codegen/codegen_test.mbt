@@ -828,17 +828,10 @@ test "generate: a member MoonBit has no name for is skipped" {
 
 ///|
 /// The name is the one thing out of an ABI that reaches the generated file
-/// unchanged, so it is the one thing that can write the file. `snake_case`
-/// turns every character it does not know into `_`, which means a name built
-/// out of quotes and newlines passes an identifier check on its *transformed*
-/// spelling while its original bytes go into `name="…"` verbatim — closing the
-/// string literal and continuing as MoonBit code the caller then compiles.
-///
-/// An ABI is a document that arrives from elsewhere: pasted out of a block
-/// explorer, pulled from a registry, vendored by a dependency. So this is
-/// refused at the point the name is read, and refused for the whole document:
-/// a member named like this was not emitted by a compiler, and nothing else in
-/// the file is more trustworthy than it is.
+/// unchanged, so it is the one thing that can write the file: `snake_case` turns
+/// unknown characters into `_`, so a name of quotes and newlines passes an
+/// identifier check on its transformed spelling while its original bytes go
+/// into `name="…"` verbatim. Refused at the door, and for the whole document.
 test "read: a name that could write the generated file is refused" {
   let cases = [
     (
@@ -1074,14 +1067,11 @@ test "generate: a skipped member is in neither the code nor the members" {
 
 ///|
 /// The `AbiType` literals the generator emits are written out by hand in
-/// `scalar`, not taken from `AbiType`'s derived `Debug`. That is deliberate —
-/// emitted source must not depend on a debug format nothing pins — but it
-/// leaves a promise the table makes silently: that what it spells is what the
-/// type actually is.
+/// `scalar` rather than taken from the derived `Debug` — emitted source must not
+/// depend on a debug format nothing pins.
 ///
-/// So the promise is asserted here. If the table and the type ever disagree,
-/// the generated file names an `AbiType` that does not exist and fails to
-/// compile; this fails first, and says which spelling drifted.
+/// That leaves the table promising silently that what it spells is what the type
+/// is, so the promise is asserted here, where it says which spelling drifted.
 test "generate: the type a call declares is the type the ABI said" {
   let out = @codegen.generate(
     "Widths",
@@ -1107,10 +1097,8 @@ test "generate: the type a call declares is the type the ABI said" {
 /// A compiler artifact — the ABI *and* the creation code compiled from the same
 /// source — as Foundry writes one.
 ///
-/// The bytecode is real, and small enough to read: it is the creation code
-/// `backend/anvil` deploys as its answer contract. `e2e/codegen_test.mbt`
-/// deploys these same bytes to a real EVM, which is the half no comparison of
-/// source text can make.
+/// The bytecode is the creation code `backend/anvil` deploys as its answer
+/// contract. `e2e/codegen_test.mbt` deploys these same bytes to a real EVM.
 let counter_artifact : String =
   #|{
   #|  "abi": [
@@ -1135,7 +1123,7 @@ let counter_artifact : String =
 ///|
 /// The creation code an artifact carries is embedded as the bytes themselves,
 /// so the generated `creation_code()` calls the total `Hex::from_bytes` and can
-/// neither `abort` nor `raise` (#113).
+/// neither `abort` nor `raise`.
 test "generate: an artifact's creation code is embedded" {
   let out = @codegen.generate("Counter", counter_artifact)
   assert_true(out.deploys)

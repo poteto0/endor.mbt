@@ -2,10 +2,9 @@
 /// The "switch chains" demo.
 ///
 /// One call per button. `switch_or_add_chain` sends
-/// `wallet_switchEthereumChain`, and when the wallet answers 4902 — it does not
-/// know that chain — adds it from the same `ChainParams` and switches again.
-/// That fallback is the part every dapp otherwise writes by hand, and there is
-/// no 4902 handling anywhere in this file.
+/// `wallet_switchEthereumChain`, and on a 4902 adds the chain from the same
+/// `ChainParams` and switches again — the fallback every dapp otherwise writes
+/// by hand, and there is no 4902 handling anywhere in this file.
 using @element {div, type DomNode}
 
 ///|

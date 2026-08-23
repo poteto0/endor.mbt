@@ -19,18 +19,6 @@ As with [Transfer without gas](../gasless-transfer/), what is signed is an
 EIP-712 document — so this is [Sign a message](../sign/) with the document fixed
 by the standard rather than written by you.
 
-<div class="alert alert--note" role="note">
-  <div class="alert__title">No demo on this page</div>
-  <div class="alert__description">
-
-The other half needs a *spender* — a contract that takes the signature and calls
-`permit` before pulling the tokens — and this site has none to point at. The
-SDK's side of that is `@stablecoin.Stablecoin::permit`: [Move a
-stablecoin](../stablecoin/).
-
-  </div>
-</div>
-
 ## The two things only the token can tell you
 
 `eips/eip2612` builds documents and calls no contract. But unlike EIP-3009, a
@@ -176,3 +164,15 @@ They are not interchangeable:
 Reach for permit when a contract needs to pull tokens as part of doing something
 else. Reach for EIP-3009 when the transfer *is* the point and the holder has no
 ether to send it with.
+
+<div class="alert alert--note" role="note">
+  <div class="alert__title">No demo on this page</div>
+  <div class="alert__description">
+
+The other half needs a *spender* — a contract that takes the signature and calls
+`permit` before pulling the tokens — and this site has none to point at. The
+SDK's side of that is `@stablecoin.Stablecoin::permit`: [Move a
+stablecoin](../stablecoin/).
+
+  </div>
+</div>

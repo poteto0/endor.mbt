@@ -32,10 +32,8 @@ pub impl Show for ErrorDef with fn output(self, logger) {
 /// function selector is — an error and a function are the same signature hashed
 /// the same way.
 ///
-/// `None` when the declared types cannot be spelled at all (a `uint7`), because
-/// such a definition matches no revert any contract can produce: the answer is
-/// the absence of a selector rather than an error, so one bad entry in a list of
-/// definitions cannot stop the rest from being tried.
+/// `None` when the declared types cannot be spelled at all, so one bad entry in
+/// a list of definitions cannot stop the rest from being tried.
 pub fn ErrorDef::selector(self : ErrorDef) -> @types.Hex? {
   let signature = @abi.signature(name=self.name, inputs=self.inputs) catch {
     _ => return None
@@ -47,15 +45,9 @@ pub fn ErrorDef::selector(self : ErrorDef) -> @types.Hex? {
 /// Read the revert out of a failed call: the same error, with what the contract
 /// said decoded when it can be.
 ///
-/// Everything that is not a revert — a rejected prompt, a disconnected wallet,
-/// a node that answered nonsense — comes back as `Rpc` untouched, so this only
-/// ever *adds* to what the caller already gets. So does a revert whose data
-/// says nothing readable: `require(cond)` with no message reverts with no data
-/// at all, and there is nothing to decode.
-///
-/// `errors` is the contract's own `error` declarations. Without them a custom
-/// error still comes back as `CustomError`, holding the selector and the raw
-/// data — that much is in the revert itself — but its arguments stay encoded.
+/// Anything that is not a revert comes back as `Rpc` untouched, and so does a
+/// revert with no data. `errors` is the contract's own declarations; without
+/// them a custom error still comes back, but its arguments stay encoded.
 ///
 /// ```mbt check
 /// test "doc: decode a revert" {

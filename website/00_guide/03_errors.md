@@ -109,7 +109,7 @@ async fn every_branch(wallet : @browser.BrowserProvider) -> Unit {
 }
 ```
 
-The last five are the ones added in 0.6 (#113). Before them every one of these
+The last five are the ones added in 0.6. Before them every one of these
 was the same `Rpc(code=-32603, …)`, which meant "the node had an internal
 error" even when no request had left the process — so telling a typo in a URL
 apart from a node that was down meant matching on the message string.

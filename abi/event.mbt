@@ -2,11 +2,9 @@
 /// One parameter of an event, as its ABI declares it: the type, and whether
 /// Solidity's `indexed` put it in the log's `topics` instead of its `data`.
 ///
-/// A function's parameters need no such flag — they are all encoded, in order,
-/// into one block. An event's are split across two places by the very
-/// declaration that names them, and nothing on the wire says which half a value
-/// came from, so the flag has to travel with the type for a log to be readable
-/// at all. That is the whole reason this exists next to `AbiType`.
+/// An event's parameters are split across two places by the declaration that
+/// names them, and nothing on the wire says which half a value came from, so
+/// the flag has to travel with the type for a log to be readable at all.
 ///
 /// ```
 /// // event Transfer(address indexed from, address indexed to, uint256 value)
@@ -33,11 +31,8 @@ pub impl Show for EventParam with fn output(self, logger) {
 /// the canonical signature, the `topics[0]` it hashes to, and which parameters
 /// `data` holds.
 ///
-/// None of that depends on the log. A receipt's logs, or the ten thousand a
-/// range scan of `eth_getLogs` answers with, are all read against one
-/// declaration, so working it out per log is work the batch does not need. Build
-/// this once, outside the loop; what it saves per log is the signature string and
-/// the topics/data split, the hash itself being remembered by `event_topic`.
+/// None of that depends on the log, so build this once outside the loop that
+/// reads a receipt's logs or a range scan's.
 ///
 /// ```
 /// let transfer = @abi.Event::new(
@@ -98,27 +93,9 @@ pub fn Event::new(
 }
 
 ///|
-/// Read a log back as the arguments the event was emitted with, in the order
-/// the event declares them.
-///
-/// This is the read side of an event, and it is not simply `decode` on the
-/// log's `data`: `indexed` parameters are not in `data` at all, they are the
-/// topics after the first. `decode_log` checks `topics[0]` against the event's
-/// own signature hash, reads each remaining topic as the indexed parameter it
-/// belongs to, decodes `data` as the rest, and hands back one array in
-/// **declaration order** — the order the event was written in, which is the
-/// only order a caller can pattern-match against.
-///
-/// A log of some other event raises rather than being decoded into plausible
-/// nonsense: `topics[0]` is what tells one event from another, and a receipt
-/// holds the logs of every contract the transaction touched.
-///
-/// It takes the two fields rather than a `@types.Log` because those two are all
-/// there is to decode: a `Log` also carries where the event happened, which is
-/// nothing a decoder should have to be handed. `eth_getLogs`' answers and a
-/// subscription's payloads reach this the same way a receipt's logs do. The
-/// call that does take a `Log` belongs a layer up, where
-/// `@erc20.Erc20::decode_transfer` is.
+/// Read a log back as the arguments the event was emitted with, in declaration
+/// order. `indexed` parameters are the topics after the first, and `topics[0]`
+/// is checked against the event's own signature hash.
 ///
 /// ```
 /// let (from, to, value) = match
@@ -137,31 +114,8 @@ pub fn Event::new(
 /// }
 /// ```
 ///
-/// This is the convenience spelling, and it works out the signature and its
-/// hash from `name` and `params` on every call. Reading more than one log of
-/// the same event — a receipt's, a range scan's — build an `Event` once and
-/// call `Event::decode_log` on it instead, which is this same decoder with that
-/// work already done.
-///
-/// ## An indexed `string`, `bytes`, array or struct comes back as its hash
-///
-/// A topic is one 32-byte word, and those types do not fit in one. Solidity
-/// puts the `keccak256` of the encoded value in the topic instead, so the value
-/// itself was never in the log and **cannot be recovered from it** — by anyone,
-/// not just by this SDK. Such a parameter is answered as `Bytes` holding those
-/// 32 bytes: a caller who has a candidate value can hash it and compare, which
-/// is exactly what an indexed dynamic parameter is good for, and is all a log
-/// filter ever does with one.
-///
-/// ## Anonymous events are not decoded
-///
-/// An `anonymous` event writes no signature hash, so its log has no `topics[0]`
-/// to match and its first topic is already an argument. Nothing in the log then
-/// says which event it is: passing the wrong parameter list would decode
-/// silently into the wrong values instead of raising. `decode_log` therefore
-/// always expects `topics[0]` to be the signature hash, and a log of an
-/// anonymous event fails that check. Read one with `@abi.decode` on the `data`
-/// and the topics by hand, where the assumption is written down as your own.
+/// The convenience spelling, hashing the signature per call; for a batch build
+/// an `Event` once. Indexed dynamic types and anonymous events are on the site.
 pub fn decode_log(
   name~ : String,
   params~ : Array[EventParam],

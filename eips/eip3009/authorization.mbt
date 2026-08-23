@@ -1,18 +1,10 @@
 ///|
 /// [EIP-3009](https://eips.ethereum.org/EIPS/eip-3009), *Transfer With
-/// Authorization*: the token holder signs what is to happen, and **someone
-/// else submits it**. The holder therefore needs no ether — the submitter pays
-/// the gas — and, because the authorization is keyed by a random `nonce`
-/// rather than by a sequence number, several may be in flight at once. This is
-/// how USDC, JPYC and most other regulated stablecoins are moved without the
-/// sender ever holding the chain's own currency.
+/// Authorization*: the token holder signs what is to happen, and **someone else
+/// submits it** — so the holder needs no ether, and a random `nonce` lets
+/// several be in flight at once. This is how USDC and JPYC are moved.
 ///
-/// What is signed is an EIP-712 document, so that is all this package builds:
-/// an `Authorization` becomes a `@eip712.TypedData`, which
-/// `@provider.sign_typed_data` sends to a wallet and whose `digest()` is what a
-/// contract will recover the signer from. Nothing here calls a contract —
-/// `transferWithAuthorization(...)` is the *submitter's* transaction, and the
-/// token preset that sends it is the caller of this package, not part of it.
+/// What is signed is an EIP-712 document, so that is all this package builds.
 ///
 /// ```mbt check
 /// test "doc: sign a transfer authorization" {
@@ -40,14 +32,9 @@
 /// An authorization to move `value` units from `from` to `to`, valid only
 /// between `valid_after` and `valid_before` and only once, at `nonce`.
 ///
-/// The same value describes both of EIP-3009's transfers; which one it is
-/// signed as is chosen when the document is built, by
-/// `transfer_typed_data` or `receive_typed_data`, since the two differ in
-/// nothing but their type name.
-///
-/// The three numbers are `BigInt` because that is what `uint256` is — the
-/// times are seconds since the epoch, and `value` is in the token's own
-/// smallest unit, exactly as `@erc20.Erc20`'s amounts are.
+/// The same value describes both of EIP-3009's transfers, which differ in
+/// nothing but their type name; which one it is signed as is chosen by
+/// `transfer_typed_data` or `receive_typed_data`.
 pub struct Authorization {
   priv from : @types.Address
   priv to : @types.Address
@@ -60,25 +47,10 @@ pub struct Authorization {
 ///|
 /// Describe an authorization.
 ///
-/// `valid_after` defaults to zero — valid from the moment it is signed — since
-/// a window that opens later is the rarer half of the pair. `valid_before` has
-/// no default: an authorization that never expires is a liability the caller
-/// should have to spell out, and passing a far-future timestamp says it was
-/// meant.
-///
-/// The `nonce` is 32 random bytes and **not** a counter: it is what the token
-/// marks as used, so two authorizations signed with the same one are the same
-/// authorization, and only the first to be submitted takes effect. It has to
-/// be *drawn*: a nonce a third party can predict is an authorization that
-/// party can burn before the intended submitter gets to it. `draw_nonce()` is
-/// that draw, and passing anything else — a counter, a timestamp — is the
-/// caller saying they meant to.
-///
-/// The widths are checked here as well as by `@eip712.TypedData::new`, which
-/// checks every message against the type it declares. That is deliberate: an
-/// authorization is a value a caller *builds*, so it is refused where it is
-/// spelled, and the submitter's path reads the members straight back out
-/// through the accessors without a document ever being built.
+/// `valid_after` defaults to zero; `valid_before` has no default, since an
+/// authorization that never expires is a liability worth spelling out. The
+/// `nonce` is 32 random bytes and **not** a counter, and it has to be *drawn*:
+/// one a third party can predict is one that party can burn. `draw_nonce()`.
 pub fn Authorization::new(
   from~ : @types.Address,
   to~ : @types.Address,
@@ -200,10 +172,8 @@ fn Authorization::typed_data(
 /// An authorization taken back before anyone submitted it: it burns the nonce,
 /// so whatever was signed against that nonce can no longer take effect.
 ///
-/// Only the account that signed the authorization may cancel it, which is why
-/// this carries an `authorizer` rather than reusing the transfer's `from` —
-/// cancelling is a claim about who signed, not about where the units were
-/// going.
+/// Only the account that signed it may cancel it, which is why this carries an
+/// `authorizer` rather than reusing the transfer's `from`.
 pub struct CancelAuthorization {
   priv authorizer : @types.Address
   priv nonce : @types.Hex
@@ -277,14 +247,11 @@ fn document(
 
 ///|
 /// The domain every EIP-3009 signature is bound to: the token's own —
-/// `@eip712.TypedDataDomain::for_token`, which EIP-2612 binds to as well, named
-/// here so a caller reaches for it without knowing that.
+/// `@eip712.TypedDataDomain::for_token`, which EIP-2612 binds to as well.
 ///
-/// It is spelled rather than left to the caller because getting it wrong is
-/// silent — a document with a domain the token does not recognize signs
-/// perfectly well, is displayed perfectly well, and is then rejected on chain.
-/// `version` is almost always `"1"` for an EIP-3009 token, and only `name` has
-/// to be read off the token: it is `name()`, and it must match byte for byte.
+/// Spelled rather than left to the caller because getting it wrong is silent.
+/// `version` is almost always `"1"`, and only `name` has to be read off the
+/// token: it is `name()`, and it must match byte for byte.
 pub fn domain(
   name~ : String,
   version? : String = "1",

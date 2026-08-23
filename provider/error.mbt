@@ -1,16 +1,10 @@
 ///|
 /// Everything that can go wrong between a call and its answer, whether the
 /// thing at the other end is a browser wallet or a node's HTTP endpoint.
-/// Wallet-side failures are always reported through this suberror; the public
-/// API never panics.
 ///
-/// The variants are cut by **what the caller should do next**, not by where in
-/// the SDK the failure was noticed. Read top to bottom they are four groups:
-/// the wallet answered no (`UserRejected` … `NotInstalled`), the node answered
-/// no (`Rpc`, `Reverted`), nothing answered or the answer was unreadable
-/// (`Transport`, `HttpStatus`, `MalformedResponse`, `Decode`), and the caller
-/// got it wrong before any I/O happened (`Config`). `is_retryable` is the
-/// summary of that reading, and `message` is the line to show a person.
+/// The variants are cut by **what the caller should do next**, not by where the
+/// failure was noticed. `is_retryable` summarizes that reading, and `message` is
+/// the line to show a person.
 ///
 /// ```mbt check
 /// test "doc: error code test example" {
@@ -37,11 +31,8 @@ pub(all) suberror ProviderError {
   /// The contract refused the call: the node answered with an error carrying
   /// the ABI-encoded revert (EIP-1474 code 3, `execution reverted`).
   ///
-  /// `data` is that revert, exactly as it came off the wire and not yet read:
-  /// what it *says* — `Error(string)`, `Panic(uint256)`, or a custom error —
-  /// needs the ABI, which is a layer up (`@contract.ContractError`). `code` and
-  /// `message` are the node's own, so nothing the wallet said is lost by
-  /// telling this apart from `Rpc`.
+  /// `data` is that revert, exactly as it came off the wire: what it *says*
+  /// needs the ABI, which is a layer up. `code` and `message` are the node's own.
   Reverted(code~ : Int, message~ : String, data~ : @types.Hex)
   /// `globalThis.ethereum` is not present — no wallet extension is installed.
   NotInstalled
@@ -50,12 +41,10 @@ pub(all) suberror ProviderError {
   /// well succeed later — `is_retryable` is true.
   Transport(String)
   /// The endpoint answered, with a status that is not 2xx. `429` and `5xx` are
-  /// the node or its gateway asking for a moment; `401` and `403` are an API
-  /// key that is wrong or absent, and no amount of retrying fixes those. The
-  /// URL is carried because a dapp that reads from several nodes needs to know
-  /// which one — with the API key a hosted URL hides in its path or its query
-  /// already dropped, since this error is printed — and `info` is whatever
-  /// else the response happened to say.
+  /// the node asking for a moment; `401` and `403` are an API key that is wrong
+  /// or absent, and no retrying fixes those. The URL is carried — with the key a
+  /// hosted URL hides already dropped, since this error is printed — because a
+  /// dapp reading from several nodes needs to know which one.
   HttpStatus(code~ : Int, url~ : String, info~ : HttpStatusInfo)
   /// A 2xx body that is not a JSON-RPC answer: it did not parse, it was not an
   /// object, it carried neither `result` nor `error`, or its `id` was not the
@@ -80,15 +69,11 @@ pub(all) suberror ProviderError {
 
 ///|
 /// The rest of what an answer that is not 2xx said: the parts a response may or
-/// may not carry, as against the status and the URL, which it always does and
-/// which are on the variant itself.
+/// may not carry, as against the status and the URL, which are on the variant.
 ///
-/// Today that is `Retry-After` alone. It is a struct rather than another field
-/// on the variant because what an HTTP response carries is open-ended, and
-/// `ProviderError` is a `pub(all) suberror` — one more field on `HttpStatus`
-/// breaks every `catch` that matches it. In here, the next thing worth reading
-/// off a response is one more optional argument and one more accessor, and
-/// nobody's pattern match notices.
+/// Today that is `Retry-After` alone. A struct rather than another field because
+/// `ProviderError` is `pub(all)` — one more field on `HttpStatus` breaks every
+/// `catch` that matches it, one more accessor in here breaks nothing.
 ///
 /// ```mbt check
 /// test "doc: http status info" {
@@ -111,12 +96,10 @@ pub fn HttpStatusInfo::new(retry_after? : Int) -> HttpStatusInfo {
 
 ///|
 /// The seconds the response asked to be left alone for, when it asked. `None`
-/// when the header was absent or unreadable, and for the HTTP-date form, which
-/// is not what a rate limiter sends and is not read.
+/// when the header was absent, unreadable, or in the HTTP-date form.
 ///
 /// The retry both providers run already waits this. It is here for a caller
-/// retrying by hand, and for one that would rather wait longer than the loop
-/// will.
+/// retrying by hand, or one that would rather wait longer than the loop will.
 pub fn HttpStatusInfo::retry_after(self : HttpStatusInfo) -> Int? {
   self.retry_after
 }
@@ -211,11 +194,9 @@ const RATE_LIMITED : Int = -32005
 ///|
 /// The ABI-encoded revert hiding in a JSON-RPC error's `data`, if there is one.
 ///
-/// The standards do not settle which key it is under, so every shape nodes
-/// write is read: geth and Anvil put the hex in `error.data`, a wallet that
-/// wraps a node's answer nests it once (`error.data.data`) or twice
-/// (`error.data.originalError.data`). Anything else is no revert, and the
-/// error stays `Rpc`.
+/// The standards do not settle which key it is under, so every shape nodes write
+/// is read: `error.data`, and the once- or twice-nested forms a wallet wrapping
+/// a node's answer produces. Anything else is no revert, and stays `Rpc`.
 fn revert_data(data : Json) -> @types.Hex? {
   match data {
     String(_) => Some(@types.Hex::from_json(data) catch { _ => return None })
@@ -231,10 +212,8 @@ fn revert_data(data : Json) -> @types.Hex? {
 ///|
 /// Decode the `{ code, message }` object both EIP-1193 and JSON-RPC carry,
 /// through the same code mapping as `from_code`. A member that is absent or of
-/// the wrong kind falls back to the internal-error code and an empty message —
-/// an error that cannot be read is still an error — while a payload that is not
-/// an object at all is not an error report and comes back as
-/// `MalformedResponse`.
+/// the wrong kind falls back to the internal-error code and an empty message,
+/// while a payload that is not an object comes back as `MalformedResponse`.
 ///
 /// ```mbt check
 /// test "doc: error from an error object" {
@@ -276,14 +255,12 @@ fn ProviderError::from_json(payload : Json) -> ProviderError? {
 }
 
 ///|
-/// One line to put in front of a person: no variant name, no URL, no
-/// JSON-RPC code. `Show` is the developer's view of the same error, and the
-/// two are deliberately different — `Rpc(code=-32603, message="decode
-/// eth_getBalance: InvalidJson(…)")` belongs in a log, not in a dialog.
+/// One line to put in front of a person: no variant name, no URL, no JSON-RPC
+/// code. `Show` is the developer's view of the same error, and the two are
+/// deliberately different — `Rpc(code=-32603, …)` belongs in a log, not a dialog.
 ///
 /// The node's own `message` is passed through for `Rpc`, since that is where
-/// "insufficient funds for gas * price + value" comes from and a person can
-/// act on it.
+/// "insufficient funds for gas * price + value" comes from.
 ///
 /// ```mbt check
 /// test "doc: error message" {
@@ -325,11 +302,9 @@ pub fn ProviderError::message(self : ProviderError) -> String {
 /// Whether waiting and making the same call again is worth anything.
 ///
 /// True for the failures that are about *this attempt* — nothing got through,
-/// nothing answered in time, the node asked for a moment (`429`, `5xx`, the
-/// `-32005` every hosted RPC rate-limits with). False for everything that has
-/// already been decided: a user who said no, an account that is not authorized,
-/// a body that will not parse, a URL that is not a URL. A revert is the most
-/// firmly decided of all.
+/// nothing answered in time, the node asked for a moment. False for everything
+/// already decided: a user who said no, a body that will not parse, a URL that
+/// is not a URL. A revert is the most firmly decided of all.
 ///
 /// ```mbt check
 /// test "doc: is_retryable" {
@@ -423,13 +398,11 @@ pub fn ProviderError::code(self : ProviderError) -> Int? {
 const METHOD_NOT_FOUND : Int = -32601
 
 ///|
-/// Whether this is a node saying it does not have the method that was called.
-/// Two spellings mean it: JSON-RPC's `-32601` from a node that never
-/// implemented it, and EIP-1193's `UnsupportedMethod` (4200) from a provider
-/// that will not forward it.
+/// Whether this is a node saying it does not have the method that was called:
+/// JSON-RPC's `-32601`, and EIP-1193's `UnsupportedMethod` (4200).
 ///
-/// This is for the wrappers around a method that is an *extension* rather than
-/// a standard, where "the node does not have it" is an answer rather than a
+/// For the wrappers around a method that is an *extension* rather than a
+/// standard, where "the node does not have it" is an answer rather than a
 /// failure — `max_priority_fee_per_gas` turns exactly this into `None`.
 ///
 /// ```mbt check
@@ -465,11 +438,8 @@ pub const BODY_PREVIEW_CHARS : Int = 256
 /// answer — the bound every `MalformedResponse` this SDK raises is cut to.
 ///
 /// A body is not quoted whole: it has no bound, and what a node echoes back
-/// reflects the call that was made — an address, a signed transaction — which
-/// is not what a message about a malformed response is for. It sits with the
-/// error rather than with a transport, because every transport that raises one
-/// owes the same bound, and a caller raising its own `MalformedResponse` can
-/// reach for it too.
+/// reflects the call that was made. It sits with the error because every
+/// transport that raises one owes the same bound.
 ///
 /// ```mbt check
 /// test "doc: a body a message may carry" {

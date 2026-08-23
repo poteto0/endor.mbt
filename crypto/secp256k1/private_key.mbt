@@ -1,13 +1,10 @@
 ///|
 /// A secp256k1 private key, together with the public point it determines.
 ///
-/// The point is derived and encoded once, in the constructor: it takes a
-/// scalar multiplication to find, it never changes, and everything a key is
-/// for — an address, a signature to recover against — needs it.
-///
-/// Opaque, because the only way to hold one is through `from_bytes`, which is
-/// what makes "a `PrivateKey` is a scalar in `[1, N)`" true of every value of
-/// the type.
+/// The point is derived once, in the constructor: it takes a scalar
+/// multiplication to find and never changes. Opaque, because `from_bytes` is
+/// the only way to hold one — which is what makes "a `PrivateKey` is a scalar
+/// in `[1, N)`" true of every value of the type.
 pub struct PrivateKey {
   priv scalar : @bigint.BigInt
   priv public_key : Bytes
@@ -16,15 +13,9 @@ pub struct PrivateKey {
 ///|
 /// Read a private key from its big-endian bytes, and derive its public point.
 ///
-/// `strict` is on by default and requires the exact 32 bytes a scalar is
-/// written in. Turn it off only to read a key from somewhere that stored it
-/// with its leading zeros stripped — a shorter run of bytes names the same
-/// scalar, but it is also what a truncated key looks like, so a caller that
-/// did not mean to accept one should not.
-///
-/// Raises unless the scalar is in `[1, N)`. Zero is not a key, and neither is
-/// anything at or past the group order: both name the point at infinity or a
-/// point some other scalar already names.
+/// `strict` is on by default and requires the exact 32 bytes. Turn it off only
+/// to read a key stored with its leading zeros stripped — which is also what a
+/// truncated key looks like. Raises unless the scalar is in `[1, N)`.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(

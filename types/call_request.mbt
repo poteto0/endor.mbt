@@ -1,14 +1,10 @@
 ///|
 /// What a call asks the node to evaluate: the transaction-shaped object
-/// `eth_call` and `eth_estimateGas` take. The node runs it against its state and
-/// answers with the return data (or the gas it would need) instead of
-/// broadcasting anything, so no signature and no wallet prompt are involved.
+/// `eth_call` and `eth_estimateGas` take. Nothing is broadcast, so no signature
+/// and no wallet prompt are involved.
 ///
-/// Only `to` is required. `data` is raw calldata — a 4-byte selector followed by
-/// ABI-encoded arguments — which callers encode themselves until the contract
-/// layer lands; that layer will produce exactly this `Hex`. `from` is what
-/// `msg.sender` reads as, which matters for anything permissioned, and `value`
-/// is the wei the call pretends to carry.
+/// Only `to` is required. `data` is raw calldata, `from` is what `msg.sender`
+/// reads as, and `value` is the wei the call pretends to carry.
 ///
 /// ```mbt check
 /// test "doc: call request json" {

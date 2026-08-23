@@ -1,12 +1,10 @@
 ///|
 /// A contract at an address, called through its ABI.
 ///
-/// It is the ABI layer sitting on top of the typed RPC helpers: `call` is
-/// `eth_call` with the arguments encoded and the answer decoded, and `send` is
-/// `eth_sendTransaction` with the arguments encoded. Nothing is cached and no
-/// ABI is registered up front — each call names the function it makes, which
-/// keeps the type describing the contract in the caller's code (or in a preset
-/// like `Erc20`) rather than in a runtime registry.
+/// The ABI layer on top of the typed RPC helpers: `call` is `eth_call` with the
+/// arguments encoded and the answer decoded, `send` is `eth_sendTransaction`
+/// with them encoded. Each call names the function it makes, so the type
+/// describing the contract stays in the caller's code, not a runtime registry.
 ///
 /// ```
 /// async fn[P : @provider.Provider] answer(
@@ -30,11 +28,9 @@ pub struct Contract {
 ///|
 /// Point at a deployed contract.
 ///
-/// `errors` are the contract's own `error` declarations, and they are the one
-/// thing worth registering up front: a revert names an error by selector alone,
-/// so a call cannot be told what it might fail with the way it is told what it
-/// returns. Without them a custom error still comes back — as a `CustomError`
-/// holding its selector and raw data — but its arguments stay encoded.
+/// `errors` are the contract's own `error` declarations, the one thing worth
+/// registering up front: a revert names an error by selector alone. Without them
+/// a custom error still comes back, but its arguments stay encoded.
 pub fn Contract::new(
   address : @types.Address,
   errors? : Array[ErrorDef] = [],
@@ -53,13 +49,8 @@ pub fn Contract::address(self : Contract) -> @types.Address {
 /// answer as `outputs`.
 ///
 /// It prompts no one and costs nothing, so `from` is only worth setting for a
-/// contract that reads `msg.sender`. `block` reads at some other point in the
-/// chain's history, exactly as it does for the plain RPC helpers.
-///
-/// The three steps are `prepare`, `@provider.call` and `PreparedCall::decode`,
-/// spelled out rather than inlined: this is the one call path, and a batched
-/// read (`@multicall.Multicall3`) is the same encode and the same decode with
-/// somebody else's request in the middle.
+/// contract that reads `msg.sender`. The three steps are spelled out because a
+/// batched read is the same encode and decode with another request in between.
 pub async fn[P : @provider.Provider] Contract::call(
   self : Contract,
   provider : P,
@@ -86,10 +77,8 @@ pub async fn[P : @provider.Provider] Contract::call(
 /// Call a function that writes: encode the arguments and broadcast them as a
 /// transaction.
 ///
-/// The answer is a `TxHash`, so what the function returned is not available
-/// here — a broadcast transaction has not run yet. What it *did* is in its
-/// receipt (`@provider.wait_for_receipt`), and `from` is required because
-/// somebody has to sign.
+/// The answer is a `TxHash` — a broadcast transaction has not run yet, so what
+/// it *did* is in its receipt. `from` is required because somebody has to sign.
 pub async fn[P : @provider.Provider] Contract::send(
   self : Contract,
   provider : P,

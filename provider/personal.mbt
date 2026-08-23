@@ -2,17 +2,9 @@
 /// Ask the wallet to sign `message` with `who`'s key (`personal_sign`), and
 /// return the signature.
 ///
-/// The message is signed the EIP-191 way: the wallet prefixes it with
-/// `"\x19Ethereum Signed Message:\n" + length` before hashing, which is what
-/// keeps a signature produced here from ever being a valid transaction. It goes
-/// over the wire as the UTF-8 bytes of `message` in hex, so a wallet shows the
-/// user the text they are signing.
-///
-/// EIP-191 puts the address *second* — the parameter pair is
-/// `[message, address]`, the opposite way round from `eth_signTypedData_v4`.
-///
-/// The user is prompted, so a decline arrives as `UserRejected` (4001), and an
-/// account the dapp has not been authorized for as `Unauthorized` (4100).
+/// The wallet prefixes it the EIP-191 way before hashing, which keeps a
+/// signature produced here from ever being a valid transaction. The parameter
+/// pair is `[message, address]`, the opposite way round from v4 typed data.
 ///
 /// ```
 /// async fn[P : @provider.Provider] prove_ownership(
@@ -33,11 +25,9 @@ pub async fn[P : Provider] sign_message(
 ///|
 /// The same call over bytes that are not text.
 ///
-/// `personal_sign` puts the message on the wire as hex either way; this is the
-/// one to reach for when what is being signed is a nonce, a hash, or anything
-/// else that was never a string. A wallet will show it as hex, so a human is
-/// being asked to approve something they cannot read — prefer `sign_message`
-/// wherever the message really is text.
+/// `personal_sign` puts the message on the wire as hex either way; this is for a
+/// nonce or a hash that was never a string. A wallet shows it as hex, so prefer
+/// `sign_message` wherever the message really is text.
 ///
 /// ```
 /// async fn[P : @provider.Provider] sign_challenge(

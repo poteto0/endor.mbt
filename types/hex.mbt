@@ -43,13 +43,11 @@ pub fn Hex::from_string(s : String) -> Hex raise CodecError {
 
 ///|
 /// Build a hex byte string from the digits alone, with no `0x` and no bytes in
-/// between — what a caller that already computed the digits wants, since
-/// spelling them as `Bytes` only to have them spelled back costs two passes and
-/// two copies over the whole value. ABI calldata is built this way.
+/// between — what a caller that already computed the digits wants, since going
+/// through `Bytes` costs two passes and two copies. ABI calldata is built here.
 ///
-/// This is where both of `Hex`'s rules are stated: `from_string` is this with
-/// the prefix taken off first. A shortcut past the representation is not a
-/// shortcut past the rule.
+/// Both of `Hex`'s rules are stated here; `from_string` is this with the prefix
+/// taken off first.
 ///
 /// ```mbt check
 /// test "doc: hex from digits" {
@@ -106,11 +104,8 @@ pub fn Hex::digits(self : Hex) -> String {
 /// The two values' bytes, one after the other — a contract's creation code and
 /// its constructor's arguments, above all.
 ///
-/// Concatenation cannot fail, and this is the only way to join two `Hex` that
-/// says so: taking both apart with `digits()` and putting the result back
-/// through `from_digits` re-checks digits that were checked when each half was
-/// built, and hands the caller an error it has no way to cause. Both rules —
-/// hex digits, even length — hold of the halves, so they hold of the whole.
+/// The only way to join two `Hex` that cannot fail: both rules — hex digits,
+/// even length — hold of the halves, so they hold of the whole.
 ///
 /// ```mbt check
 /// test "doc: hex concat" {
@@ -127,10 +122,8 @@ pub fn Hex::concat(self : Hex, other : Hex) -> Hex {
 /// wants, and the one place that knows how long the prefix is. `digits()` is
 /// this with a copy on the end, for a caller that needs to keep them.
 ///
-/// The pair mirrors `from_digits`, which already takes a view: the digit
-/// boundary is a view on the way in, and this is the way out. ABI decoding
-/// reads a word at a time out of a value this long, so copying the digits out
-/// first would cost more than the decoding.
+/// ABI decoding reads a word at a time out of a long value, so copying the
+/// digits out first would cost more than the decoding.
 ///
 /// ```mbt check
 /// test "doc: hex digits view" {

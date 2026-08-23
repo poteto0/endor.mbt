@@ -1,21 +1,10 @@
 ///|
 /// A transport and an account, joined: everything needed to write to a chain.
 ///
-/// The two are separate everywhere else in this SDK — `Provider` is how bytes
-/// reach a node, `Account` is what holds a key — and they are separate because
-/// the pairing is the caller's to choose. A key in this process reading
-/// through HTTP is the normal shape for a backend; a browser wallet doing both
-/// is the normal shape for a dapp; and a key in this process reading through
-/// the browser wallet's transport is a perfectly good third.
-///
-/// That last one is why the client asks the *account* what it is, and never
-/// the transport. "Is this a browser?" is the wrong question — an HTTP
-/// endpoint may hold keys and a browser page may hold a local one. The only
-/// thing that decides how a transaction goes out is whether the account can
-/// hand over signed bytes.
-///
-/// Reads do not go through here. They need no account, so they stay
-/// `@provider.balance(p, …)` and friends, against the same transport.
+/// The two are separate everywhere else because the pairing is the caller's to
+/// choose. That is why the client asks the *account* what it is and never the
+/// transport: what decides how a transaction goes out is whether the account
+/// can hand over signed bytes. Reads need no account and do not come here.
 pub struct WalletClient[P, A] {
   priv provider : P
   priv account : A
@@ -38,19 +27,12 @@ pub fn[P, A] WalletClient::new(provider : P, account : A) -> WalletClient[P, A] 
 }
 
 ///|
-/// Prompt the wallet behind `provider` for an account, and pair it with the
-/// same transport.
+/// Prompt the wallet behind `provider` for an account, and pair it with the same
+/// transport — the one call a dapp needs.
 ///
-/// The one call a dapp needs: `eth_requestAccounts` runs here, so the user is
-/// asked to connect, and what comes back is a client that signs as whichever
-/// account they picked. Wallets gate that prompt behind a user gesture, so
-/// call it from a click and not on load.
-///
-/// A declined prompt arrives as `Provider(UserRejected)`.
-///
-/// The address is fixed at the moment of connecting. The SDK holds no current
-/// account, so a user who switches accounts in the extension afterwards is not
-/// followed — subscribe to `@provider.on_accounts_changed` and connect again.
+/// Wallets gate the prompt behind a user gesture, so call it from a click. The
+/// address is fixed at the moment of connecting, so a user who switches accounts
+/// afterwards is not followed.
 ///
 /// ```
 /// async fn connect_and_pay(
@@ -82,20 +64,9 @@ pub fn[P, A : @account.Account] WalletClient::address(
 /// The EIP-1559 pair the node's own estimate names, or `None` if it named no
 /// price at all.
 ///
-/// A flat `Legacy` price becomes the pair that prices the same: the cap is that
-/// price and so is the tip, so `base + min(tip, cap - base)` is that price for
-/// every base fee at or under it. The transaction pays exactly what the node
-/// quoted, whatever the base fee turns out to be.
-///
-/// Translating rather than refusing, because `estimate_fees` answering `Legacy`
-/// is not the claim that the chain has no EIP-1559: it answers that for a head
-/// block naming no base fee *or* naming a zero one, and a zero base fee is an
-/// ordinary development chain — anvil and hardhat both run that way. On a chain
-/// that really did not fork to London the node rejects the type-`0x02`
-/// envelope, which is its answer to give and not this layer's to guess.
-///
-/// A `Legacy` the *caller* named is a different statement and is not translated
-/// — see `prepare`.
+/// A flat `Legacy` price becomes the pair that prices the same. Translated
+/// rather than refused, because `estimate_fees` answers `Legacy` for a zero base
+/// fee too. A `Legacy` the *caller* named is not.
 fn estimated_pair(fee : @types.Fee) -> (@types.Wei, @types.Wei)? {
   match fee {
     Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~) =>
@@ -117,20 +88,10 @@ fn[T] _or_raise(result : Result[T, WalletError]) -> T raise WalletError {
 ///|
 /// Fill in everything a transaction needs that the caller did not say.
 ///
-/// The chain id, the nonce, the fees and the gas all come from the node, so
-/// this is a round trip even for an account that signs locally — a signature
-/// commits to those numbers, and only the node knows them. Anything passed in
-/// is used as given and not asked about.
-///
-/// Gas is estimated by calling the transaction against the current state,
-/// which needs a recipient; a contract creation has to say its own `gas`.
-///
-/// The fee comes out as the EIP-1559 pair, since that is the only shape a
-/// transaction this SDK signs can carry. A `Legacy` fee is therefore refused
-/// here — it is a request for a transaction format this path does not build,
-/// and `send` is the call that can honour it. A `Legacy` price that
-/// `estimate_fees` answered is a different thing and is used: see
-/// `estimated_pair`.
+/// The chain id, the nonce, the fees and the gas all come from the node, so this
+/// is a round trip even for an account that signs locally. Gas is estimated
+/// against current state, which needs a recipient. The fee comes out as the
+/// EIP-1559 pair, so a `Legacy` fee is refused here — `send` can honour it.
 ///
 /// ```
 /// async fn[P : @provider.Provider, A : @account.Account] pay(
@@ -252,10 +213,8 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
 /// Send a prepared transaction, whichever way this account can.
 ///
 /// An account that holds its key signs here and the bytes go out as
-/// `eth_sendRawTransaction`. An account behind a wallet cannot hand back
-/// signed bytes, so the whole transaction is handed over instead and the
-/// wallet signs and broadcasts it in one step — the user sees one prompt
-/// either way, and the caller sees one hash.
+/// `eth_sendRawTransaction`. An account behind a wallet is handed the whole
+/// transaction instead, and signs and broadcasts it in one step.
 pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send_transaction(
   self : WalletClient[P, A],
   tx : @types.UnsignedTransaction,
@@ -276,17 +235,9 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send_tr
 /// Send in one call, for the common case where the caller has nothing to say
 /// about the nonce, the fees or the gas.
 ///
-/// Whatever is left out is filled in by whoever is going to sign. For an
-/// account that holds its key that means this SDK, so the call goes through
-/// `prepare` and every field is pinned off the node first. For an account
-/// behind a wallet it means the wallet: what is left out is left out, and the
-/// request goes over as it stands.
-///
-/// That second path is not `prepare`: pinning would spend a round trip each on
-/// a chain id the request cannot carry and on numbers the wallet is about to
-/// decide again, and it would force the EIP-1559 pair on a chain the wallet
-/// could have priced either way. A `Legacy` fee reaches a wallet intact and is
-/// sent as one.
+/// Whatever is left out is filled in by whoever is going to sign: through
+/// `prepare` for an account holding its key, and by the wallet otherwise —
+/// pinning first would decide numbers the wallet is about to decide again.
 pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send(
   self : WalletClient[P, A],
   to? : @types.Address,

@@ -1,15 +1,10 @@
 ///|
-/// The proof that the read layer needs no wallet: the same node every other
-/// e2e test reaches through an injected `globalThis.ethereum`, reached here
-/// over plain HTTP with nothing installed at all. `@http_backend.on` builds an
-/// `HttpProvider` over an `Endpoint` and skips when `ENDOR_E2E_RPC_URL` is
-/// unset, exactly as `@anvil.on` does.
+/// The proof that the read layer needs no wallet: the same node every other e2e
+/// test reaches through an injected `globalThis.ethereum`, reached here over
+/// plain HTTP with nothing installed at all.
 ///
-/// Deliberately two cases, not a transcription of `browser_test.mbt`. A
-/// `FakeTransport` already proves the framing; the one thing only a node can
-/// answer is whether the request the SDK POSTs is one it accepts — and every
-/// helper goes out through the same `request`, so a read with no params and a
-/// read with one settle that for all of them.
+/// Deliberately two cases. A `FakeTransport` already proves the framing; only a
+/// node can say whether the request the SDK POSTs is one it accepts.
 
 ///|
 async test "chain id is read over http, with no wallet installed" {

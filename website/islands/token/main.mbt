@@ -1,11 +1,10 @@
 ///|
 /// The "read an ERC-20" demo.
 ///
-/// Four `eth_call`s, no prompt and no gas: reads cost the reader nothing, which
-/// is why this demo is safe to leave on a page. Nothing here builds calldata or
-/// reads hex — `Erc20` turns `balanceOf` into a `BigInt` and `decimals` into an
-/// `Int`, and the only conversion left is the one between a token's smallest
-/// unit and the digits a human reads.
+/// Four `eth_call`s, no prompt and no gas, which is why this demo is safe to
+/// leave on a page. Nothing here builds calldata or reads hex — the only
+/// conversion left is between a token's smallest unit and the digits a human
+/// reads.
 using @element {div, type DomNode}
 
 ///|

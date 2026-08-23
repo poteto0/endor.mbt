@@ -41,11 +41,6 @@ pub fn is_metamask(eth : Ethereum) -> Bool {
 ///
 /// - success: `{"ok": <result>}`
 /// - failure: `{"err": {"code": <int>, "message": <string>, "data": <any>}}`
-///
-/// `data` is whatever the wallet hung off the error and is carried across
-/// untouched: a reverting `eth_call` puts the ABI-encoded revert there, and
-/// where exactly it sits inside it differs per node, so the shape is not
-/// decided here (see `ProviderError::from_code`).
 extern "js" fn _request(
   eth : Ethereum,
   payload_json : String,
@@ -75,15 +70,12 @@ pub fn spawn(task : async () -> Unit) -> Unit {
 }
 
 ///|
-/// Parse the JSON-string envelope returned from the JavaScript boundary.
-///
-/// The envelope format is:
+/// Parse the JSON-string envelope returned from the JavaScript boundary:
 ///
 /// - success: `{"ok": <result>}`
 /// - failure: `{"err": {"code": <int>, "message": <string>, "data": <any>}}`
 ///
-/// `data` is optional and passed on as the `Json` it arrived as — `Null` when
-/// the wallet attached none.
+/// `data` is optional — `Null` when the wallet attached none.
 pub fn decode_envelope(result_json : String) -> Json raise JsError {
   let parsed = @json.parse(result_json) catch {
     e => raise InvalidEnvelope("malformed FFI envelope: \{e}")

@@ -1,17 +1,10 @@
 ///|
 /// A URL cut into the four parts this package decides anything about.
 ///
-/// It is a cut, not a parse: nothing here says the string *is* a URL —
-/// `validate_http_url` is what says that, from the parts — and a string that is
-/// none is cut by the same rules rather than rejected, because the other caller
-/// is `display_url`, which has to name a URL back in the message that refuses
-/// it.
-///
-/// `scheme` is `None` when there is no `://` at all, so a URL that carries one
-/// can be told from a bare `host:port`. `userinfo` is dropped from `authority`
-/// here rather than by each caller: it is a credential, and no one above wants
-/// it. `path` keeps its leading `/`, and the fragment is dropped — it never
-/// leaves the client.
+/// A cut, not a parse: `validate_http_url` is what says a string is a URL, and a
+/// string that is none is cut by the same rules so `display_url` can name it
+/// back. `scheme` is `None` when there is no `://`, `userinfo` is dropped here
+/// because it is a credential, and the fragment never leaves the client.
 priv struct UrlParts {
   scheme : String?
   authority : String

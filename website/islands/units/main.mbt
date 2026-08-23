@@ -3,10 +3,8 @@
 /// from a text box.
 ///
 /// The scale is not the SDK's to guess — only `decimals` says where the point
-/// belongs, and it is read from the token — so it is passed in, which is what
-/// the second box is.
-///
-/// Type more decimals than the currency has and it refuses rather than rounds.
+/// belongs — so it is passed in, which is what the second box is. Type more
+/// decimals than the currency has and it refuses rather than rounds.
 using @element {div, type DomNode}
 
 ///|

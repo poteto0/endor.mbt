@@ -60,15 +60,10 @@ pub async fn[P : Provider] add_chain(
 ///|
 /// Put the wallet on `params.chain_id()`, adding the chain first if the wallet
 /// does not know it: switch, and on `UnrecognizedChain` (4902) add and switch
-/// again. Every other error — a user rejection above all — propagates from the
-/// step that raised it.
+/// again. Every other error propagates from the step that raised it.
 ///
-/// This is the dance every dapp writes by hand around
-/// `wallet_switchEthereumChain`; the second switch is what makes it reliable,
-/// since a wallet that adds a chain without switching to it still leaves the
-/// user where they were. On the wallets that do switch as part of the add, that
-/// second switch asks for the chain they are already on, which they answer
-/// without prompting again.
+/// The second switch is what makes it reliable, since a wallet that adds a chain
+/// without switching leaves the user where they were.
 ///
 /// ```
 /// async fn[P : @provider.Provider] to_polygon(

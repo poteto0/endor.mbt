@@ -2,10 +2,9 @@
 /// Apply EIP-55 casing to the 40 lowercase hex digits of an address body (no
 /// `0x` prefix).
 ///
-/// The check code is keccak256 of those digits taken *as ASCII text* — not of
-/// the 20 bytes they denote. Digit `i` is uppercased when the `i`-th hex digit
-/// (nibble) of the hash is `>= 8`; the decimal digits, having no case, simply
-/// stay as they are and carry no part of the check code.
+/// The check code is keccak256 of those digits *as ASCII text*, not of the 20
+/// bytes they denote: digit `i` is uppercased when the `i`-th nibble of the
+/// hash is `>= 8`. Decimal digits have no case and carry no check code.
 fn eip55_body(lower_body : String) -> String {
   let hash = @keccak.keccak256_string(lower_body)
   let out = StringBuilder::new()
@@ -18,12 +17,11 @@ fn eip55_body(lower_body : String) -> String {
 }
 
 ///|
-/// A 20-byte Ethereum address. Parsing validates the `0x` prefix, hex digits
-/// and exact 20-byte length; the value is stored lowercased — the wire form.
+/// A 20-byte Ethereum address, stored lowercased — the wire form. Parsing
+/// validates the `0x` prefix, hex digits and exact length.
 ///
-/// The EIP-55 spelling is a memo the first display fills: an address that is
-/// only decoded, compared or sent back out never hashes. It is not part of the
-/// value, so `Eq` and `Debug` are hand-written to read `inner` alone.
+/// The EIP-55 spelling is a memo the first display fills; it is not part of the
+/// value, so `Eq` and `Debug` read `inner` alone.
 pub struct Address {
   priv inner : String
   priv mut eip55 : String?
@@ -77,15 +75,8 @@ fn Address::of_lower_digits(lower : String) -> Address {
 /// The address a secp256k1 public key derives: the last 20 bytes of the
 /// Keccak-256 of its two coordinates.
 ///
-/// Takes the uncompressed SEC1 form — the `0x04` tag byte followed by the 64
-/// bytes of `x` and `y`, which is what `@secp256k1.PrivateKey::public_key`
-/// hands back. The tag is what says the coordinates are there in full, so it
-/// is checked and then hashed over, exactly as Ethereum defines the
-/// derivation.
-///
-/// It lives here rather than beside the curve because `Address` is this
-/// package's type and the layers only point one way: `crypto/secp256k1` knows
-/// nothing about addresses.
+/// Takes the uncompressed SEC1 form — the `0x04` tag byte then the 64 bytes of
+/// `x` and `y`, as `@secp256k1.PrivateKey::public_key` hands back.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
@@ -109,10 +100,8 @@ pub fn Address::from_public_key(public_key : Bytes) -> Address raise CodecError 
 /// The address a public key already known to be a point derives: drop the
 /// `0x04` tag, Keccak-256 the 64 coordinate bytes, keep the last 20.
 ///
-/// Built rather than parsed: the input is established — by `from_public_key`
-/// off the wire, by the curve itself in `Address::recover` — and the digits
-/// come out of a hash, so there is no form to check and no checksum casing to
-/// prove. Nothing here can raise.
+/// Built rather than parsed: the input is established and the digits come out
+/// of a hash, so there is no form to check. Nothing here can raise.
 fn address_of_tagged_key(public_key : Bytes) -> Address {
   let hash = @keccak.keccak256(public_key[1:].to_owned())
   Address::of_lower_digits(@codec.digits_of_bytes(hash[12:].to_owned()))
@@ -120,21 +109,10 @@ fn address_of_tagged_key(public_key : Bytes) -> Address {
 
 ///|
 /// The address that signed `digest`: ecrecover, ending where Ethereum ends it.
-///
-/// `@secp256k1.Signature::recover` does the curve work and answers with the
-/// public key, because the curve package sits below this one and knows no
-/// `Address`. This is the same call with the derivation on the end, and it is
-/// the one to reach for: an address is what a contract, a log or a transaction
-/// names a signer by.
-///
-/// It raises `@secp256k1.CurveError` and nothing else. The bytes it derives
-/// from come out of the curve rather than off a wire, so there is no address
-/// to validate and no `CodecError` to raise — which is why the derivation
-/// above is a separate, infallible step.
+/// This is `@secp256k1.Signature::recover` with the derivation on the end.
 ///
 /// Recovery is not verification: it answers with whichever address would have
-/// signed this digest, so a caller checking a signature compares the answer
-/// with the address it expected.
+/// signed this digest, so a caller compares it with the address it expected.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(

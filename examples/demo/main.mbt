@@ -156,10 +156,8 @@ async fn WalletView::resync(
 /// the extension, the chain they switch to elsewhere, the provider going away.
 ///
 /// This is what the SDK being stateless means in practice — the current account
-/// and chain live in these signals, and the events are the only thing that keeps
-/// them true. `Subscription` is a plain handle with no framework attached, so
-/// wrapping it in this page's lifecycle is the page's business: here that is an
-/// array unsubscribed on the next connect or disconnect.
+/// and chain live in these signals. `Subscription` is a plain handle, so
+/// wrapping it in this page's lifecycle is the page's business.
 fn WalletView::watch(
   self : WalletView,
   wallet : @browser.BrowserProvider,
@@ -238,8 +236,6 @@ fn injected_name(wallet : @browser.BrowserProvider) -> String {
 ///
 /// `discover` waits out its deadline and answers with what announced; when
 /// nothing did, the one entry is `globalThis.ethereum` with no `info` on it.
-/// The list goes straight into a signal, so the picker below is drawn from
-/// exactly what the SDK returned.
 async fn WalletView::detect_wallets(self : WalletView) -> Unit {
   self.status.set("Asking installed wallets to announce themselves…")
   let found = @browser.BrowserProvider::discover()
@@ -327,15 +323,12 @@ async fn WalletView::switch_to(self : WalletView, chain : Chain) -> Unit {
 }
 
 ///|
-/// Parse a human amount ("0.01", "1", ".5") into the smallest unit of a
-/// currency with `decimals` decimal places, or `None` when it is not a decimal
-/// number that currency can carry.
+/// Parse a human amount ("0.01", "1", ".5") into the smallest unit of a currency
+/// with `decimals` decimal places, or `None` when it is not one it can carry.
 ///
-/// `Wei::from_units` is the SDK's, and it raises: an amount finer than the
-/// currency carries is refused rather than rounded, because silently dropping a
-/// digit of someone's money is worse than making them retype it. What is added
-/// here is the option — a form re-parses on every keystroke, and a half-typed
-/// amount is not an error worth a `try`.
+/// `Wei::from_units` raises: an amount finer than the currency carries is
+/// refused rather than rounded. What is added here is the option — a form
+/// re-parses on every keystroke, and a half-typed amount is not worth a `try`.
 fn units_of_decimal(amount : String, decimals : Int) -> BigInt? {
   Some(@endor.Wei::from_units(amount.trim().to_owned(), decimals~).to_bigint()) catch {
     _ => None
@@ -354,21 +347,9 @@ fn wei_of_ether(amount : String) -> @endor.Wei? {
 ///|
 /// Send the amount in the form to the address in the form.
 ///
-/// The whole point of the button: `WalletClient::send` prompts the wallet, and
-/// what comes back is a `TxHash` — broadcast, not yet mined. Both fields are
-/// parsed into domain types *before* the wallet is touched, so a typo costs no
-/// prompt; a mistyped checksummed address is caught by `Address::from_string`
-/// rather than by the chain.
-///
-/// `WalletClient` is what pairs the transport with the account. The account
-/// here is the one the Connect button already established, so this costs no
-/// second prompt; `WalletClient::connect` is the shortcut for a page that has
-/// not connected yet. Put `@local.LocalAccount` in that slot instead and the
-/// signing happens in this process and the raw bytes are broadcast — the
-/// `send` below would not change.
-///
-/// No fee is set, so the client works one out from the chain's base fee, and
-/// the wallet may still price it again before showing the prompt.
+/// `WalletClient::send` prompts the wallet and answers with a `TxHash` —
+/// broadcast, not yet mined. Both fields are parsed into domain types *before*
+/// the wallet is touched, so a typo costs no prompt.
 async fn WalletView::send(self : WalletView) -> Unit {
   // out of the `try` below, so that block catches only the client's errors
   let wallet = @browser.BrowserProvider::require() catch {
@@ -443,10 +424,9 @@ fn decimal_of_units(units : BigInt, decimals : Int) -> String {
 /// The ERC-20 half of the page: a token address, what the contract says about
 /// itself, and a transfer.
 ///
-/// This is the ABI layer end to end. Nothing here builds calldata or reads hex:
-/// `Erc20` turns `balanceOf` into a `BigInt` and `transfer` into a prompt, and
-/// the only conversion left is between the token's smallest unit and the digits
-/// a human types — which needs `decimals`, read from the token itself.
+/// The ABI layer end to end. Nothing here builds calldata or reads hex, and the
+/// only conversion left is between the token's smallest unit and the digits a
+/// human types — which needs `decimals`, read from the token itself.
 struct TokenView {
   status : @signals.Signal[String]
   /// What the contract says it is: name, symbol and decimals in one line.
@@ -489,13 +469,12 @@ async fn TokenView::show_balance(
 }
 
 ///|
-/// Ask the address in the form what token it is, and what the connected
-/// account holds of it.
+/// Ask the address in the form what token it is, and what the connected account
+/// holds of it.
 ///
-/// Four `eth_call`s, no prompt and no gas: reads against a contract cost the
-/// user nothing, which is why a dapp can do this the moment an address is
-/// typed. An address that is not an ERC-20 answers something the return types
-/// cannot be read out of, and that arrives here as `Abi`.
+/// Four `eth_call`s, no prompt and no gas, which is why a dapp can do this the
+/// moment an address is typed. An address that is not an ERC-20 answers
+/// something the return types cannot be read out of, and that arrives as `Abi`.
 async fn TokenView::load(self : TokenView) -> Unit {
   try {
     guard connected() is Some((wallet, who)) else {

@@ -1,26 +1,10 @@
 ///|
-/// The public key that signed `digest`: ecrecover.
+/// The public key that signed `digest`: ecrecover. `r` names up to four points
+/// and the recovery id says which, so an Ethereum transaction carries no public
+/// key at all.
 ///
-/// This is what makes an Ethereum transaction carry no public key. `r` names
-/// up to four points, and the recovery id says which; from that point, the
-/// digest and `s`, the signer's key falls out as `u1 * G + u2 * R` — no key to
-/// be handed, nothing to look up.
-///
-/// It answers with the uncompressed SEC1 bytes and not an `Address` because
-/// this package sits below `types`, which is where `Address` is defined and
-/// where the layers only point one way. `Address::recover` is the same
-/// recovery with the address derivation on the end, and is what a caller who
-/// wants an address should reach for.
-///
-/// Raises when the signature recovers nothing: an `r` that is no point's x
-/// coordinate, a recovery id whose `r + N` is past the field order, or the
-/// point at infinity. None of the three can come out of a signer; all three
-/// can come off a wire.
-///
-/// A digest, not a message, for the reason `PrivateKey::sign` takes one — and
-/// it must be the *same* digest, since recovery does not verify anything on
-/// its own: it answers with whichever key would have signed this digest, so
-/// the caller checks that key is the one it expected.
+/// It answers with uncompressed SEC1 bytes rather than an `Address`, which is
+/// `types`' — `Address::recover` is this with the derivation on the end.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
