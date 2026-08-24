@@ -105,6 +105,9 @@ fn digest_scalar_checked(digest : Bytes) -> @bigint.BigInt raise CurveError {
 /// and not a message because what gets hashed is the caller's decision, and
 /// getting that wrong is how a signature ends up valid for something else.
 ///
+/// The nonce goes through the same non-constant-time ladder as the key — see
+/// `PrivateKey`. RFC 6979 stops a nonce from repeating, not from leaking.
+///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
 ///   @codec.bytes_of_digits(

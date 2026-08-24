@@ -18,6 +18,10 @@ no prompt. That is the point in a backend and a disaster in a browser — there,
 let the wallet hold the key. Never put a real key in code, in a repository, or
 in a bundle a browser downloads.
 
+The signing is not constant time either: enough signatures a stranger can time
+give the key away. A backend of your own is fine; a runtime shared with other
+tenants is not what this is for.
+
   </div>
 </div>
 

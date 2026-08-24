@@ -12,9 +12,9 @@ fn reading(digits : String) -> () -> Unit {
 }
 
 ///|
-/// Reading a key is one scalar multiplication, which is the whole cost. The two
-/// scalars are the cheap end and the dear end of the double-and-add: `1` sets
-/// one bit, `N - 1` sets nearly all of them.
+/// Reading a key is one scalar multiplication, which is the whole cost. Both
+/// scalars pay the same 256 doublings and differ only in additions: `1` sets one
+/// bit, `N - 1` sets nearly all of them.
 test "bench: PrivateKey::from_bytes" (b : @bench.T) {
   b.bench(name="one bit", reading(KEY_ONE))
   b.bench(name="every bit", reading(KEY_LAST))

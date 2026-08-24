@@ -50,8 +50,8 @@ pub fn Signature::recover(
   let u1 = mul_mod_n(neg_z, r_inv)
   let u2 = mul_mod_n(self.s, r_inv)
   // The two multiplications are spelled differently because the base point has
-  // the cheaper ladder: `scalar_base_mult` skips the leading zeros and adds by
-  // `madd-2007-bl`, an affine second operand the generic `add` cannot assume.
+  // the cheaper ladder: `scalar_base_mult` adds by `madd-2007-bl`, an affine
+  // second operand the generic `add` cannot assume.
   // It wants a scalar in `[1, N)`, so the zero `u1` a zero digest gives is the
   // one case handled here rather than there.
   let base_term = if u1.is_zero() {

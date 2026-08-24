@@ -132,7 +132,8 @@ are the SDK's own — and the signed transaction goes out as
 `eth_sendRawTransaction`, which is what makes a script, a backend or a test able
 to spend without anybody to click _approve_. That is also the danger: a key
 anything can read is a key anything can sign with, so it belongs in a server and
-never in a bundle a browser downloads.
+never in a bundle a browser downloads — and, the signing not being constant
+time, in a server whose timing nobody else shares.
 `@wallet.WalletClient::connect(wallet)` is the other half — the same client with
 the wallet as the account, prompting its user for every signature.
 [Sign with a local key](https://endor.poteto-mahiro.com/cookbook/local-account/)
