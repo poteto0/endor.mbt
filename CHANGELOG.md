@@ -10,6 +10,24 @@ Every such change is listed under **Changed** with what to do about it. The
 policy in full — what counts as a break, and what does not — is
 [Versioning](https://endor.poteto-mahiro.com/reference/versioning/).
 
+## [Unreleased]
+
+### Changed
+
+- **`UnsignedTransaction` is an enum, one variant per EIP-2718 transaction
+  type.** `UnsignedTransaction::new` still builds the EIP-1559 one and every
+  method takes the same arguments and answers the same bytes, so a caller that
+  only builds and signs needs no change. What moves is that the type can now be
+  matched on, and a `match` that names only `Eip1559` will stop compiling when
+  the next type arrives:
+
+  ```moonbit no-check
+  match tx {
+    Eip1559(gas~, ..) => println(gas)
+    _ => ()
+  }
+  ```
+
 ## [0.8.0] - 2026-08-22
 
 ### Added
@@ -385,6 +403,7 @@ policy in full — what counts as a break, and what does not — is
 - MetaMask connection via the EIP-1193 provider standard
 - Basic read methods
 
+[Unreleased]: https://github.com/poteto0/endor.mbt/compare/v0.8.0...HEAD
 [0.8.0]: https://github.com/poteto0/endor.mbt/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/poteto0/endor.mbt/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/poteto0/endor.mbt/compare/v0.5.0...v0.6.0

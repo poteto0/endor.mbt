@@ -293,8 +293,8 @@ pub fn TxHash::to_json(Self) -> Json
 pub fn TxHash::to_string(Self) -> String
 pub impl Show for TxHash
 
-pub struct UnsignedTransaction {
-  // private fields
+pub enum UnsignedTransaction {
+  Eip1559(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
 }
 pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
