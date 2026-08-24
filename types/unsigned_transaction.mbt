@@ -1,28 +1,26 @@
 ///|
-/// The type byte an EIP-1559 transaction is introduced by (EIP-2718).
-const EIP1559_TYPE : Byte = 0x02
-
-///|
 /// A transaction with everything filled in, ready to be signed — the other half
 /// of `TransactionRequest`. Nothing may be left open, because every field is
 /// part of what the signature commits to.
 ///
-/// EIP-1559 (type `0x02`) only, and the access list is always empty: it is part
-/// of the signed bytes, but nothing here builds one.
-pub struct UnsignedTransaction {
-  priv chain_id : ChainId
-  priv nonce : Quantity
-  priv max_priority_fee_per_gas : Wei
-  priv max_fee_per_gas : Wei
-  priv gas : Quantity
-  priv to : Address?
-  priv value : Wei
-  priv data : Hex
+/// One variant per EIP-2718 transaction type. EIP-1559's access list is always
+/// empty: it is part of the signed bytes, but nothing here builds one.
+pub enum UnsignedTransaction {
+  Eip1559(
+    chain_id~ : ChainId,
+    nonce~ : Quantity,
+    max_priority_fee_per_gas~ : Wei,
+    max_fee_per_gas~ : Wei,
+    gas~ : Quantity,
+    to~ : Address?,
+    value~ : Wei,
+    data~ : Hex
+  )
 }
 
 ///|
-/// Build one. `to` is absent for a contract creation, which is the only thing
-/// an empty recipient means.
+/// Build an EIP-1559 transaction. `to` is absent for a contract creation, which
+/// is the only thing an empty recipient means.
 ///
 /// ```
 /// let tx = @types.UnsignedTransaction::new(
@@ -46,40 +44,66 @@ pub fn UnsignedTransaction::new(
   value? : Wei = Wei::zero(),
   data? : Hex = Hex::from_bytes(b""),
 ) -> UnsignedTransaction {
-  {
-    chain_id,
-    nonce,
-    max_priority_fee_per_gas,
-    max_fee_per_gas,
-    gas,
-    to,
-    value,
-    data,
+  Eip1559(
+    chain_id~,
+    nonce~,
+    max_priority_fee_per_gas~,
+    max_fee_per_gas~,
+    gas~,
+    to~,
+    value~,
+    data~,
+  )
+}
+
+///|
+/// The type byte EIP-2718 introduces the transaction by. A legacy transaction
+/// has none, which is what `None` is for.
+fn UnsignedTransaction::type_byte(self : UnsignedTransaction) -> Byte? {
+  match self {
+    Eip1559(_) => Some(0x02)
   }
 }
 
 ///|
-/// The nine fields the signature commits to, in the order EIP-1559 fixes.
-/// Order is the whole of what says which field is which — RLP carries no
+/// The fields the signature commits to, in the order the transaction's own EIP
+/// fixes. Order is the whole of what says which field is which — RLP carries no
 /// names — so this list is the format.
 fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
-  [
-    @rlp.Item::of_uint64(self.chain_id.to_uint64()),
-    @rlp.Item::of_uint64(self.nonce.to_uint64()),
-    @rlp.Item::of_bigint(self.max_priority_fee_per_gas.to_bigint()),
-    @rlp.Item::of_bigint(self.max_fee_per_gas.to_bigint()),
-    @rlp.Item::of_uint64(self.gas.to_uint64()),
-    // No recipient is the empty string, not a run of zero bytes: a transaction
-    // to the zero address is a different transaction from a contract creation.
-    match self.to {
-      Some(to) => Bytes(@codec.bytes_of_digits(to.digits()))
-      None => Bytes(b"")
-    },
-    @rlp.Item::of_bigint(self.value.to_bigint()),
-    Bytes(self.data.to_bytes()),
-    // The access list, always empty. See the type.
-    List([]),
-  ]
+  match self {
+    Eip1559(
+      chain_id~,
+      nonce~,
+      max_priority_fee_per_gas~,
+      max_fee_per_gas~,
+      gas~,
+      to~,
+      value~,
+      data~
+    ) =>
+      [
+        @rlp.Item::of_uint64(chain_id.to_uint64()),
+        @rlp.Item::of_uint64(nonce.to_uint64()),
+        @rlp.Item::of_bigint(max_priority_fee_per_gas.to_bigint()),
+        @rlp.Item::of_bigint(max_fee_per_gas.to_bigint()),
+        @rlp.Item::of_uint64(gas.to_uint64()),
+        recipient(to),
+        @rlp.Item::of_bigint(value.to_bigint()),
+        Bytes(data.to_bytes()),
+        // The access list, always empty. See the type.
+        List([]),
+      ]
+  }
+}
+
+///|
+/// No recipient is the empty string, not a run of zero bytes: a transaction to
+/// the zero address is a different transaction from a contract creation.
+fn recipient(to : Address?) -> @rlp.Item {
+  match to {
+    Some(to) => Bytes(@codec.bytes_of_digits(to.digits()))
+    None => Bytes(b"")
+  }
 }
 
 ///|
@@ -92,36 +116,49 @@ pub fn UnsignedTransaction::to_request(
   self : UnsignedTransaction,
   from~ : Address,
 ) -> TransactionRequest {
-  TransactionRequest::new(
-    from,
-    to?=self.to,
-    value=self.value,
-    data=self.data,
-    gas=self.gas,
-    nonce=self.nonce,
-    fee=Eip1559(
-      max_fee_per_gas=self.max_fee_per_gas,
-      max_priority_fee_per_gas=self.max_priority_fee_per_gas,
-    ),
-  )
+  match self {
+    Eip1559(
+      nonce~,
+      max_priority_fee_per_gas~,
+      max_fee_per_gas~,
+      gas~,
+      to~,
+      value~,
+      data~,
+      ..
+    ) =>
+      TransactionRequest::new(
+        from,
+        to?,
+        value~,
+        data~,
+        gas~,
+        nonce~,
+        fee=Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~),
+      )
+  }
 }
 
 ///|
-/// What to sign: `keccak256(0x02 || rlp(fields))`.
+/// What to sign: `keccak256(type_byte || rlp(fields))`.
 ///
 /// The type byte is outside the RLP, which is what EIP-2718 introduced — an
 /// envelope, so that a new transaction format needs a new byte rather than a
 /// new way to tell lists apart.
 pub fn UnsignedTransaction::signing_digest(self : UnsignedTransaction) -> Bytes {
-  @keccak.keccak256(envelope(self.fields()))
+  @keccak.keccak256(envelope(self.type_byte(), self.fields()))
 }
 
 ///|
 /// The EIP-2718 envelope: the type byte, then the RLP of the fields. Both the
 /// digest and the broadcast bytes are this, over different field lists, so the
 /// rule that the byte sits *outside* the RLP lives in one place.
-fn envelope(fields : Array[@rlp.Item]) -> Bytes {
-  Bytes::make(1, EIP1559_TYPE) + @rlp.encode(List(fields))
+fn envelope(type_byte : Byte?, fields : Array[@rlp.Item]) -> Bytes {
+  let rlp = @rlp.encode(List(fields))
+  match type_byte {
+    Some(byte) => Bytes::make(1, byte) + rlp
+    None => rlp
+  }
 }
 
 ///|
@@ -147,7 +184,7 @@ pub fn UnsignedTransaction::encode_signed(
   fields.push(@rlp.Item::of_uint64(y_parity.to_uint64()))
   fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(r[:])))
   fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(s[:])))
-  Hex::from_bytes(envelope(fields))
+  Hex::from_bytes(envelope(self.type_byte(), fields))
 }
 
 ///|
