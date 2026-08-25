@@ -17,8 +17,7 @@ pub enum UnsignedTransaction {
     value~ : Wei,
     data~ : Hex
   )
-  /// The pre-EIP-2718 form, for a chain with no EIP-1559 market. The chain id
-  /// is not a field of it: EIP-155 folds it into the signature instead.
+  /// The pre-EIP-2718 form, for a chain with no EIP-1559 market.
   Legacy(
     chain_id~ : ChainId,
     nonce~ : Quantity,
@@ -69,12 +68,11 @@ pub fn UnsignedTransaction::new(
 }
 
 ///|
-/// Build a legacy transaction, for a chain that never forked to London or a
-/// node that reports no base fee. Everything else is `new`'s.
+/// Build a legacy transaction, for a chain that never forked to London.
+/// Everything but the price is `new`'s.
 ///
-/// The signature is always EIP-155's, so the transaction is replayable on no
-/// other chain. A pre-155 transaction — `v` of 27 or 28, bound to nothing —
-/// cannot be built here on purpose.
+/// The signature is always EIP-155's: a pre-155 transaction, `v` of 27 or 28
+/// and bound to no chain, is one every chain would replay.
 ///
 /// ```
 /// let tx = @types.UnsignedTransaction::legacy(
@@ -114,8 +112,7 @@ fn UnsignedTransaction::type_byte(self : UnsignedTransaction) -> Byte? {
 /// transaction's own EIP fixes. Order is the whole of what says which field is
 /// which — RLP carries no names — so this list is the format.
 ///
-/// What follows them differs between the digest and the broadcast bytes, which
-/// is `signing_fields` and `signed_fields`.
+/// What follows them is `signing_fields`' and `signed_fields`' to say.
 fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
   match self {
     Eip1559(
@@ -155,18 +152,20 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
 ///|
 /// The fields the signature commits to.
 ///
-/// A typed transaction signs its fields as they are: the chain id is one of
-/// them. A legacy transaction has nowhere to put the chain id, so EIP-155
-/// signs `[chain_id, 0, 0]` in place of the `[v, r, s]` a signed transaction
-/// would end with — the same nine slots, filled in differently.
+/// A typed transaction signs its fields as they are. A legacy one has no field
+/// for the chain id, so EIP-155 signs `[chain_id, 0, 0]` in the three slots
+/// `signed_fields` fills with the signature.
 fn UnsignedTransaction::signing_fields(
   self : UnsignedTransaction,
 ) -> Array[@rlp.Item] {
   let fields = self.fields()
-  if self is Legacy(chain_id~, ..) {
-    fields.push(@rlp.Item::of_uint64(chain_id.to_uint64()))
-    fields.push(@rlp.Item::of_uint64(0))
-    fields.push(@rlp.Item::of_uint64(0))
+  match self {
+    Eip1559(_) => ()
+    Legacy(chain_id~, ..) => {
+      fields.push(@rlp.Item::of_uint64(chain_id.to_uint64()))
+      fields.push(@rlp.Item::of_uint64(0))
+      fields.push(@rlp.Item::of_uint64(0))
+    }
   }
   fields
 }
@@ -175,8 +174,8 @@ fn UnsignedTransaction::signing_fields(
 /// The fields with the signature on the end.
 ///
 /// A typed transaction carries the parity bit itself. A legacy one carries
-/// EIP-155's `v`, which is the parity with the chain id folded in — the only
-/// place a legacy transaction says which chain it is for.
+/// EIP-155's `v`, the parity with the chain id folded in — the only place it
+/// says which chain it is for.
 fn UnsignedTransaction::signed_fields(
   self : UnsignedTransaction,
   r~ : Bytes,

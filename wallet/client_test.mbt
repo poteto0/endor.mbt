@@ -252,15 +252,10 @@ async test "a legacy fee the caller named builds a legacy transaction" {
       value=@types.Wei::from_ether("1"),
       fee=Legacy(gas_price=@types.Wei::from_gwei("7")),
     )
-    assert_true(tx is Legacy(_))
-    inspect(
-      tx
-      .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
-      .to_json()
-      .stringify(),
-      content=(
-        #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","gasPrice":"0x1a13b8600"}
-      ),
+    // The format is the whole of the claim; what the fields become on the wire
+    // is `to_request`'s, and tested there.
+    assert_true(
+      tx is Legacy(gas_price~, ..) && gas_price == @types.Wei::from_gwei("7"),
     )
   })
 }

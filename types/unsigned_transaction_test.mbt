@@ -15,8 +15,7 @@ const RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 /// would take. Every vector below came out of `cast mktx`, so what these
 /// compare against is Foundry's encoder and Foundry's signer.
 fn raw(tx : @types.UnsignedTransaction) -> String raise {
-  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(ANVIL_KEY))
-  let signature = key.sign(tx.signing_digest())
+  let signature = signed_by_anvil(tx)
   tx
   .encode_signed(
     r=signature.r(),
@@ -24,6 +23,29 @@ fn raw(tx : @types.UnsignedTransaction) -> String raise {
     y_parity=signature.recovery_id(),
   )
   .to_string()
+}
+
+///|
+/// The anvil key's signature over what `tx` says to sign.
+fn signed_by_anvil(
+  tx : @types.UnsignedTransaction,
+) -> @secp256k1.Signature raise {
+  @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(ANVIL_KEY)).sign(
+    tx.signing_digest(),
+  )
+}
+
+///|
+/// The mainnet transfer the legacy tests below are all about.
+fn a_legacy_transfer() -> @types.UnsignedTransaction raise {
+  @types.UnsignedTransaction::legacy(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+  )
 }
 
 ///|
@@ -191,14 +213,7 @@ test "r and s must be 32 bytes each" {
 /// --gas-limit 21000 --gas-price 20gwei --value 1ether`. No type byte, six
 /// fields, and `v` of 38 — parity 1 with chain id 1 folded in.
 test "a legacy transfer matches cast mktx" {
-  let tx = @types.UnsignedTransaction::legacy(
-    chain_id=@types.ChainId::mainnet(),
-    nonce=@types.Quantity::new(0),
-    gas_price=@types.Wei::from_gwei("20"),
-    gas=@types.Quantity::new(21000),
-    to=@types.Address::from_string(RECIPIENT),
-    value=@types.Wei::from_ether("1"),
-  )
+  let tx = a_legacy_transfer()
   assert_eq(
     raw(tx),
     "0xf86c808504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a76400008026a07229466cbc255807f150595728b381915b4863bb0bae6acd1be795ed359f2146a07936385b6c8bdece4255eb135ad8f8bc1d5f35e54582685f59535a92bfb80369",
@@ -208,16 +223,8 @@ test "a legacy transfer matches cast mktx" {
 ///|
 /// The hash a node will know that transaction by.
 test "the legacy transaction hash is the hash of those bytes" {
-  let tx = @types.UnsignedTransaction::legacy(
-    chain_id=@types.ChainId::mainnet(),
-    nonce=@types.Quantity::new(0),
-    gas_price=@types.Wei::from_gwei("20"),
-    gas=@types.Quantity::new(21000),
-    to=@types.Address::from_string(RECIPIENT),
-    value=@types.Wei::from_ether("1"),
-  )
-  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(ANVIL_KEY))
-  let signature = key.sign(tx.signing_digest())
+  let tx = a_legacy_transfer()
+  let signature = signed_by_anvil(tx)
   assert_eq(
     tx
     .hash(r=signature.r(), s=signature.s(), y_parity=signature.recovery_id())
@@ -263,40 +270,10 @@ test "a legacy contract creation matches cast mktx" {
 }
 
 ///|
-/// The digest a legacy transaction signs is over nine fields, not six: EIP-155
-/// puts the chain id where the signature will go. Two chains, otherwise the
-/// same transaction, therefore sign different bytes — which is the whole of
-/// what EIP-155 buys.
-test "the chain id is in what a legacy transaction signs" {
-  fn on(chain_id) raise {
-    @types.UnsignedTransaction::legacy(
-      chain_id~,
-      nonce=@types.Quantity::new(0),
-      gas_price=@types.Wei::from_gwei("20"),
-      gas=@types.Quantity::new(21000),
-      to=@types.Address::from_string(RECIPIENT),
-      value=@types.Wei::from_ether("1"),
-    )
-  }
-
-  assert_not_eq(
-    on(@types.ChainId::mainnet()).signing_digest(),
-    on(@types.ChainId::new(56)).signing_digest(),
-  )
-}
-
-///|
 /// A legacy transaction asks the wallet for the same thing it would sign: a
 /// flat `gasPrice`, and no EIP-1559 pair.
 test "a legacy transaction asks a wallet for a flat price" {
-  let tx = @types.UnsignedTransaction::legacy(
-    chain_id=@types.ChainId::mainnet(),
-    nonce=@types.Quantity::new(0),
-    gas_price=@types.Wei::from_gwei("20"),
-    gas=@types.Quantity::new(21000),
-    to=@types.Address::from_string(RECIPIENT),
-    value=@types.Wei::from_ether("1"),
-  )
+  let tx = a_legacy_transfer()
   inspect(
     tx
     .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))

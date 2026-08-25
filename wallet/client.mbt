@@ -97,12 +97,6 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
   fee? : @types.Fee,
 ) -> @types.UnsignedTransaction raise WalletError {
   let from = self.address()
-  let named = match fee {
-    Some(Eip1559(_) | Legacy(_)) => fee
-    // `Auto`, or nothing at all: the caller left the price open, and on this
-    // path there is no wallet to leave it to.
-    Some(Auto) | None => None
-  }
   guard gas is Some(_) || to is Some(_) else {
     raise Incomplete("a contract creation has to say its own gas")
   }
@@ -128,12 +122,14 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
       }
     })
     let priced = group.spawn(() => {
-      match named {
-        Some(fee) => Ok(fee)
-        None =>
+      match fee {
+        // `Auto`, or nothing at all: the caller left the price open, and on
+        // this path there is no wallet to leave it to.
+        Some(Auto) | None =>
           Ok(@provider.estimate_fees(self.provider)) catch {
             e => Err(Provider(e))
           }
+        Some(named) => Ok(named)
       }
     })
     // estimate gs, if not gas provided
