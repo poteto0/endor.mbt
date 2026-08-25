@@ -295,9 +295,11 @@ pub impl Show for TxHash
 
 pub enum UnsignedTransaction {
   Eip1559(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
+  Legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
 }
 pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
+pub fn UnsignedTransaction::legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
 pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest

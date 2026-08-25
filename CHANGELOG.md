@@ -12,7 +12,22 @@ policy in full — what counts as a break, and what does not — is
 
 ## [Unreleased]
 
+### Added
+
+- **Legacy transactions can be signed locally.**
+  `UnsignedTransaction::legacy(chain_id~, nonce~, gas_price~, gas~, …)` builds
+  the pre-EIP-2718 form — no type byte, and EIP-155's `v` — for a chain with no
+  EIP-1559 market or a node that reports no base fee. Only the chain-bound
+  signature is built: a pre-155 transaction (`v` of 27 or 28) is replayable on
+  every chain, so the SDK does not make one.
+
 ### Changed
+
+- **`WalletClient::prepare` honours a `Legacy` fee instead of refusing it**, and
+  builds a legacy transaction from it. It also builds one when the node names no
+  base fee, where it previously priced a type-`0x02` transaction with
+  `eth_gasPrice` as both the cap and the tip — bytes the chain that reported no
+  base fee may well reject.
 
 - **`UnsignedTransaction` is an enum, one variant per EIP-2718 transaction
   type.** `UnsignedTransaction::new` still builds the EIP-1559 one and every

@@ -218,8 +218,8 @@ async test "a json-rpc account refuses to sign a transaction alone" {
 
 ///|
 /// A head block with no base fee makes `estimate_fees` answer with a flat
-/// price. That is still a price, so the transaction is built rather than
-/// refused: the cap and the tip are both `eth_gasPrice`.
+/// price, and a flat price is a legacy transaction: the chain that reports no
+/// base fee is the one that would reject a type-`0x02` envelope.
 async test "a chain with no base fee is priced from eth_gasPrice" {
   @async.with_task_group(_ => {
     let node = node().on(
@@ -234,27 +234,34 @@ async test "a chain with no base fee is priced from eth_gasPrice" {
       .to_json()
       .stringify(),
       content=(
-        #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","maxFeePerGas":"0x2540be400","maxPriorityFeePerGas":"0x2540be400"}
+        #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","gasPrice":"0x2540be400"}
       ),
     )
   })
 }
 
 ///|
-/// A price the *caller* named flat is a different statement: it asks for a
-/// transaction format this path does not build, so it is refused rather than
-/// quietly turned into a type-`0x02` one.
-async test "a legacy fee the caller named is refused" {
+/// A flat price the caller named picks the format too, on a chain that prices
+/// both ways: what comes back is signed locally as a legacy transaction, at
+/// exactly the price asked for.
+async test "a legacy fee the caller named builds a legacy transaction" {
   @async.with_task_group(_ => {
     let client = @wallet.WalletClient::new(node(), local_account())
-    let to = recipient()
-    let fee = @types.Fee::Legacy(gas_price=@types.Wei::from_gwei("7"))
-    try client.prepare(to~, fee~) |> ignore catch {
-      Incomplete(_) => ()
-      e => fail("expected Incomplete, but not \{e}")
-    } noraise {
-      _ => fail("expected fail, but success")
-    }
+    let tx = client.prepare(
+      to=recipient(),
+      value=@types.Wei::from_ether("1"),
+      fee=Legacy(gas_price=@types.Wei::from_gwei("7")),
+    )
+    assert_true(tx is Legacy(_))
+    inspect(
+      tx
+      .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+      .to_json()
+      .stringify(),
+      content=(
+        #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","gasPrice":"0x1a13b8600"}
+      ),
+    )
   })
 }
 

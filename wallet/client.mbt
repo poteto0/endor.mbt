@@ -61,22 +61,6 @@ pub fn[P, A : @account.Account] WalletClient::address(
 }
 
 ///|
-/// The EIP-1559 pair the node's own estimate names, or `None` if it named no
-/// price at all.
-///
-/// A flat `Legacy` price becomes the pair that prices the same. Translated
-/// rather than refused, because `estimate_fees` answers `Legacy` for a zero base
-/// fee too. A `Legacy` the *caller* named is not.
-fn estimated_pair(fee : @types.Fee) -> (@types.Wei, @types.Wei)? {
-  match fee {
-    Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~) =>
-      Some((max_fee_per_gas, max_priority_fee_per_gas))
-    Legacy(gas_price~) => Some((gas_price, gas_price))
-    Auto => None
-  }
-}
-
-///|
 /// The value a task carried back, or the failure it kept instead.
 fn[T] _or_raise(result : Result[T, WalletError]) -> T raise WalletError {
   match result {
@@ -90,8 +74,9 @@ fn[T] _or_raise(result : Result[T, WalletError]) -> T raise WalletError {
 ///
 /// The chain id, the nonce, the fees and the gas all come from the node, so this
 /// is a round trip even for an account that signs locally. Gas is estimated
-/// against current state, which needs a recipient. The fee comes out as the
-/// EIP-1559 pair, so a `Legacy` fee is refused here — `send` can honour it.
+/// against current state, which needs a recipient. The fee decides the
+/// transaction format: an EIP-1559 pair builds a type-`0x02` envelope, a flat
+/// `Legacy` price builds an EIP-155 legacy transaction.
 ///
 /// ```
 /// async fn[P : @provider.Provider, A : @account.Account] pay(
@@ -113,16 +98,7 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
 ) -> @types.UnsignedTransaction raise WalletError {
   let from = self.address()
   let named = match fee {
-    Some(Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~)) =>
-      Some((max_fee_per_gas, max_priority_fee_per_gas))
-    // `Legacy` is the caller opting out of EIP-1559, and opting out is the one
-    // thing this path cannot do: what it builds is a type-`0x02` envelope or
-    // nothing. Pricing a 1559 transaction off it would answer a request for one
-    // transaction format with another.
-    Some(Legacy(_)) =>
-      raise Incomplete(
-        "only an EIP-1559 fee can be signed here; a wallet can send a legacy transaction, so hand it one with send(fee=Legacy(..))",
-      )
+    Some(Eip1559(_) | Legacy(_)) => fee
     // `Auto`, or nothing at all: the caller left the price open, and on this
     // path there is no wallet to leave it to.
     Some(Auto) | None => None
@@ -153,9 +129,9 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
     })
     let priced = group.spawn(() => {
       match named {
-        Some(pair) => Ok(Some(pair))
+        Some(fee) => Ok(fee)
         None =>
-          Ok(estimated_pair(@provider.estimate_fees(self.provider))) catch {
+          Ok(@provider.estimate_fees(self.provider)) catch {
             e => Err(Provider(e))
           }
       }
@@ -193,20 +169,31 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
   let nonce = _or_raise(nonce)
   let gas = _or_raise(gas)
   // `estimate_fees` answers with one of the two priced forms and never `Auto`,
-  // so this is a node that named no fee at all.
-  guard _or_raise(priced) is Some((max_fee_per_gas, max_priority_fee_per_gas)) else {
-    raise Incomplete("the node named no gas price")
+  // so that arm is a node that named no fee at all.
+  match _or_raise(priced) {
+    Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~) =>
+      @types.UnsignedTransaction::new(
+        chain_id~,
+        nonce~,
+        max_priority_fee_per_gas~,
+        max_fee_per_gas~,
+        gas~,
+        to?,
+        value~,
+        data~,
+      )
+    Legacy(gas_price~) =>
+      @types.UnsignedTransaction::legacy(
+        chain_id~,
+        nonce~,
+        gas_price~,
+        gas~,
+        to?,
+        value~,
+        data~,
+      )
+    Auto => raise Incomplete("the node named no gas price")
   }
-  @types.UnsignedTransaction::new(
-    chain_id~,
-    nonce~,
-    max_priority_fee_per_gas~,
-    max_fee_per_gas~,
-    gas~,
-    to?,
-    value~,
-    data~,
-  )
 }
 
 ///|
