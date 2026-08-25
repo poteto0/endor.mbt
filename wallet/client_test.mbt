@@ -231,6 +231,7 @@ async test "a chain with no base fee is priced from eth_gasPrice" {
     inspect(
       tx
       .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+      .unwrap()
       .to_json()
       .stringify(),
       content=(

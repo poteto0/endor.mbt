@@ -82,6 +82,15 @@ pub impl Eq for Address
 pub impl Show for Address
 pub impl @debug.Debug for Address
 
+pub struct Authorization {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn Authorization::any_chain(address~ : Address, nonce~ : Quantity) -> Self
+pub fn Authorization::new(chain_id~ : ChainId, address~ : Address, nonce~ : Quantity) -> Self
+pub fn Authorization::signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> SignedAuthorization raise CodecError
+pub fn Authorization::signing_digest(Self) -> Bytes
+pub impl Show for Authorization
+
 pub(all) struct Block {
   number : UInt64?
   hash : BlockHash?
@@ -238,6 +247,12 @@ pub(all) enum ReceiptStatus {
 } derive(Eq, @debug.Debug)
 pub impl Show for ReceiptStatus
 
+pub struct SignedAuthorization {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn SignedAuthorization::authorization(Self) -> Authorization
+pub impl Show for SignedAuthorization
+
 pub struct Topic {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -296,13 +311,15 @@ pub impl Show for TxHash
 pub enum UnsignedTransaction {
   Eip1559(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
   Legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
+  Eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, value~ : Wei, data~ : Hex, authorization_list~ : Array[SignedAuthorization])
 }
+pub fn UnsignedTransaction::eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, authorization_list~ : Array[SignedAuthorization], value? : Wei, data? : Hex) -> Self raise CodecError
 pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
 pub fn UnsignedTransaction::legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
-pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest
+pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest?
 
 pub struct Wei {
   // private fields
