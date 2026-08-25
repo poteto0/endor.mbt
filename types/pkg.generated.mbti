@@ -86,7 +86,7 @@ pub struct Authorization {
   // private fields
 } derive(Eq, @debug.Debug)
 pub fn Authorization::any_chain(address~ : Address, nonce~ : Quantity) -> Self
-pub fn Authorization::new(chain_id~ : ChainId, address~ : Address, nonce~ : Quantity) -> Self
+pub fn Authorization::new(chain_id~ : ChainId, address~ : Address, nonce~ : Quantity) -> Self raise CodecError
 pub fn Authorization::signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> SignedAuthorization raise CodecError
 pub fn Authorization::signing_digest(Self) -> Bytes
 pub impl Show for Authorization

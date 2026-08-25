@@ -46,6 +46,25 @@ test "any_chain is not the same authorization as chain 1" {
 }
 
 ///|
+/// Chain id `0` cannot be reached through `new`, so a chain id that arrives as
+/// a variable cannot quietly become an every-chain authorization.
+test "chain 0 has to be asked for by name" {
+  try
+    @types.Authorization::new(
+      chain_id=@types.ChainId::new(0),
+      address=@types.Address::from_string(RECIPIENT),
+      nonce=@types.Quantity::new(1),
+    )
+    |> ignore
+  catch {
+    InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}
+
+///|
 /// The nonce is the authority's, so getting it wrong is a different signature
 /// rather than an error — the only place that shows is the digest.
 test "the authorization nonce is signed over" {

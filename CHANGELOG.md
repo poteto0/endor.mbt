@@ -25,7 +25,10 @@ policy in full — what counts as a break, and what does not — is
   they do for EIP-1559. It carries `@types.Authorization` — `new` for one
   chain, `any_chain` for the replayable chain-`0` form — signed into a
   `SignedAuthorization` with `Authorization::signed`. `to` is not optional and
-  an empty authorization list raises.
+  an empty authorization list raises. Chain id `0` — the authorization that is
+  replayable on every chain — raises in `new` and is only reachable through
+  `any_chain`, so it cannot arrive by way of a variable that happened to be
+  zero.
 
 ### Changed
 

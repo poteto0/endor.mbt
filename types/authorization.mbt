@@ -24,6 +24,10 @@ pub impl Show for Authorization with fn output(self, logger) {
 /// `nonce` is the *authority's* own account nonce, not the carrying
 /// transaction's. The zero address is a revocation.
 ///
+/// Chain id `0` raises: it does not name a chain, it means *every* chain, and
+/// that is `any_chain`'s to say. So the every-chain authorization cannot be
+/// arrived at by passing a variable that happened to be zero.
+///
 /// ```
 /// let auth = @types.Authorization::new(
 ///   chain_id=@types.ChainId::mainnet(),
@@ -36,7 +40,12 @@ pub fn Authorization::new(
   chain_id~ : ChainId,
   address~ : Address,
   nonce~ : Quantity,
-) -> Authorization {
+) -> Authorization raise CodecError {
+  guard chain_id.to_uint64() != 0 else {
+    raise InvalidValue(
+      "chain id 0 authorizes every chain: say Authorization::any_chain",
+    )
+  }
   Authorization::{ chain_id, address, nonce }
 }
 
@@ -44,8 +53,9 @@ pub fn Authorization::new(
 /// Authorize `address` on every chain at once, which is what chain id `0`
 /// means.
 ///
-/// It has its own name because it is the dangerous one: the same signature is
-/// replayable on any chain the authority exists on, at that nonce.
+/// The only way to spell chain id `0`, and it takes no chain id at all: the
+/// same signature is replayable on every chain the authority exists on, at
+/// that nonce, so it is asked for by name or not at all.
 pub fn Authorization::any_chain(
   address~ : Address,
   nonce~ : Quantity,
