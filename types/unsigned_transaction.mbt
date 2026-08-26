@@ -449,10 +449,13 @@ fn address_item(address : Address) -> @rlp.Item {
 /// the one thing this side does not know.
 ///
 /// `None` for a transaction this request cannot ask for. A `TransactionRequest`
-/// has no field for a 7702 authorization list or for an access list, and it
-/// cannot name a type byte at all — so a 2930 transaction has no request form
-/// even with an empty list, since what came back would be a legacy one. A 1559
-/// transaction that declares nothing loses nothing, and still converts.
+/// has no field for a 7702 authorization list, and it cannot name a type byte
+/// at all — so a 2930 transaction has no request form even with an empty list,
+/// since what came back would be a legacy one.
+///
+/// A 1559 transaction converts with its access list on it. A wallet that
+/// ignores `accessList` signs without it, which prices the declared slots cold
+/// rather than warm and changes nothing else.
 pub fn UnsignedTransaction::to_request(
   self : UnsignedTransaction,
   from~ : Address,
@@ -468,7 +471,7 @@ pub fn UnsignedTransaction::to_request(
       data~,
       access_list~,
       ..
-    ) if access_list.is_empty() =>
+    ) =>
       Some(
         TransactionRequest::new(
           from,
@@ -478,6 +481,7 @@ pub fn UnsignedTransaction::to_request(
           gas~,
           nonce~,
           fee=Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~),
+          access_list~,
         ),
       )
     Legacy(nonce~, gas_price~, gas~, to~, value~, data~, ..) =>
@@ -492,7 +496,7 @@ pub fn UnsignedTransaction::to_request(
           fee=Legacy(gas_price~),
         ),
       )
-    Eip1559(_) | Eip2930(_) | Eip7702(_) => None
+    Eip2930(_) | Eip7702(_) => None
   }
 }
 

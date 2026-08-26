@@ -89,6 +89,12 @@ access to it is charged the warm price. `UnsignedTransaction::new` takes an
 empty, which declares nothing and is the transaction as before.
 `@provider.create_access_list` is how the node works one out.
 
+A wallet is asked for a list through `TransactionRequest`'s own `access_list=`,
+which goes on the wire as `accessList`. A wallet that does not implement
+EIP-2930 signs without it: the declared slots are then charged the cold price
+and nothing else about the transaction changes. A type-`0x01` transaction still
+has no request form.
+
 ## Broadcasting something already signed
 
 | Function                                | JSON-RPC method          | Returns         |

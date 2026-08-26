@@ -314,7 +314,7 @@ pub impl Show for TransactionReceipt
 pub struct TransactionRequest {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn TransactionRequest::new(Address, to? : Address, value? : Wei, data? : Hex, gas? : Quantity, nonce? : Quantity, fee? : Fee) -> Self
+pub fn TransactionRequest::new(Address, to? : Address, value? : Wei, data? : Hex, gas? : Quantity, nonce? : Quantity, fee? : Fee, access_list? : Array[AccessListItem]) -> Self
 pub fn TransactionRequest::to_json(Self) -> Json
 
 pub struct TxHash {

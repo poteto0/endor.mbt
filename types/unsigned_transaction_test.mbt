@@ -546,11 +546,9 @@ test "the access list cannot be changed afterwards" {
 }
 
 ///|
-/// `eth_sendTransaction` has nowhere to put an access list, so a transaction
-/// carrying one has no request form — while the same transaction without one
-/// still has.
-test "a transaction with an access list has no request form" {
-  let with_list = @types.UnsignedTransaction::new(
+/// A 1559 transaction converts with its access list on it.
+test "a 1559 transaction asks a wallet for its access list" {
+  let tx = @types.UnsignedTransaction::new(
     chain_id=@types.ChainId::mainnet(),
     nonce=@types.Quantity::new(0),
     max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
@@ -559,8 +557,22 @@ test "a transaction with an access list has no request form" {
     to=@types.Address::from_string(RECIPIENT),
     access_list=[a_recipient_entry()],
   )
-  let from = @types.Address::from_string(ANVIL_ADDRESS)
-  assert_true(with_list.to_request(from~) is None)
+  inspect(
+    tx
+    .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+    .unwrap()
+    .to_json()
+    .stringify(),
+    content=(
+      #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0x0","data":"0x","gas":"0x5208","nonce":"0x0","maxFeePerGas":"0x4a817c800","maxPriorityFeePerGas":"0x3b9aca00","accessList":[{"address":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000000","0x0000000000000000000000000000000000000000000000000000000000000007"]}]}
+    ),
+  )
+}
+
+///|
+/// A `TransactionRequest` cannot name a type byte, so what came back would be a
+/// legacy transaction.
+test "a 2930 transaction has no request form" {
   let tx_2930 = @types.UnsignedTransaction::eip2930(
     chain_id=@types.ChainId::mainnet(),
     nonce=@types.Quantity::new(0),
@@ -568,5 +580,7 @@ test "a transaction with an access list has no request form" {
     gas=@types.Quantity::new(21000),
     to=@types.Address::from_string(RECIPIENT),
   )
-  assert_true(tx_2930.to_request(from~) is None)
+  assert_true(
+    tx_2930.to_request(from=@types.Address::from_string(ANVIL_ADDRESS)) is None,
+  )
 }

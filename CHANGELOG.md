@@ -40,15 +40,12 @@ policy in full — what counts as a break, and what does not — is
   type-`0x01` form, which carries a list at a flat `gas_price` rather than a
   1559 pair. `@provider.create_access_list` (`eth_createAccessList`) asks the
   node for the list a request would touch, and answers with the gas that list
-  buys beside it.
+  buys beside it. `TransactionRequest::new` takes an `access_list=` as well, so
+  a wallet can be asked for one: it goes out as `accessList`, and an empty list
+  is left off the wire.
 
 ### Changed
 
-- **`UnsignedTransaction::to_request` answers `None` for a transaction carrying
-  an access list.** `eth_sendTransaction` has nowhere to put one, and sending
-  the transaction without it would send a different transaction — the same
-  reason a 7702 transaction has no request form. A transaction whose access list
-  is empty converts as it did.
 - **`WalletClient::prepare` honours a `Legacy` fee instead of refusing it**, and
   builds a legacy transaction from it. It also builds one when the node names no
   base fee, where it previously priced a type-`0x02` transaction with
