@@ -66,6 +66,24 @@ pub fn AbiValue::checked_int(@bigint.BigInt, bits~ : Int) -> @bigint.BigInt rais
 pub fn AbiValue::checked_uint(@bigint.BigInt, bits~ : Int) -> @bigint.BigInt raise AbiError
 pub impl Show for AbiValue
 
+pub(all) struct AccessListEstimate {
+  access_list : Array[AccessListItem]
+  gas_used : Quantity
+  error : String?
+} derive(Eq, @debug.Debug)
+pub fn AccessListEstimate::from_json(Json) -> Self raise CodecError
+pub impl Show for AccessListEstimate
+
+pub struct AccessListItem {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn AccessListItem::address(Self) -> Address
+pub fn AccessListItem::from_json(Json) -> Self raise CodecError
+pub fn AccessListItem::new(Address, storage_keys? : Array[Hex]) -> Self raise CodecError
+pub fn AccessListItem::storage_keys(Self) -> Array[Hex]
+pub fn AccessListItem::to_json(Self) -> Json
+pub impl Show for AccessListItem
+
 pub struct Address {
   // private fields
 }
@@ -309,15 +327,17 @@ pub fn TxHash::to_string(Self) -> String
 pub impl Show for TxHash
 
 pub enum UnsignedTransaction {
-  Eip1559(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
+  Eip1559(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex, access_list~ : Array[AccessListItem])
+  Eip2930(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex, access_list~ : Array[AccessListItem])
   Legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to~ : Address?, value~ : Wei, data~ : Hex)
-  Eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, value~ : Wei, data~ : Hex, authorization_list~ : Array[SignedAuthorization])
+  Eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, value~ : Wei, data~ : Hex, access_list~ : Array[AccessListItem], authorization_list~ : Array[SignedAuthorization])
 }
-pub fn UnsignedTransaction::eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, authorization_list~ : Array[SignedAuthorization], value? : Wei, data? : Hex) -> Self raise CodecError
+pub fn UnsignedTransaction::eip2930(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex, access_list? : Array[AccessListItem]) -> Self
+pub fn UnsignedTransaction::eip7702(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to~ : Address, authorization_list~ : Array[SignedAuthorization], value? : Wei, data? : Hex, access_list? : Array[AccessListItem]) -> Self raise CodecError
 pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
 pub fn UnsignedTransaction::legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
-pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
+pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex, access_list? : Array[AccessListItem]) -> Self
 pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
 pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest?
 
@@ -341,5 +361,6 @@ pub fn Wei::zero() -> Self
 pub impl Show for Wei
 
 // Type aliases
+pub type AccessList = Array[AccessListItem]
 
 // Traits

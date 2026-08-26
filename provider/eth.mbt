@@ -351,6 +351,40 @@ pub async fn[P : Provider] estimate_gas(
 }
 
 ///|
+/// Ask the node which addresses and storage slots `request` would touch
+/// (`eth_createAccessList`). It executes the transaction the way `call` does,
+/// so this needs no signature either.
+///
+/// The list it answers with is what an EIP-2930 or EIP-1559 transaction carries
+/// to have those accesses charged the warm price. It is worth what it saves
+/// only sometimes — every entry costs gas of its own — which is why the answer
+/// carries the resulting `gas_used` to compare against `estimate_gas`.
+///
+/// An executed transaction that failed is not an RPC error: it comes back with
+/// `error` set, and the partial list beside it.
+///
+/// ```
+/// async fn[P : @provider.Provider] warm_slots(
+///   p : P,
+///   req : @types.CallRequest,
+/// ) -> @types.AccessList raise @provider.ProviderError {
+///   @provider.create_access_list(p, req).access_list
+/// }
+/// ```
+pub async fn[P : Provider] create_access_list(
+  provider : P,
+  request : @types.CallRequest,
+  block? : @types.BlockTag = Latest,
+) -> @types.AccessListEstimate raise ProviderError {
+  invoke_rpc(
+    provider,
+    method_name="eth_createAccessList",
+    params=Json::array([request.to_json(), block.to_json()]),
+    decode=@types.AccessListEstimate::from_json,
+  )
+}
+
+///|
 /// Return the block at `block`, or `None` when the node does not know it
 /// (`eth_getBlockByNumber`).
 ///

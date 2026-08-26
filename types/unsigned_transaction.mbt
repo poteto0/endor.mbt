@@ -4,8 +4,7 @@
 /// part of what the signature commits to.
 ///
 /// One variant per EIP-2718 transaction type, plus the legacy form that
-/// predates the envelope. The access list is always empty: it is part of the
-/// signed bytes, but nothing here builds one.
+/// predates the envelope.
 pub enum UnsignedTransaction {
   Eip1559(
     chain_id~ : ChainId,
@@ -15,7 +14,20 @@ pub enum UnsignedTransaction {
     gas~ : Quantity,
     to~ : Address?,
     value~ : Wei,
-    data~ : Hex
+    data~ : Hex,
+    access_list~ : AccessList
+  )
+  /// EIP-2930. An access list priced the pre-London way: a flat `gas_price`,
+  /// not a cap and a tip.
+  Eip2930(
+    chain_id~ : ChainId,
+    nonce~ : Quantity,
+    gas_price~ : Wei,
+    gas~ : Quantity,
+    to~ : Address?,
+    value~ : Wei,
+    data~ : Hex,
+    access_list~ : AccessList
   )
   /// The pre-EIP-2718 form, for a chain with no EIP-1559 market.
   Legacy(
@@ -37,6 +49,7 @@ pub enum UnsignedTransaction {
     to~ : Address,
     value~ : Wei,
     data~ : Hex,
+    access_list~ : AccessList,
     authorization_list~ : Array[SignedAuthorization]
   )
 }
@@ -44,6 +57,9 @@ pub enum UnsignedTransaction {
 ///|
 /// Build an EIP-1559 transaction. `to` is absent for a contract creation, which
 /// is the only thing an empty recipient means.
+///
+/// `access_list` is what the transaction says it will touch; the default is the
+/// empty list, which declares nothing and costs nothing.
 ///
 /// ```
 /// let tx = @types.UnsignedTransaction::new(
@@ -66,6 +82,7 @@ pub fn UnsignedTransaction::new(
   to? : Address,
   value? : Wei = Wei::zero(),
   data? : Hex = Hex::from_bytes(b""),
+  access_list? : AccessList = [],
 ) -> UnsignedTransaction {
   Eip1559(
     chain_id~,
@@ -76,6 +93,57 @@ pub fn UnsignedTransaction::new(
     to~,
     value~,
     data~,
+    access_list=access_list.copy(),
+  )
+}
+
+///|
+/// Build an EIP-2930 transaction: a legacy-priced transaction that carries an
+/// access list.
+///
+/// The first typed transaction there was, and the reason the envelope exists.
+/// On a London chain `new` is the one to reach for — it takes an access list
+/// too, at the fee market a London chain actually charges.
+///
+/// ```mbt check
+/// test "doc: eip-2930 transaction" {
+///   let tx = @types.UnsignedTransaction::eip2930(
+///     chain_id=@types.ChainId::mainnet(),
+///     nonce=@types.Quantity::new(0),
+///     gas_price=@types.Wei::from_gwei("20"),
+///     gas=@types.Quantity::new(21000),
+///     to=@types.Address::from_string("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+///     value=@types.Wei::from_ether("1"),
+///     access_list=[
+///       @types.AccessListItem::new(
+///         @types.Address::from_string(
+///           "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+///         ),
+///       ),
+///     ],
+///   )
+///   assert_eq(tx.signing_digest().length(), 32)
+/// }
+/// ```
+pub fn UnsignedTransaction::eip2930(
+  chain_id~ : ChainId,
+  nonce~ : Quantity,
+  gas_price~ : Wei,
+  gas~ : Quantity,
+  to? : Address,
+  value? : Wei = Wei::zero(),
+  data? : Hex = Hex::from_bytes(b""),
+  access_list? : AccessList = [],
+) -> UnsignedTransaction {
+  Eip2930(
+    chain_id~,
+    nonce~,
+    gas_price~,
+    gas~,
+    to~,
+    value~,
+    data~,
+    access_list=access_list.copy(),
   )
 }
 
@@ -155,6 +223,7 @@ pub fn UnsignedTransaction::eip7702(
   authorization_list~ : Array[SignedAuthorization],
   value? : Wei = Wei::zero(),
   data? : Hex = Hex::from_bytes(b""),
+  access_list? : AccessList = [],
 ) -> UnsignedTransaction raise CodecError {
   guard authorization_list.length() > 0 else {
     raise InvalidValue("a 7702 transaction needs at least one authorization")
@@ -168,6 +237,7 @@ pub fn UnsignedTransaction::eip7702(
     to~,
     value~,
     data~,
+    access_list=access_list.copy(),
     authorization_list=authorization_list.copy(),
   )
 }
@@ -178,6 +248,7 @@ pub fn UnsignedTransaction::eip7702(
 fn UnsignedTransaction::type_byte(self : UnsignedTransaction) -> Byte? {
   match self {
     Eip1559(_) => Some(0x02)
+    Eip2930(_) => Some(0x01)
     Eip7702(_) => Some(0x04)
     Legacy(_) => None
   }
@@ -199,17 +270,38 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
       gas~,
       to~,
       value~,
-      data~
+      data~,
+      access_list~
     ) =>
-      priced_fields(
+      typed_fields(
         chain_id~,
         nonce~,
-        max_priority_fee_per_gas~,
-        max_fee_per_gas~,
+        fee=dynamic_fee(max_priority_fee_per_gas, max_fee_per_gas),
         gas~,
         to=recipient(to),
         value~,
         data~,
+        access_list~,
+      )
+    Eip2930(
+      chain_id~,
+      nonce~,
+      gas_price~,
+      gas~,
+      to~,
+      value~,
+      data~,
+      access_list~
+    ) =>
+      typed_fields(
+        chain_id~,
+        nonce~,
+        fee=[@rlp.Item::of_bigint(gas_price.to_bigint())],
+        gas~,
+        to=recipient(to),
+        value~,
+        data~,
+        access_list~,
       )
     Eip7702(
       chain_id~,
@@ -220,17 +312,18 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
       to~,
       value~,
       data~,
+      access_list~,
       authorization_list~
     ) => {
-      let fields = priced_fields(
+      let fields = typed_fields(
         chain_id~,
         nonce~,
-        max_priority_fee_per_gas~,
-        max_fee_per_gas~,
+        fee=dynamic_fee(max_priority_fee_per_gas, max_fee_per_gas),
         gas~,
         to=address_item(to),
         value~,
         data~,
+        access_list~,
       )
       fields.push(List(authorization_list.map(SignedAuthorization::to_rlp)))
       fields
@@ -258,7 +351,7 @@ fn UnsignedTransaction::signing_fields(
 ) -> Array[@rlp.Item] {
   let fields = self.fields()
   match self {
-    Eip1559(_) | Eip7702(_) => ()
+    Eip1559(_) | Eip2930(_) | Eip7702(_) => ()
     Legacy(chain_id~, ..) => {
       fields.push(@rlp.Item::of_uint64(chain_id.to_uint64()))
       fields.push(@rlp.Item::of_uint64(0))
@@ -281,7 +374,7 @@ fn UnsignedTransaction::signed_fields(
   y_parity~ : Int,
 ) -> Array[@rlp.Item] {
   let v = match self {
-    Eip1559(_) | Eip7702(_) => y_parity.to_uint64()
+    Eip1559(_) | Eip2930(_) | Eip7702(_) => y_parity.to_uint64()
     Legacy(chain_id~, ..) =>
       y_parity.to_uint64() + chain_id.to_uint64() * 2 + 35
   }
@@ -291,29 +384,45 @@ fn UnsignedTransaction::signed_fields(
 }
 
 ///|
-/// The nine fields EIP-1559 fixed and every type since has begun with. A later
+/// What every typed transaction is made of: the chain id and nonce, however it
+/// prices its gas, then the transaction itself and the access list. A later
 /// type adds to the end of this list and changes nothing in it.
-fn priced_fields(
+///
+/// `fee` is the only slot the types disagree on — the 1559 tip and cap, or a
+/// flat 2930 `gas_price` — so it is passed in already encoded and the order of
+/// everything around it is fixed here.
+fn typed_fields(
   chain_id~ : ChainId,
   nonce~ : Quantity,
-  max_priority_fee_per_gas~ : Wei,
-  max_fee_per_gas~ : Wei,
+  fee~ : Array[@rlp.Item],
   gas~ : Quantity,
   to~ : @rlp.Item,
   value~ : Wei,
   data~ : Hex,
+  access_list~ : AccessList,
 ) -> Array[@rlp.Item] {
-  [
+  let fields = [
     @rlp.Item::of_uint64(chain_id.to_uint64()),
     @rlp.Item::of_uint64(nonce.to_uint64()),
+  ]
+  fields.append(fee)
+  fields.push(@rlp.Item::of_uint64(gas.to_uint64()))
+  fields.push(to)
+  fields.push(@rlp.Item::of_bigint(value.to_bigint()))
+  fields.push(Bytes(data.to_bytes()))
+  fields.push(access_list_field(access_list))
+  fields
+}
+
+///|
+/// The 1559 fee pair, in the two slots `typed_fields` leaves for it.
+fn dynamic_fee(
+  max_priority_fee_per_gas : Wei,
+  max_fee_per_gas : Wei,
+) -> Array[@rlp.Item] {
+  [
     @rlp.Item::of_bigint(max_priority_fee_per_gas.to_bigint()),
     @rlp.Item::of_bigint(max_fee_per_gas.to_bigint()),
-    @rlp.Item::of_uint64(gas.to_uint64()),
-    to,
-    @rlp.Item::of_bigint(value.to_bigint()),
-    Bytes(data.to_bytes()),
-    // The access list, always empty. See the type.
-    List([]),
   ]
 }
 
@@ -339,9 +448,11 @@ fn address_item(address : Address) -> @rlp.Item {
 /// in one step, so it has to be asked in the shape that call takes. `from` is
 /// the one thing this side does not know.
 ///
-/// `None` for a transaction with no request form: `eth_sendTransaction` carries
-/// a 7702 authorization list in a field this type does not have, and sending it
-/// without one would send a different transaction.
+/// `None` for a transaction this request cannot ask for. A `TransactionRequest`
+/// has no field for a 7702 authorization list or for an access list, and it
+/// cannot name a type byte at all — so a 2930 transaction has no request form
+/// even with an empty list, since what came back would be a legacy one. A 1559
+/// transaction that declares nothing loses nothing, and still converts.
 pub fn UnsignedTransaction::to_request(
   self : UnsignedTransaction,
   from~ : Address,
@@ -355,8 +466,9 @@ pub fn UnsignedTransaction::to_request(
       to~,
       value~,
       data~,
+      access_list~,
       ..
-    ) =>
+    ) if access_list.is_empty() =>
       Some(
         TransactionRequest::new(
           from,
@@ -380,7 +492,7 @@ pub fn UnsignedTransaction::to_request(
           fee=Legacy(gas_price~),
         ),
       )
-    Eip7702(_) => None
+    Eip1559(_) | Eip2930(_) | Eip7702(_) => None
   }
 }
 
