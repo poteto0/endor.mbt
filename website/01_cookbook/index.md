@@ -39,6 +39,7 @@ explains them, so the behaviour and the description are the same thing.
 | [Read many things at once](./batch-reads/)   | no                  | no         |
 | [Sign with a local key](./local-account/)    | no — there is none  | **yes**    |
 | [Move a stablecoin](./stablecoin/)           | no — you submit     | **yes**    |
+| [Delegate an EOA](./delegate-eoa/)           | no — there is none  | **yes**    |
 
 And the ones that need no wallet at all:
 
@@ -59,7 +60,9 @@ which works in a script, a CLI or on a server as well as in a page.
 And one needs no wallet to *write*: [Sign with a local key](./local-account/)
 holds the private key in the process instead, which is what a backend or a test
 does. It spends money with nobody to approve it, so it is the one recipe to
-read the warning on. Neither of those two pages has a demo, and both say why.
+read the warning on. [Delegate an EOA](./delegate-eoa/) is a third: a wallet
+cannot yet be handed a type-`0x04` transaction, so that recipe holds the key
+too. None of those three pages has a demo, and each says why.
 
 <div class="alert alert--warning" role="note">
   <div class="alert__title">About the live demos</div>

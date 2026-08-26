@@ -203,7 +203,11 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send_tr
   tx : @types.UnsignedTransaction,
 ) -> @types.TxHash raise WalletError {
   if self.account.account_type() == @account.JSON_RPC {
-    let request = tx.to_request(from=self.address())
+    // A transaction with no request form cannot go through a wallet that signs
+    // and broadcasts in one step: the call would drop what it cannot carry.
+    guard tx.to_request(from=self.address()) is Some(request) else {
+      raise Incomplete("this transaction cannot be sent as eth_sendTransaction")
+    }
     return @provider.send_transaction(self.provider, request) catch {
       e => raise Provider(e)
     }

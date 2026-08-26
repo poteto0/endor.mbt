@@ -11,6 +11,8 @@ pub using @types {
   type CallRequest,
   type TransactionRequest,
   type UnsignedTransaction,
+  type Authorization,
+  type SignedAuthorization,
   type Fee,
   type TxHash,
   type BlockHash,

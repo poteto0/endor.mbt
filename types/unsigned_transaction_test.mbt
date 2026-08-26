@@ -277,10 +277,162 @@ test "a legacy transaction asks a wallet for a flat price" {
   inspect(
     tx
     .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+    .unwrap()
     .to_json()
     .stringify(),
     content=(
       #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","gasPrice":"0x4a817c800"}
     ),
+  )
+}
+
+///|
+/// A 7702 transaction with one authorization, whose authority is a different
+/// account from the one paying: `cast wallet sign-auth 0x7099… --nonce 1
+/// --chain 1` for the authorization, then `cast mktx --auth`.
+test "a 7702 transaction matches cast mktx" {
+  let auth = sign_auth(
+    ANVIL_KEY_1,
+    @types.Authorization::new(
+      chain_id=@types.ChainId::mainnet(),
+      address=@types.Address::from_string(RECIPIENT),
+      nonce=@types.Quantity::new(1),
+    ),
+  )
+  let tx = @types.UnsignedTransaction::eip7702(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(100000),
+    to=@types.Address::from_string(ANVIL_ADDRESS),
+    authorization_list=[auth],
+  )
+  assert_eq(
+    raw(tx),
+    "0x04f8ca0180843b9aca008504a817c800830186a094f39fd6e51aad88f6f4ce6ab8827279cfffb922668080c0f85cf85a019470997970c51812dc3a010c7d01b50e0d17dc79c80180a0c26a31db6ecf06b8ca99a9d25a1e31862d176d650e3bd499f5a693168a9dddc4a02e40c9fd48589607d2b6bf79d3a3c8792abb47a721c419d2c24d061e7683e3be01a0e688f81f5d87b70b2f351037c5fd5b37b5577388634a11aac97c4cd2cd8682a9a025e71c841b17aaeffa341ab173ccef4c927a810d2a3f2a7bfb4b523cc2960cd1",
+  )
+}
+
+///|
+/// Two authorizations, one of them a chain-`0` revocation signed by another
+/// account and the other the sender's own — the list is a list, the two
+/// signatures land on opposite parities, and a revocation is just the zero
+/// address.
+test "a 7702 transaction carries a list of authorizations" {
+  let revoke = sign_auth(
+    ANVIL_KEY_1,
+    @types.Authorization::any_chain(
+      address=@types.Address::from_string(
+        "0x0000000000000000000000000000000000000000",
+      ),
+      nonce=@types.Quantity::new(5),
+    ),
+  )
+  let delegate = sign_auth(
+    ANVIL_KEY,
+    @types.Authorization::new(
+      chain_id=@types.ChainId::new(31337),
+      address=@types.Address::from_string(RECIPIENT),
+      nonce=@types.Quantity::new(8),
+    ),
+  )
+  let tx = @types.UnsignedTransaction::eip7702(
+    chain_id=@types.ChainId::new(31337),
+    nonce=@types.Quantity::new(7),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("2"),
+    max_fee_per_gas=@types.Wei::from_gwei("30"),
+    gas=@types.Quantity::new(200000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+    authorization_list=[revoke, delegate],
+  )
+  assert_eq(
+    raw(tx),
+    "0x04f90132827a690784773594008506fc23ac0083030d409470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a764000080c0f8baf85a809400000000000000000000000000000000000000000501a017f1385b31867f1358c2f28dd8da0339743b47bbd7f0058bd5f8ae05f3698243a03dfedbe14b158234789c1bf1af3e3084d3bd657b6d26b13d6244578d0a4f221cf85c827a699470997970c51812dc3a010c7d01b50e0d17dc79c80880a0568bae22f9b2574a1d956fe8e02d650720c1bb23a9688a02e126ccdcdd09b5fea058ed8b2ac70668ed897282df55527e15fed9713aa3a492a52a666f80d30f282201a037d1d23af8f7b21640c1946d6b5f81ece3e065988db832bc2290cc5b011d55f3a07d1fa5054c4c47ce6cb1d9cf06aff773d44230a0acee27bd7eb43a3e8ea9da09",
+  )
+  let signature = signed_by_anvil(tx)
+  assert_eq(
+    tx
+    .hash(r=signature.r(), s=signature.s(), y_parity=signature.recovery_id())
+    .to_string(),
+    "0x6ace42546c673d43132899b483d22c3c31599ed981cedbfd109673dd9ad6a5c5",
+  )
+}
+
+///|
+/// A 7702 transaction that delegates nothing is not a 7702 transaction.
+test "a 7702 transaction needs an authorization" {
+  try
+    @types.UnsignedTransaction::eip7702(
+      chain_id=@types.ChainId::mainnet(),
+      nonce=@types.Quantity::new(0),
+      max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+      max_fee_per_gas=@types.Wei::from_gwei("20"),
+      gas=@types.Quantity::new(100000),
+      to=@types.Address::from_string(RECIPIENT),
+      authorization_list=[],
+    )
+    |> ignore
+  catch {
+    InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}
+
+///|
+/// The list is copied in, so emptying the caller's array afterwards cannot
+/// leave a transaction the constructor would have refused.
+test "the authorization list cannot be emptied afterwards" {
+  let list = [
+    sign_auth(
+      ANVIL_KEY_1,
+      @types.Authorization::new(
+        chain_id=@types.ChainId::mainnet(),
+        address=@types.Address::from_string(RECIPIENT),
+        nonce=@types.Quantity::new(1),
+      ),
+    ),
+  ]
+  let tx = @types.UnsignedTransaction::eip7702(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(100000),
+    to=@types.Address::from_string(ANVIL_ADDRESS),
+    authorization_list=list,
+  )
+  let before = tx.signing_digest()
+  list.clear()
+  assert_eq(tx.signing_digest(), before)
+}
+
+///|
+/// `eth_sendTransaction` has nowhere to put the authorization list, and sending
+/// one without it would send a different transaction.
+test "a 7702 transaction has no request form" {
+  let tx = @types.UnsignedTransaction::eip7702(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(100000),
+    to=@types.Address::from_string(RECIPIENT),
+    authorization_list=[
+      sign_auth(
+        ANVIL_KEY_1,
+        @types.Authorization::new(
+          chain_id=@types.ChainId::mainnet(),
+          address=@types.Address::from_string(RECIPIENT),
+          nonce=@types.Quantity::new(1),
+        ),
+      ),
+    ],
+  )
+  assert_true(
+    tx.to_request(from=@types.Address::from_string(ANVIL_ADDRESS)) is None,
   )
 }
