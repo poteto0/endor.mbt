@@ -23,6 +23,12 @@ pub using @types {type AbiType}
 
 pub using @types {type AbiValue}
 
+pub type AccessList = Array[@types.AccessListItem]
+
+pub using @types {type AccessListEstimate}
+
+pub using @types {type AccessListItem}
+
 pub using @account {type AccountError}
 
 pub using @types {type Address}

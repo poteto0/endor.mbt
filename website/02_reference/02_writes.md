@@ -75,10 +75,19 @@ envelope, a flat `gasPrice` an EIP-155 legacy transaction. It is worth calling
 directly against a wallet too, when the point is to pin the numbers down and
 show them before prompting.
 
-`prepare` builds those two formats and no other. A type-`0x04` transaction —
-the EIP-7702 one, which carries a list of authorizations — is built by hand
-through `UnsignedTransaction::eip7702` and signed by an account holding its own
-key: [Delegate an EOA](../../cookbook/delegate-eoa/).
+`prepare` builds those two formats and no other. The two that carry more than
+it fills in are built by hand and signed by an account holding its own key: a
+type-`0x04` transaction — the EIP-7702 one, which carries a list of
+authorizations — through `UnsignedTransaction::eip7702`
+([Delegate an EOA](../../cookbook/delegate-eoa/)), and a type-`0x01` one —
+EIP-2930, an access list at a flat `gasPrice` — through
+`UnsignedTransaction::eip2930`.
+
+An access list is what a transaction declares it will touch, so that the first
+access to it is charged the warm price. `UnsignedTransaction::new` takes an
+`access_list=` too, which is where one belongs on a London chain; the default is
+empty, which declares nothing and is the transaction as before.
+`@provider.create_access_list` is how the node works one out.
 
 ## Broadcasting something already signed
 

@@ -35,6 +35,8 @@ pub async fn[P : Provider] chain_id(P) -> @types.ChainId raise ProviderError
 
 pub async fn[P : Provider] code(P, @types.Address, block? : @types.BlockTag) -> @types.Hex raise ProviderError
 
+pub async fn[P : Provider] create_access_list(P, @types.CallRequest, block? : @types.BlockTag) -> @types.AccessListEstimate raise ProviderError
+
 pub async fn[P : Provider] estimate_fees(P) -> @types.Fee raise ProviderError
 
 pub async fn[P : Provider] estimate_gas(P, @types.CallRequest) -> @types.Quantity raise ProviderError

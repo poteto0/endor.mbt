@@ -1804,3 +1804,57 @@ async test "a wait for fewer than one confirmation is rejected" {
     assert_true(provider.calls().is_empty())
   })
 }
+
+///|
+async test "can create an access list" {
+  @async.with_task_group(_ => {
+    let provider : @provider.MockProvider = @provider.MockProvider::new().on(
+      method_name="eth_createAccessList",
+      response=Json::object({
+        "accessList": Json::array([
+          Json::object({
+            "address": Json::string(
+              "0x52908400098527886e0f7030069857d2e4169ee7",
+            ),
+            "storageKeys": Json::array([
+              Json::string(
+                "0x0000000000000000000000000000000000000000000000000000000000000007",
+              ),
+            ]),
+          }),
+        ]),
+        "gasUsed": Json::string("0x6a40"),
+      }),
+    )
+    let estimate = @provider.create_access_list(provider, call_request()) catch {
+      e => fail("unexpected error \{e}")
+    }
+    inspect(estimate.gas_used, content="Quantity(27200)")
+    inspect(estimate.access_list.length(), content="1")
+    inspect(
+      estimate.access_list[0].address(),
+      content="0x52908400098527886E0F7030069857D2E4169EE7",
+    )
+    debug_inspect(
+      provider.last_call(),
+      content=(
+        #|Some(
+        #|  (
+        #|    "eth_createAccessList",
+        #|    Array(
+        #|      [
+        #|        Object(
+        #|          {
+        #|            "to": String("0x52908400098527886e0f7030069857d2e4169ee7"),
+        #|            "data": String("0x70a08231"),
+        #|          },
+        #|        ),
+        #|        String("latest"),
+        #|      ],
+        #|    ),
+        #|  ),
+        #|)
+      ),
+    )
+  })
+}

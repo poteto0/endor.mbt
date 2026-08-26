@@ -436,3 +436,137 @@ test "a 7702 transaction has no request form" {
     tx.to_request(from=@types.Address::from_string(ANVIL_ADDRESS)) is None,
   )
 }
+
+///|
+/// The two slots the access-list vectors below declare on `RECIPIENT`.
+fn a_recipient_entry() -> @types.AccessListItem raise {
+  @types.AccessListItem::new(@types.Address::from_string(RECIPIENT), storage_keys=[
+    @types.Hex::from_string(
+      "0x0000000000000000000000000000000000000000000000000000000000000000",
+    ),
+    @types.Hex::from_string(SLOT_7),
+  ])
+}
+
+///|
+/// `cast mktx --legacy --access-list`: a flat `gasPrice` under the type byte
+/// `0x01`, with the list as the eighth field.
+test "a 2930 transaction matches cast mktx" {
+  let tx = @types.UnsignedTransaction::eip2930(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+    access_list=[a_recipient_entry()],
+  )
+  assert_eq(
+    raw(tx),
+    "0x01f8ca01808504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a764000080f85bf8599470997970c51812dc3a010c7d01b50e0d17dc79c8f842a00000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000701a0774cf2c2ddb4a4480d81ba5bb4be718bd7385ac9289be73a3657a3313e69fd37a015dbe7b8848d9f135d35cff553e320f885bec86d045a432d161a7723a6599b1c",
+  )
+}
+
+///|
+/// An empty list is the field `0xc0` — the one byte that says "a list of
+/// nothing" — and not an absent field.
+test "a 2930 transaction with an empty access list matches cast mktx" {
+  let tx = @types.UnsignedTransaction::eip2930(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+  )
+  assert_eq(
+    raw(tx),
+    "0x01f86e01808504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a764000080c001a054453db7c148616efc23d75487e9b041e960673fbebf361bba13f9bbf4c3abd7a03edb913769403335a261724f08502bde7bf61e0c13410494d42f9b908a953105",
+  )
+}
+
+///|
+/// An entry with no storage keys warms the account alone, and is the shortest
+/// entry there is: `0xd6` for the pair, the address, `0xc0` for the keys.
+test "a 2930 entry may declare no storage keys" {
+  let tx = @types.UnsignedTransaction::eip2930(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+    access_list=[
+      @types.AccessListItem::new(@types.Address::from_string(RECIPIENT)),
+    ],
+  )
+  assert_eq(
+    raw(tx),
+    "0x01f88501808504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a764000080d7d69470997970c51812dc3a010c7d01b50e0d17dc79c8c001a0e9b1afcb3e926aeffdb40ef7dd366f2addb619538fffebaccdedfef017ef8b7ea04739028bf8e64074cf63a9cce312e8860d01c56aefacaa04eda5123306432ede",
+  )
+}
+
+///|
+/// The same list in a 1559 transaction: the ninth field, where the empty list
+/// used to be.
+test "a 1559 transaction carries an access list" {
+  let tx = @types.UnsignedTransaction::new(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+    access_list=[a_recipient_entry()],
+  )
+  assert_eq(
+    raw(tx),
+    "0x02f8cf0180843b9aca008504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a764000080f85bf8599470997970c51812dc3a010c7d01b50e0d17dc79c8f842a00000000000000000000000000000000000000000000000000000000000000000a0000000000000000000000000000000000000000000000000000000000000000701a0c3ef825677d4490648054bf3c4ac241d90d4864bb43945fd03e679dd70044e41a06ecc726301d32f673afc9f6fb00c5e9c0a7e01eeed5e793f46db2214f3e74e18",
+  )
+}
+
+///|
+/// The list is copied in, so the caller's array is not the transaction's.
+test "the access list cannot be changed afterwards" {
+  let list = [a_recipient_entry()]
+  let tx = @types.UnsignedTransaction::new(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+    access_list=list,
+  )
+  let before = tx.signing_digest()
+  list.clear()
+  assert_eq(tx.signing_digest(), before)
+}
+
+///|
+/// `eth_sendTransaction` has nowhere to put an access list, so a transaction
+/// carrying one has no request form — while the same transaction without one
+/// still has.
+test "a transaction with an access list has no request form" {
+  let with_list = @types.UnsignedTransaction::new(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+    max_fee_per_gas=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    access_list=[a_recipient_entry()],
+  )
+  let from = @types.Address::from_string(ANVIL_ADDRESS)
+  assert_true(with_list.to_request(from~) is None)
+  let tx_2930 = @types.UnsignedTransaction::eip2930(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+  )
+  assert_true(tx_2930.to_request(from~) is None)
+}

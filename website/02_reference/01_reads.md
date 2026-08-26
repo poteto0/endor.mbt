@@ -93,10 +93,11 @@ only meaningful against current state.
 
 ## Calls and gas estimation
 
-| Function                         | JSON-RPC method   | Returns           |
-| -------------------------------- | ----------------- | ----------------- |
-| `@provider.call(p, req)`         | `eth_call`        | `@endor.Hex`      |
-| `@provider.estimate_gas(p, req)` | `eth_estimateGas` | `@endor.Quantity` |
+| Function                               | JSON-RPC method        | Returns                      |
+| -------------------------------------- | ---------------------- | ---------------------------- |
+| `@provider.call(p, req)`               | `eth_call`             | `@endor.Hex`                 |
+| `@provider.estimate_gas(p, req)`       | `eth_estimateGas`      | `@endor.Quantity`            |
+| `@provider.create_access_list(p, req)` | `eth_createAccessList` | `@endor.AccessListEstimate`  |
 
 Both take an `@endor.CallRequest` — the transaction-shaped object the node
 evaluates against its state instead of broadcasting. Neither needs a signature,
@@ -127,6 +128,14 @@ the encoding done for you.
 
 A call that reverts comes back as a `ProviderError`, which is what makes
 `estimate_gas` a cheap pre-flight check before asking anyone to sign.
+
+`create_access_list` executes the request the same way and reports what it
+touched: the `access_list` an EIP-2930 or EIP-1559 transaction can then carry to
+have those accesses charged the warm price, and the `gas_used` that list buys —
+compare it against `estimate_gas` to see whether it is worth carrying, since
+every entry costs gas of its own. A transaction that failed while being executed
+is not an RPC error here: the reason comes back as `error`, beside the partial
+list.
 
 Several calls at once are one `eth_call` too, through Multicall3:
 `@multicall.Multicall3::new().aggregate3(p, calls)` takes the calls

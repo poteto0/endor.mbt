@@ -31,8 +31,24 @@ policy in full — what counts as a break, and what does not — is
   [Delegate an EOA](https://endor.poteto-mahiro.com/cookbook/delegate-eoa/) is
   the recipe.
 
+- **Access lists, and EIP-2930 transactions (type `0x01`).**
+  `@endor.AccessListItem::new(address, storage_keys?)` is one entry — an address
+  and the 32-byte storage keys of it a transaction will touch — and a list of
+  them is an `@endor.AccessList`. `UnsignedTransaction::new` and
+  `UnsignedTransaction::eip7702` take one as `access_list=`, empty by default,
+  which is the transaction as before; `UnsignedTransaction::eip2930` builds the
+  type-`0x01` form, which carries a list at a flat `gas_price` rather than a
+  1559 pair. `@provider.create_access_list` (`eth_createAccessList`) asks the
+  node for the list a request would touch, and answers with the gas that list
+  buys beside it.
+
 ### Changed
 
+- **`UnsignedTransaction::to_request` answers `None` for a transaction carrying
+  an access list.** `eth_sendTransaction` has nowhere to put one, and sending
+  the transaction without it would send a different transaction — the same
+  reason a 7702 transaction has no request form. A transaction whose access list
+  is empty converts as it did.
 - **`WalletClient::prepare` honours a `Legacy` fee instead of refusing it**, and
   builds a legacy transaction from it. It also builds one when the node names no
   base fee, where it previously priced a type-`0x02` transaction with
