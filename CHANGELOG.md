@@ -31,7 +31,6 @@ policy in full — what counts as a break, and what does not — is
   `SignedAuthorization::authority()` recovers the account that signed one —
   nothing in the fields names it — and `to_json` / `from_json` are the
   `authorizationList` object a node takes and answers with.
-  `Authorization::chain_id` / `address` / `nonce` read the signed fields back.
   [Delegate an EOA](https://endor.poteto-mahiro.com/cookbook/delegate-eoa/) is
   the recipe.
 

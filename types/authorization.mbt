@@ -169,14 +169,12 @@ pub fn Authorization::nonce(self : Authorization) -> Quantity {
 }
 
 ///|
-/// The EOA that signed this authorization: ecrecover over `signing_digest`.
+/// The EOA that signed this authorization, and so the one that delegates:
+/// nothing in the fields names it.
 ///
-/// This is the account that ends up delegating, and nothing in the
-/// authorization names it — it is only reachable through the signature. A
-/// transaction carrying an authorization whose nonce was wrong is valid and
-/// mines; it is the delegation that silently does not happen. So the way to
-/// check one before broadcasting is to recover the authority and compare it
-/// with the account whose nonce was used.
+/// Recovery is not verification — it answers with whichever account would have
+/// signed these bytes — so a caller carrying somebody else's authorization
+/// compares this with the account it meant to delegate.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
@@ -203,6 +201,8 @@ pub fn Authorization::nonce(self : Authorization) -> Quantity {
 pub fn SignedAuthorization::authority(
   self : SignedAuthorization,
 ) -> Address raise @secp256k1.CurveError {
+  // the 65 bytes `Signature::to_bytes` writes, at no `v` offset: an
+  // authorization carries the parity bit itself
   Address::recover(
     self.authorization.signing_digest(),
     @secp256k1.Signature::from_bytes(
@@ -232,10 +232,9 @@ pub fn SignedAuthorization::to_json(self : SignedAuthorization) -> Json {
 ///|
 /// Decode one entry of an `authorizationList`.
 ///
-/// Chain id `0` is read as what it is. On the way out it is `any_chain`'s
-/// alone, so that it cannot be arrived at by accident; on the way in it is
-/// something a node said, and refusing it would leave an authorization that
-/// exists unreadable.
+/// Chain id `0` is read as the every-chain authorization it is. It is
+/// `any_chain`'s alone to *write*; refusing to read one a node reported would
+/// leave an authorization that exists unreadable.
 ///
 /// ```
 /// let signed = @types.SignedAuthorization::from_json({
@@ -253,19 +252,17 @@ pub fn SignedAuthorization::from_json(
 ) -> SignedAuthorization raise CodecError {
   let what = "authorization"
   let fields = json_object(j, what~)
-  let authorization = Authorization::{
-    chain_id: ChainId::from_json(required_field(fields, "chainId", what~)),
-    address: Address::from_json(required_field(fields, "address", what~)),
-    nonce: Quantity::from_json(required_field(fields, "nonce", what~)),
+  let chain_id = ChainId::from_json(required_field(fields, "chainId", what~))
+  let address = Address::from_json(required_field(fields, "address", what~))
+  let nonce = Quantity::from_json(required_field(fields, "nonce", what~))
+  let authorization = if chain_id.to_uint64() == 0 {
+    Authorization::any_chain(address~, nonce~)
+  } else {
+    Authorization::new(chain_id~, address~, nonce~)
   }
-  let y_parity = quantity_field(fields, "yParity", what~)
-  guard y_parity <= 1 else {
-    raise InvalidValue("y parity must be 0 or 1: \{y_parity}")
-  }
-  SignedAuthorization::{
-    authorization,
-    y_parity: y_parity.to_int(),
-    r: signature_word(required_field(fields, "r", what~), name="r"),
-    s: signature_word(required_field(fields, "s", what~), name="s"),
-  }
+  authorization.signed(
+    r=signature_word(required_field(fields, "r", what~), name="r"),
+    s=signature_word(required_field(fields, "s", what~), name="s"),
+    y_parity=parity_bit(quantity_field(fields, "yParity", what~)),
+  )
 }

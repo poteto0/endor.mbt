@@ -151,10 +151,13 @@ fn delegates(
 }
 ```
 
-This is the check worth making before broadcasting, because the nonce above is
-the failure that does not raise: an authorization signed at the wrong nonce
-recovers a *different* account, and comparing the two is what shows it while
-there is still something to do about it.
+Recovery is not verification: it answers with whoever signed those bytes,
+whether or not that is who you meant. So a sponsor handed a list of
+authorizations to pay for checks it here — an authorization delegates the
+account that signed it, and nothing else in it says so.
+
+What this does *not* catch is the nonce. A wrong one is a valid signature by the
+right account; it is the chain that skips it when the block is built.
 
 ## On the wire
 
