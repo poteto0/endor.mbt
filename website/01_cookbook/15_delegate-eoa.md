@@ -137,6 +137,43 @@ Two things the constructor will not let you get wrong:
 `prepare` does not build this shape — it fills in an EIP-1559 transaction — so
 the chain id, the nonce and the gas are read and passed here.
 
+## Which account it delegates
+
+Nothing in an authorization names the account it is for. The authority is the
+one that signed, so it comes back out of the signature and nowhere else:
+
+```moonbit
+fn delegates(
+  authorization : @endor.SignedAuthorization,
+  expected : @endor.Address,
+) -> Bool raise {
+  authorization.authority() == expected
+}
+```
+
+This is the check worth making before broadcasting, because the nonce above is
+the failure that does not raise: an authorization signed at the wrong nonce
+recovers a *different* account, and comparing the two is what shows it while
+there is still something to do about it.
+
+## On the wire
+
+An authorization travels as a six-field JSON object — the three signed fields,
+then `yParity`, `r` and `s` — inside a transaction's `authorizationList` and
+inside what a node answers back:
+
+```moonbit
+fn read_authorizations(
+  entries : Array[Json],
+) -> Array[@endor.SignedAuthorization] raise {
+  entries.map(@endor.SignedAuthorization::from_json)
+}
+```
+
+`to_json` is the same object in the other direction. `r` and `s` go out as full
+32-byte words and are read back either way, since a node is free to trim their
+leading zeros.
+
 ## Only a key can send one, for now
 
 `send_transaction` above works because a `LocalAccount` signs the bytes itself
@@ -156,9 +193,7 @@ fn has_request_form(
 }
 ```
 
-Through a `WalletClient` that is a `WalletError::Incomplete`. Reading a
-delegation back off a receipt, and recovering which account signed an
-authorization, are not wrapped yet either.
+Through a `WalletClient` that is a `WalletError::Incomplete`.
 
 That is also why this page has no live demo: there is no wallet path to drive,
 and the demos on this site never hold a key.

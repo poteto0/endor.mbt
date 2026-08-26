@@ -39,3 +39,17 @@ fn word_item(word : Bytes) -> @rlp.Item {
   }
   Bytes(word[start:].to_owned())
 }
+
+///|
+/// One half of a signature as a node spells it. `r` and `s` are quantities on
+/// the wire, so a node is free to trim their leading zeros — and to leave an
+/// odd number of digits behind, which is not a byte string. What they denote is
+/// a word either way.
+fn signature_word(j : Json, name~ : String) -> Bytes raise CodecError {
+  guard j is String(s) else { raise InvalidJson("expected \{name} string") }
+  let digits = strip_0x(s)
+  guard digits.length() <= @codec.WORD_DIGITS else {
+    raise InvalidLength("\{name} is wider than a word: \{s}")
+  }
+  @codec.bytes_of_digits(@codec.digits_left_pad(digits))
+}

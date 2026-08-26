@@ -28,6 +28,10 @@ policy in full — what counts as a break, and what does not — is
   an empty authorization list raises. Chain id `0` is `any_chain`'s alone:
   `new` refuses it, so the every-chain authorization cannot arrive through a
   variable that happened to be zero.
+  `SignedAuthorization::authority()` recovers the account that signed one —
+  nothing in the fields names it — and `to_json` / `from_json` are the
+  `authorizationList` object a node takes and answers with.
+  `Authorization::chain_id` / `address` / `nonce` read the signed fields back.
   [Delegate an EOA](https://endor.poteto-mahiro.com/cookbook/delegate-eoa/) is
   the recipe.
 

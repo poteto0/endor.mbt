@@ -78,7 +78,8 @@ show them before prompting.
 `prepare` builds those two formats and no other. The two that carry more than
 it fills in are built by hand and signed by an account holding its own key: a
 type-`0x04` transaction — the EIP-7702 one, which carries a list of
-authorizations — through `UnsignedTransaction::eip7702`
+authorizations, each signed on its own and each answering `authority()` for
+the account it delegates — through `UnsignedTransaction::eip7702`
 ([Delegate an EOA](../../cookbook/delegate-eoa/)), and a type-`0x01` one —
 EIP-2930, an access list at a flat `gasPrice` — through
 `UnsignedTransaction::eip2930`.
