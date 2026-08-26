@@ -15,8 +15,7 @@ const RECIPIENT = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 /// would take. Every vector below came out of `cast mktx`, so what these
 /// compare against is Foundry's encoder and Foundry's signer.
 fn raw(tx : @types.UnsignedTransaction) -> String raise {
-  let key = @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(ANVIL_KEY))
-  let signature = key.sign(tx.signing_digest())
+  let signature = signed_by_anvil(tx)
   tx
   .encode_signed(
     r=signature.r(),
@@ -24,6 +23,29 @@ fn raw(tx : @types.UnsignedTransaction) -> String raise {
     y_parity=signature.recovery_id(),
   )
   .to_string()
+}
+
+///|
+/// The anvil key's signature over what `tx` says to sign.
+fn signed_by_anvil(
+  tx : @types.UnsignedTransaction,
+) -> @secp256k1.Signature raise {
+  @secp256k1.PrivateKey::from_bytes(@codec.bytes_of_digits(ANVIL_KEY)).sign(
+    tx.signing_digest(),
+  )
+}
+
+///|
+/// The mainnet transfer the legacy tests below are all about.
+fn a_legacy_transfer() -> @types.UnsignedTransaction raise {
+  @types.UnsignedTransaction::legacy(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(0),
+    gas_price=@types.Wei::from_gwei("20"),
+    gas=@types.Quantity::new(21000),
+    to=@types.Address::from_string(RECIPIENT),
+    value=@types.Wei::from_ether("1"),
+  )
 }
 
 ///|
@@ -184,4 +206,81 @@ test "r and s must be 32 bytes each" {
   } noraise {
     _ => fail("expected fail, but success")
   }
+}
+
+///|
+/// The legacy form of the first vector: `cast mktx --legacy --chain 1 --nonce 0
+/// --gas-limit 21000 --gas-price 20gwei --value 1ether`. No type byte, six
+/// fields, and `v` of 38 — parity 1 with chain id 1 folded in.
+test "a legacy transfer matches cast mktx" {
+  let tx = a_legacy_transfer()
+  assert_eq(
+    raw(tx),
+    "0xf86c808504a817c8008252089470997970c51812dc3a010c7d01b50e0d17dc79c8880de0b6b3a76400008026a07229466cbc255807f150595728b381915b4863bb0bae6acd1be795ed359f2146a07936385b6c8bdece4255eb135ad8f8bc1d5f35e54582685f59535a92bfb80369",
+  )
+}
+
+///|
+/// The hash a node will know that transaction by.
+test "the legacy transaction hash is the hash of those bytes" {
+  let tx = a_legacy_transfer()
+  let signature = signed_by_anvil(tx)
+  assert_eq(
+    tx
+    .hash(r=signature.r(), s=signature.s(), y_parity=signature.recovery_id())
+    .to_string(),
+    "0x8368128483347693143d67793f7d4c58c23c4ee22ffdc2698b1fe75bc8375c56",
+  )
+}
+
+///|
+/// A chain id too wide for one byte, so that `v` is a two-byte number rather
+/// than the 37 or 38 mainnet makes it: 31337 * 2 + 35 + 1 = 62710.
+test "a legacy call with data matches cast mktx" {
+  let tx = @types.UnsignedTransaction::legacy(
+    chain_id=@types.ChainId::new(31337),
+    nonce=@types.Quantity::new(7),
+    gas_price=@types.Wei::from_gwei("30"),
+    gas=@types.Quantity::new(100000),
+    to=@types.Address::from_string(RECIPIENT),
+    data=@types.Hex::from_string(
+      "0xa9059cbb00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8000000000000000000000000000000000000000000000000016345785d8a0000",
+    ),
+  )
+  assert_eq(
+    raw(tx),
+    "0xf8ac078506fc23ac00830186a09470997970c51812dc3a010c7d01b50e0d17dc79c880b844a9059cbb00000000000000000000000070997970c51812dc3a010c7d01b50e0d17dc79c8000000000000000000000000000000000000000000000000016345785d8a000082f4f6a0cda313c39c477978d43964cd09adcf10f7d1837b8eaad217e9719be6a819e98ea07f2e3e4aa870febf665a82195ce7047f5b4e684dc9933934fadf604e259924e4",
+  )
+}
+
+///|
+/// No recipient, the legacy way: `to` is the empty string here too.
+test "a legacy contract creation matches cast mktx" {
+  let tx = @types.UnsignedTransaction::legacy(
+    chain_id=@types.ChainId::mainnet(),
+    nonce=@types.Quantity::new(1),
+    gas_price=@types.Wei::from_gwei("1"),
+    gas=@types.Quantity::new(500000),
+    data=@types.Hex::from_string("0x60806040"),
+  )
+  assert_eq(
+    raw(tx),
+    "0xf85401843b9aca008307a1208080846080604025a0ee28ae4045a4f13ded27817ae409196ce9965eb97cb7801529aa3081088bd3baa00cd5daaca45549b4462402bf6787646a8aeaae53b55325171d296ed8fdfabcdf",
+  )
+}
+
+///|
+/// A legacy transaction asks the wallet for the same thing it would sign: a
+/// flat `gasPrice`, and no EIP-1559 pair.
+test "a legacy transaction asks a wallet for a flat price" {
+  let tx = a_legacy_transfer()
+  inspect(
+    tx
+    .to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+    .to_json()
+    .stringify(),
+    content=(
+      #|{"from":"0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266","to":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","value":"0xde0b6b3a7640000","data":"0x","gas":"0x5208","nonce":"0x0","gasPrice":"0x4a817c800"}
+    ),
+  )
 }

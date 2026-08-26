@@ -3,14 +3,25 @@
 /// of `TransactionRequest`. Nothing may be left open, because every field is
 /// part of what the signature commits to.
 ///
-/// One variant per EIP-2718 transaction type. EIP-1559's access list is always
-/// empty: it is part of the signed bytes, but nothing here builds one.
+/// One variant per EIP-2718 transaction type, plus the legacy form that
+/// predates the envelope. EIP-1559's access list is always empty: it is part of
+/// the signed bytes, but nothing here builds one.
 pub enum UnsignedTransaction {
   Eip1559(
     chain_id~ : ChainId,
     nonce~ : Quantity,
     max_priority_fee_per_gas~ : Wei,
     max_fee_per_gas~ : Wei,
+    gas~ : Quantity,
+    to~ : Address?,
+    value~ : Wei,
+    data~ : Hex
+  )
+  /// The pre-EIP-2718 form, for a chain with no EIP-1559 market.
+  Legacy(
+    chain_id~ : ChainId,
+    nonce~ : Quantity,
+    gas_price~ : Wei,
     gas~ : Quantity,
     to~ : Address?,
     value~ : Wei,
@@ -57,18 +68,51 @@ pub fn UnsignedTransaction::new(
 }
 
 ///|
+/// Build a legacy transaction, for a chain that never forked to London.
+/// Everything but the price is `new`'s.
+///
+/// The signature is always EIP-155's: a pre-155 transaction, `v` of 27 or 28
+/// and bound to no chain, is one every chain would replay.
+///
+/// ```
+/// let tx = @types.UnsignedTransaction::legacy(
+///   chain_id=@types.ChainId::new(56),
+///   nonce=@types.Quantity::new(0),
+///   gas_price=@types.Wei::from_gwei("5"),
+///   gas=@types.Quantity::new(21000),
+///   to=@types.Address::from_string("0x0000000000000000000000000000000000000000"),
+///   value=@types.Wei::from_ether("1"),
+/// )
+/// assert_eq(tx.signing_digest().length(), 32)
+/// ```
+pub fn UnsignedTransaction::legacy(
+  chain_id~ : ChainId,
+  nonce~ : Quantity,
+  gas_price~ : Wei,
+  gas~ : Quantity,
+  to? : Address,
+  value? : Wei = Wei::zero(),
+  data? : Hex = Hex::from_bytes(b""),
+) -> UnsignedTransaction {
+  Legacy(chain_id~, nonce~, gas_price~, gas~, to~, value~, data~)
+}
+
+///|
 /// The type byte EIP-2718 introduces the transaction by. A legacy transaction
 /// has none, which is what `None` is for.
 fn UnsignedTransaction::type_byte(self : UnsignedTransaction) -> Byte? {
   match self {
     Eip1559(_) => Some(0x02)
+    Legacy(_) => None
   }
 }
 
 ///|
-/// The fields the signature commits to, in the order the transaction's own EIP
-/// fixes. Order is the whole of what says which field is which — RLP carries no
-/// names — so this list is the format.
+/// The fields that describe the transaction itself, in the order the
+/// transaction's own EIP fixes. Order is the whole of what says which field is
+/// which — RLP carries no names — so this list is the format.
+///
+/// What follows them is `signing_fields`' and `signed_fields`' to say.
 fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
   match self {
     Eip1559(
@@ -93,7 +137,61 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
         // The access list, always empty. See the type.
         List([]),
       ]
+    Legacy(nonce~, gas_price~, gas~, to~, value~, data~, ..) =>
+      [
+        @rlp.Item::of_uint64(nonce.to_uint64()),
+        @rlp.Item::of_bigint(gas_price.to_bigint()),
+        @rlp.Item::of_uint64(gas.to_uint64()),
+        recipient(to),
+        @rlp.Item::of_bigint(value.to_bigint()),
+        Bytes(data.to_bytes()),
+      ]
   }
+}
+
+///|
+/// The fields the signature commits to.
+///
+/// A typed transaction signs its fields as they are. A legacy one has no field
+/// for the chain id, so EIP-155 signs `[chain_id, 0, 0]` in the three slots
+/// `signed_fields` fills with the signature.
+fn UnsignedTransaction::signing_fields(
+  self : UnsignedTransaction,
+) -> Array[@rlp.Item] {
+  let fields = self.fields()
+  match self {
+    Eip1559(_) => ()
+    Legacy(chain_id~, ..) => {
+      fields.push(@rlp.Item::of_uint64(chain_id.to_uint64()))
+      fields.push(@rlp.Item::of_uint64(0))
+      fields.push(@rlp.Item::of_uint64(0))
+    }
+  }
+  fields
+}
+
+///|
+/// The fields with the signature on the end.
+///
+/// A typed transaction carries the parity bit itself. A legacy one carries
+/// EIP-155's `v`, the parity with the chain id folded in — the only place it
+/// says which chain it is for.
+fn UnsignedTransaction::signed_fields(
+  self : UnsignedTransaction,
+  r~ : Bytes,
+  s~ : Bytes,
+  y_parity~ : Int,
+) -> Array[@rlp.Item] {
+  let v = match self {
+    Eip1559(_) => y_parity.to_uint64()
+    Legacy(chain_id~, ..) =>
+      y_parity.to_uint64() + chain_id.to_uint64() * 2 + 35
+  }
+  let fields = self.fields()
+  fields.push(@rlp.Item::of_uint64(v))
+  fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(r[:])))
+  fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(s[:])))
+  fields
 }
 
 ///|
@@ -136,6 +234,16 @@ pub fn UnsignedTransaction::to_request(
         nonce~,
         fee=Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~),
       )
+    Legacy(nonce~, gas_price~, gas~, to~, value~, data~, ..) =>
+      TransactionRequest::new(
+        from,
+        to?,
+        value~,
+        data~,
+        gas~,
+        nonce~,
+        fee=Legacy(gas_price~),
+      )
   }
 }
 
@@ -146,7 +254,7 @@ pub fn UnsignedTransaction::to_request(
 /// envelope, so that a new transaction format needs a new byte rather than a
 /// new way to tell lists apart.
 pub fn UnsignedTransaction::signing_digest(self : UnsignedTransaction) -> Bytes {
-  @keccak.keccak256(envelope(self.type_byte(), self.fields()))
+  @keccak.keccak256(envelope(self.type_byte(), self.signing_fields()))
 }
 
 ///|
@@ -180,11 +288,9 @@ pub fn UnsignedTransaction::encode_signed(
   guard r.length() == 32 && s.length() == 32 else {
     raise InvalidValue("r and s must be 32 bytes each")
   }
-  let fields = self.fields()
-  fields.push(@rlp.Item::of_uint64(y_parity.to_uint64()))
-  fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(r[:])))
-  fields.push(@rlp.Item::of_bigint(@bigint.BigInt::from_octets(s[:])))
-  Hex::from_bytes(envelope(self.type_byte(), fields))
+  Hex::from_bytes(
+    envelope(self.type_byte(), self.signed_fields(r~, s~, y_parity~)),
+  )
 }
 
 ///|

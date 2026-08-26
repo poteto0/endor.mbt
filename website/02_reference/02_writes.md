@@ -68,10 +68,12 @@ stands and asks the node for nothing. A local key means this SDK has to decide
 every number before it signs, so that call goes through `prepare` first.
 
 `client.prepare(…)` is that half on its own: it fills in the chain id, the nonce
-(from the **pending** count), the fee caps and the gas from the node, and answers
-an `@endor.UnsignedTransaction`. Anything passed in is used as given and not
-asked about. It is worth calling directly against a wallet too, when the point
-is to pin the numbers down and show them before prompting.
+(from the **pending** count), the fee and the gas from the node, and answers an
+`@endor.UnsignedTransaction`. Anything passed in is used as given and not asked
+about. The fee decides the format: an EIP-1559 pair builds a type-`0x02`
+envelope, a flat `gasPrice` an EIP-155 legacy transaction. It is worth calling
+directly against a wallet too, when the point is to pin the numbers down and
+show them before prompting.
 
 ## Broadcasting something already signed
 
@@ -115,7 +117,10 @@ no fee field to an EIP-1559 (dynamic-fee, type `0x02`) transaction — taking
 `maxPriorityFeePerGas` from its own tip oracle and `maxFeePerGas` from
 `2 * baseFee + tip` — and only builds a legacy transaction when `gasPrice` is
 given. So `Legacy` means "opt out of EIP-1559", for a chain that never forked to
-London; it is not the default and should not be reached for by habit.
+London; it is not the default and should not be reached for by habit. Both paths
+honour it: a wallet is sent `gasPrice`, and a local key signs the legacy
+envelope, always with EIP-155's chain-bound `v` — the SDK does not build a
+pre-155 transaction, which any chain would replay.
 
 ### Pricing one yourself
 
