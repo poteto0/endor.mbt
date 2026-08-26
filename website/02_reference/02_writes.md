@@ -75,6 +75,11 @@ envelope, a flat `gasPrice` an EIP-155 legacy transaction. It is worth calling
 directly against a wallet too, when the point is to pin the numbers down and
 show them before prompting.
 
+`prepare` builds those two formats and no other. A type-`0x04` transaction —
+the EIP-7702 one, which carries a list of authorizations — is built by hand
+through `UnsignedTransaction::eip7702` and signed by an account holding its own
+key: [Delegate an EOA](../../cookbook/delegate-eoa/).
+
 ## Broadcasting something already signed
 
 | Function                                | JSON-RPC method          | Returns         |

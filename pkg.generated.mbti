@@ -27,6 +27,8 @@ pub using @account {type AccountError}
 
 pub using @types {type Address}
 
+pub using @types {type Authorization}
+
 pub using @types {type Block}
 
 pub using @types {type BlockHash}
@@ -62,6 +64,8 @@ pub using @provider {type ProviderError}
 pub using @types {type Quantity}
 
 pub using @types {type ReceiptStatus}
+
+pub using @types {type SignedAuthorization}
 
 pub using @types {type Topic}
 

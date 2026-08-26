@@ -22,13 +22,14 @@ policy in full — what counts as a break, and what does not — is
   every chain, so the SDK does not make one.
 - **EIP-7702 transactions (type `0x04`).** `UnsignedTransaction::eip7702`
   builds one; `signing_digest`, `encode_signed` and `hash` answer for it as
-  they do for EIP-1559. It carries `@types.Authorization` — `new` for one
+  they do for EIP-1559. It carries `@endor.Authorization` — `new` for one
   chain, `any_chain` for the replayable chain-`0` form — signed into a
   `SignedAuthorization` with `Authorization::signed`. `to` is not optional and
-  an empty authorization list raises. Chain id `0` — the authorization that is
-  replayable on every chain — raises in `new` and is only reachable through
-  `any_chain`, so it cannot arrive by way of a variable that happened to be
-  zero.
+  an empty authorization list raises. Chain id `0` is `any_chain`'s alone:
+  `new` refuses it, so the every-chain authorization cannot arrive through a
+  variable that happened to be zero.
+  [Delegate an EOA](https://endor.poteto-mahiro.com/cookbook/delegate-eoa/) is
+  the recipe.
 
 ### Changed
 
