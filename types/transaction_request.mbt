@@ -72,6 +72,7 @@ pub struct TransactionRequest {
   priv gas : Quantity?
   priv nonce : Quantity?
   priv fee : Fee
+  priv access_list : AccessList
 } derive(Eq, Debug)
 
 ///|
@@ -79,6 +80,9 @@ pub struct TransactionRequest {
 /// left out of the request when absent, which is how the RPC spells
 /// "unspecified" — leaving them to the wallet is the normal case. Leaving `to`
 /// out is more than that: a transaction with no recipient deploys `data`.
+///
+/// `access_list` is what the transaction declares it will touch; the empty
+/// default is the ordinary transaction.
 pub fn TransactionRequest::new(
   from : Address,
   to? : Address,
@@ -87,15 +91,26 @@ pub fn TransactionRequest::new(
   gas? : Quantity,
   nonce? : Quantity,
   fee? : Fee = Auto,
+  access_list? : AccessList = [],
 ) -> TransactionRequest {
-  TransactionRequest::{ from, to, value, data, gas, nonce, fee }
+  TransactionRequest::{
+    from,
+    to,
+    value,
+    data,
+    gas,
+    nonce,
+    fee,
+    access_list: access_list.copy(),
+  }
 }
 
 ///|
 /// Encode as the JSON object `eth_sendTransaction` expects. Absent fields are
 /// omitted rather than sent as `null`, and the fee fields are exactly the ones
 /// the chosen `Fee` names: `maxFeePerGas` and `maxPriorityFeePerGas` for
-/// `Eip1559`, `gasPrice` for `Legacy`, and neither for `Auto`.
+/// `Eip1559`, `gasPrice` for `Legacy`, and neither for `Auto`. An empty access
+/// list is left out too: it declares nothing.
 pub fn TransactionRequest::to_json(self : TransactionRequest) -> Json {
   let fields = { "from": self.from.to_json() }
   if self.to is Some(to) {
@@ -120,6 +135,11 @@ pub fn TransactionRequest::to_json(self : TransactionRequest) -> Json {
       fields["maxPriorityFeePerGas"] = max_priority_fee_per_gas.to_json()
     }
     Legacy(gas_price~) => fields["gasPrice"] = gas_price.to_json()
+  }
+  if !self.access_list.is_empty() {
+    fields["accessList"] = Json::array(
+      self.access_list.map(AccessListItem::to_json),
+    )
   }
   Json::object(fields)
 }

@@ -94,3 +94,35 @@ test "fee mode decides which fee fields go on the wire" {
   inspect(legacy.contains("maxFeePerGas"), content="false")
   inspect(legacy.contains("\"gasPrice\":\"0x64\""), content="true")
 }
+
+///|
+/// An empty list is left out rather than sent as `[]`, which the omit test
+/// above pins along with every other absent field.
+test "an access list is sent only when it declares something" {
+  let req = @types.TransactionRequest::new(
+    sender(),
+    to=address("0x8617E340B3D01FA5F11F306F4090FD50E238070D"),
+    access_list=[
+      @types.AccessListItem::new(
+        address("0x8617E340B3D01FA5F11F306F4090FD50E238070D"),
+        storage_keys=[@types.Hex::from_string(SLOT_7)],
+      ),
+    ],
+  )
+  inspect(
+    req.to_json().stringify(),
+    content=(
+      #|{"from":"0x52908400098527886e0f7030069857d2e4169ee7","to":"0x8617e340b3d01fa5f11f306f4090fd50e238070d","accessList":[{"address":"0x8617e340b3d01fa5f11f306f4090fd50e238070d","storageKeys":["0x0000000000000000000000000000000000000000000000000000000000000007"]}]}
+    ),
+  )
+}
+
+///|
+/// The list is copied in, so the caller's array is not the request's.
+test "the request's access list cannot be changed afterwards" {
+  let list = [@types.AccessListItem::new(sender())]
+  let req = @types.TransactionRequest::new(sender(), access_list=list)
+  let before = req.to_json().stringify()
+  list.clear()
+  assert_eq(req.to_json().stringify(), before)
+}
