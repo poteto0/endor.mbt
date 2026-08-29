@@ -39,3 +39,40 @@ fn word_item(word : Bytes) -> @rlp.Item {
   }
   Bytes(word[start:].to_owned())
 }
+
+///|
+/// One half of a signature as a node spells it. `r` and `s` are quantities on
+/// the wire, so a node is free to trim their leading zeros — and to leave an
+/// odd number of digits behind, which is not a byte string. What they denote is
+/// a word either way.
+fn signature_word(j : Json, name~ : String) -> Bytes raise CodecError {
+  guard j is String(s) else { raise InvalidJson("expected \{name} string") }
+  // measured before the digits are walked, so an oversized value is refused
+  // rather than scanned and copied first
+  guard s.length() <= @codec.WORD_DIGITS + 2 else {
+    raise InvalidLength("\{name} is wider than a word: \{s}")
+  }
+  let digits = strip_0x(s)
+  @codec.word_left_pad(
+    @codec.bytes_of_digits(
+      if digits.length() % 2 == 0 {
+        digits
+      } else {
+        "0" + digits
+      },
+    ),
+  )
+}
+
+///|
+/// A `yParity` field as the `Int` a signature is attached with. A value past
+/// the parity bit is carried across as one that is still not a bit, rather
+/// than wrapping into one: what a signature may hold is `check_signature`'s
+/// to say.
+fn parity_bit(v : UInt64) -> Int {
+  if v <= 1 {
+    v.to_int()
+  } else {
+    2
+  }
+}

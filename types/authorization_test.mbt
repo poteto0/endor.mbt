@@ -107,3 +107,125 @@ test "only a parity bit can be attached to an authorization" {
     _ => fail("expected fail, but success")
   }
 }
+
+///|
+/// Anvil's second account authorizing `RECIPIENT` on mainnet — it is its own
+/// authority — signed the way the account itself would.
+fn a_signed_auth() -> @types.SignedAuthorization raise {
+  sign_auth(
+    ANVIL_KEY_1,
+    @types.Authorization::new(
+      chain_id=@types.ChainId::mainnet(),
+      address=@types.Address::from_string(RECIPIENT),
+      nonce=@types.Quantity::new(1),
+    ),
+  )
+}
+
+///|
+/// The six-field object an `authorizationList` is made of. Tests below mutate a
+/// copy of it, so what each of them is about is the field it changed.
+fn an_auth_json() -> Map[String, Json] {
+  {
+    "chainId": "0x1".to_json(),
+    "address": RECIPIENT.to_lower().to_json(),
+    "nonce": "0x1".to_json(),
+    "yParity": "0x1".to_json(),
+    "r": "0x1".to_json(),
+    "s": "0x2".to_json(),
+  }
+}
+
+///|
+/// Decode an authorization built from `an_auth_json()` with `edits` applied.
+fn signed_with(
+  edits : Map[String, Json],
+) -> @types.SignedAuthorization raise @types.CodecError {
+  let fields = an_auth_json()
+  for name, value in edits {
+    fields[name] = value
+  }
+  @types.SignedAuthorization::from_json(Json::object(fields))
+}
+
+///|
+/// The authority is nowhere in the authorization's fields: it comes back out of
+/// the signature, and that is the only way to tell whose delegation this is.
+test "the authority is recovered from the signature" {
+  assert_eq(a_signed_auth().authority(), @types.Address::from_string(RECIPIENT))
+}
+
+///|
+/// Recovery is not verification: it answers with whoever signed these bytes, so
+/// the same authorization signed by another key is another delegation.
+test "another key is another authority" {
+  let authorization = @types.Authorization::new(
+    chain_id=@types.ChainId::mainnet(),
+    address=@types.Address::from_string(RECIPIENT),
+    nonce=@types.Quantity::new(1),
+  )
+  assert_not_eq(
+    sign_auth(ANVIL_KEY, authorization).authority(),
+    sign_auth(ANVIL_KEY_1, authorization).authority(),
+  )
+}
+
+///|
+/// The shape `eth_sendTransaction` takes and a node answers with, both ways.
+test "a signed authorization round-trips through JSON" {
+  let signed = a_signed_auth()
+  assert_eq(@types.SignedAuthorization::from_json(signed.to_json()), signed)
+}
+
+///|
+/// A node is free to trim the leading zeros off `r` and `s`; the word they
+/// denote is what the authorization carries.
+test "a trimmed signature half is read as the word it denotes" {
+  let expected = an_auth_json()
+  expected["r"] = "0x0000000000000000000000000000000000000000000000000000000000000001".to_json()
+  expected["s"] = "0x0000000000000000000000000000000000000000000000000000000000000002".to_json()
+  assert_eq(signed_with({}).to_json(), Json::object(expected))
+}
+
+///|
+/// Chain id `0` is refused on the way out and read on the way in: an
+/// every-chain authorization a node reports is still an authorization.
+test "chain 0 decodes as the every-chain authorization" {
+  let signed = signed_with({
+    "chainId": "0x0".to_json(),
+    "nonce": "0x7".to_json(),
+  })
+  assert_eq(
+    signed.authorization(),
+    @types.Authorization::any_chain(
+      address=@types.Address::from_string(RECIPIENT),
+      nonce=@types.Quantity::new(7),
+    ),
+  )
+}
+
+///|
+/// A `v` of 27 or 28 belongs to a legacy transaction, not to an authorization,
+/// and neither does a recovery id past the parity bit. Nor does a value that
+/// would wrap into a bit on its way to an `Int`.
+test "a y parity that is not a bit is refused" {
+  for parity in ["0x2", "0x1b", "0x100000000"] {
+    try signed_with({ "yParity": parity.to_json() }) |> ignore catch {
+      InvalidValue(_) => ()
+      e => fail("expected an invalid value, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  }
+}
+
+///|
+/// `r` and `s` are words: something wider is not a signature this can carry.
+test "a signature half wider than a word is refused" {
+  try signed_with({ "r": ("0x" + "11".repeat(33)).to_json() }) |> ignore catch {
+    InvalidLength(_) => ()
+    e => fail("expected an invalid length, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}

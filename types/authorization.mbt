@@ -148,3 +148,121 @@ fn SignedAuthorization::to_rlp(self : SignedAuthorization) -> @rlp.Item {
   push_signature(items, v=self.y_parity.to_uint64(), r=self.r, s=self.s)
   List(items)
 }
+
+///|
+/// The chain the authorization is for. `0` is the every-chain form.
+pub fn Authorization::chain_id(self : Authorization) -> ChainId {
+  self.chain_id
+}
+
+///|
+/// The address whose code the authority delegates to. The zero address is a
+/// revocation.
+pub fn Authorization::address(self : Authorization) -> Address {
+  self.address
+}
+
+///|
+/// The authority's own account nonce — not the carrying transaction's.
+pub fn Authorization::nonce(self : Authorization) -> Quantity {
+  self.nonce
+}
+
+///|
+/// The EOA that signed this authorization, and so the one that delegates:
+/// nothing in the fields names it.
+///
+/// Recovery is not verification — it answers with whichever account would have
+/// signed these bytes — so a caller carrying somebody else's authorization
+/// compares this with the account it meant to delegate.
+///
+/// ```
+/// let key = @secp256k1.PrivateKey::from_bytes(
+///   @codec.bytes_of_digits(
+///     "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+///   ),
+/// )
+/// let auth = @types.Authorization::new(
+///   chain_id=@types.ChainId::mainnet(),
+///   address=@types.Address::from_string("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+///   nonce=@types.Quantity::new(0),
+/// )
+/// let signature = key.sign(auth.signing_digest())
+/// let signed = auth.signed(
+///   r=signature.r(),
+///   s=signature.s(),
+///   y_parity=signature.recovery_id(),
+/// )
+/// inspect(
+///   signed.authority().to_string(),
+///   content="0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+/// )
+/// ```
+pub fn SignedAuthorization::authority(
+  self : SignedAuthorization,
+) -> Address raise @secp256k1.CurveError {
+  // the 65 bytes `Signature::to_bytes` writes, at no `v` offset: an
+  // authorization carries the parity bit itself
+  Address::recover(
+    self.authorization.signing_digest(),
+    @secp256k1.Signature::from_bytes(
+      self.r + self.s + Bytes::make(1, self.y_parity.to_byte()),
+    ),
+  )
+}
+
+///|
+/// Encode as the JSON object an `authorizationList` is made of — what
+/// `eth_sendTransaction` takes and what a node answers with on a type-`0x04`
+/// transaction and its receipt.
+///
+/// `r` and `s` go out as full words. A node may answer with them trimmed,
+/// which `from_json` reads back.
+pub fn SignedAuthorization::to_json(self : SignedAuthorization) -> Json {
+  Json::object({
+    "chainId": self.authorization.chain_id.to_json(),
+    "address": self.authorization.address.to_json(),
+    "nonce": self.authorization.nonce.to_json(),
+    "yParity": Quantity::new(self.y_parity.to_uint64()).to_json(),
+    "r": Hex::from_bytes(self.r).to_json(),
+    "s": Hex::from_bytes(self.s).to_json(),
+  })
+}
+
+///|
+/// Decode one entry of an `authorizationList`.
+///
+/// Chain id `0` is read as the every-chain authorization it is. It is
+/// `any_chain`'s alone to *write*; refusing to read one a node reported would
+/// leave an authorization that exists unreadable.
+///
+/// ```
+/// let signed = @types.SignedAuthorization::from_json({
+///   "chainId": "0x1",
+///   "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8",
+///   "nonce": "0x0",
+///   "yParity": "0x1",
+///   "r": "0x1",
+///   "s": "0x2",
+/// })
+/// assert_eq(signed.authorization().nonce(), @types.Quantity::new(0))
+/// ```
+pub fn SignedAuthorization::from_json(
+  j : Json,
+) -> SignedAuthorization raise CodecError {
+  let what = "authorization"
+  let fields = json_object(j, what~)
+  let chain_id = ChainId::from_json(required_field(fields, "chainId", what~))
+  let address = Address::from_json(required_field(fields, "address", what~))
+  let nonce = Quantity::from_json(required_field(fields, "nonce", what~))
+  let authorization = if chain_id.to_uint64() == 0 {
+    Authorization::any_chain(address~, nonce~)
+  } else {
+    Authorization::new(chain_id~, address~, nonce~)
+  }
+  authorization.signed(
+    r=signature_word(required_field(fields, "r", what~), name="r"),
+    s=signature_word(required_field(fields, "s", what~), name="s"),
+    y_parity=parity_bit(quantity_field(fields, "yParity", what~)),
+  )
+}

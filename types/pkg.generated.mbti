@@ -103,8 +103,11 @@ pub impl @debug.Debug for Address
 pub struct Authorization {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn Authorization::address(Self) -> Address
 pub fn Authorization::any_chain(address~ : Address, nonce~ : Quantity) -> Self
+pub fn Authorization::chain_id(Self) -> ChainId
 pub fn Authorization::new(chain_id~ : ChainId, address~ : Address, nonce~ : Quantity) -> Self raise CodecError
+pub fn Authorization::nonce(Self) -> Quantity
 pub fn Authorization::signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> SignedAuthorization raise CodecError
 pub fn Authorization::signing_digest(Self) -> Bytes
 pub impl Show for Authorization
@@ -268,7 +271,10 @@ pub impl Show for ReceiptStatus
 pub struct SignedAuthorization {
   // private fields
 } derive(Eq, @debug.Debug)
+pub fn SignedAuthorization::authority(Self) -> Address raise @secp256k1.CurveError
 pub fn SignedAuthorization::authorization(Self) -> Authorization
+pub fn SignedAuthorization::from_json(Json) -> Self raise CodecError
+pub fn SignedAuthorization::to_json(Self) -> Json
 pub impl Show for SignedAuthorization
 
 pub struct Topic {
