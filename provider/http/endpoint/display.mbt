@@ -23,13 +23,19 @@ fn display_url(url : String) -> String {
 }
 
 ///|
-/// The path with its last segment replaced. A trailing `/` ends no segment, so
-/// there is nothing there to hide.
+/// The path with its last segment replaced. A trailing `/` closes the segment
+/// before it and stays where it is, so QuickNode's `/<KEY>/` hides like every
+/// other hosted shape; a path that is nothing but `/` ends no segment and has
+/// nothing to hide.
 fn redact_last_segment(path : String) -> String {
-  guard path.rev_split_once("/") is Some((head, last)) && !last.is_empty() else {
+  let (body, tail) = match path.strip_suffix("/") {
+    Some(body) => (body, "/")
+    None => (path, "")
+  }
+  guard body.rev_split_once("/") is Some((head, last)) && !last.is_empty() else {
     return path
   }
-  "\{head}/\{REDACTED}"
+  "\{head}/\{REDACTED}\{tail}"
 }
 
 ///|
