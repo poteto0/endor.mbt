@@ -411,9 +411,10 @@ test "the authorization list cannot be emptied afterwards" {
 }
 
 ///|
-/// `eth_sendTransaction` has nowhere to put the authorization list, and sending
-/// one without it would send a different transaction.
-test "a 7702 transaction has no request form" {
+/// `eth_sendTransaction` takes an `authorizationList`, so a 7702 transaction
+/// does convert — and the list is on what comes back, since a request without
+/// it would be a different transaction.
+test "a 7702 transaction converts with its authorizations" {
   let tx = @types.UnsignedTransaction::eip7702(
     chain_id=@types.ChainId::mainnet(),
     nonce=@types.Quantity::new(0),
@@ -432,9 +433,11 @@ test "a 7702 transaction has no request form" {
       ),
     ],
   )
-  assert_true(
-    tx.to_request(from=@types.Address::from_string(ANVIL_ADDRESS)) is None,
-  )
+  guard tx.to_request(from=@types.Address::from_string(ANVIL_ADDRESS))
+    is Some(request) else {
+    fail("expected a request form")
+  }
+  assert_true(request.to_json().stringify().contains("authorizationList"))
 }
 
 ///|

@@ -73,6 +73,7 @@ pub struct TransactionRequest {
   priv nonce : Quantity?
   priv fee : Fee
   priv access_list : AccessList
+  priv authorization_list : Array[SignedAuthorization]
 } derive(Eq, Debug)
 
 ///|
@@ -82,7 +83,10 @@ pub struct TransactionRequest {
 /// out is more than that: a transaction with no recipient deploys `data`.
 ///
 /// `access_list` is what the transaction declares it will touch; the empty
-/// default is the ordinary transaction.
+/// default is the ordinary transaction. A non-empty `authorization_list` is
+/// what makes it an EIP-7702 delegation, and is the one field that names the
+/// transaction's type: a request carries no type byte, so the list being there
+/// is how a wallet knows to build a `0x04` envelope.
 pub fn TransactionRequest::new(
   from : Address,
   to? : Address,
@@ -92,6 +96,7 @@ pub fn TransactionRequest::new(
   nonce? : Quantity,
   fee? : Fee = Auto,
   access_list? : AccessList = [],
+  authorization_list? : Array[SignedAuthorization] = [],
 ) -> TransactionRequest {
   TransactionRequest::{
     from,
@@ -102,6 +107,7 @@ pub fn TransactionRequest::new(
     nonce,
     fee,
     access_list: access_list.copy(),
+    authorization_list: authorization_list.copy(),
   }
 }
 
@@ -110,7 +116,8 @@ pub fn TransactionRequest::new(
 /// omitted rather than sent as `null`, and the fee fields are exactly the ones
 /// the chosen `Fee` names: `maxFeePerGas` and `maxPriorityFeePerGas` for
 /// `Eip1559`, `gasPrice` for `Legacy`, and neither for `Auto`. An empty access
-/// list is left out too: it declares nothing.
+/// list is left out too: it declares nothing, and so is an empty authorization
+/// list — sending one would ask for a 7702 transaction that delegates nobody.
 pub fn TransactionRequest::to_json(self : TransactionRequest) -> Json {
   let fields = { "from": self.from.to_json() }
   if self.to is Some(to) {
@@ -139,6 +146,11 @@ pub fn TransactionRequest::to_json(self : TransactionRequest) -> Json {
   if !self.access_list.is_empty() {
     fields["accessList"] = Json::array(
       self.access_list.map(AccessListItem::to_json),
+    )
+  }
+  if !self.authorization_list.is_empty() {
+    fields["authorizationList"] = Json::array(
+      self.authorization_list.map(SignedAuthorization::to_json),
     )
   }
   Json::object(fields)

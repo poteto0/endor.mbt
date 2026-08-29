@@ -81,6 +81,29 @@ fn local_account() -> @local.LocalAccount raise {
 }
 
 ///|
+/// An authorization by anvil's first account, signed for `nonce`. Which nonce
+/// that should be is the whole subject of `nonces`; here it is whatever the
+/// test is checking travelled.
+fn an_authorization(
+  nonce : @types.Quantity,
+) -> @types.SignedAuthorization raise {
+  let authorization = @types.Authorization::new(
+    chain_id=@types.ChainId::mainnet(),
+    address=recipient(),
+    nonce~,
+  )
+  let key = @secp256k1.PrivateKey::from_bytes(
+    @types.Hex::from_string(ANVIL_KEY).to_bytes(),
+  )
+  let signature = key.sign(authorization.signing_digest())
+  authorization.signed(
+    r=signature.r(),
+    s=signature.s(),
+    y_parity=signature.recovery_id(),
+  )
+}
+
+///|
 /// A local account signs here and the bytes leave as `eth_sendRawTransaction`.
 /// The node never sees the key and is never asked to sign.
 async test "a local account signs and broadcasts raw" {
@@ -297,12 +320,149 @@ async test "a contract creation must say its own gas" {
   @async.with_task_group(_ => {
     let client = @wallet.WalletClient::new(node(), local_account())
     let data = @types.Hex::from_string("0x60806040")
-    try client.prepare(data~) |> ignore catch {
-      Incomplete(_) => ()
-      e => fail("expected Incomplete, but not \{e}")
-    } noraise {
-      _ => fail("expected fail, but success")
-    }
+    incomplete(() => client.prepare(data~) |> ignore)
+  })
+}
+
+///|
+/// Run `attempt` and require it to raise `Incomplete` — a field the client was
+/// asked to fill in and could not.
+async fn incomplete(attempt : async () -> Unit raise WalletError) -> Unit {
+  try attempt() catch {
+    Incomplete(_) => ()
+    e => fail("expected Incomplete, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}
+
+///|
+/// The nonce arithmetic EIP-7702 turns on: an account delegating in its own
+/// transaction signs for the nonce *after* the one that transaction takes.
+async test "a self-sponsored authorization is signed one nonce ahead" {
+  @async.with_task_group(_ => {
+    let node = node().on(
+      method_name="eth_getTransactionCount",
+      response=Json::string("0x7"),
+    )
+    let client = @wallet.WalletClient::new(node, local_account())
+    let nonces = client.nonces(SelfSponsored)
+    assert_eq(nonces.transaction, @types.Quantity::new(7))
+    assert_eq(nonces.authorization, @types.Quantity::new(8))
+    // one account, one question
+    assert_eq(node.calls().length(), 1)
+  })
+}
+
+///|
+/// A sponsor's transaction moves the sponsor's nonce, so the authority's is
+/// read as it stands — the two are different accounts and different counts.
+async test "a sponsored authorization keeps the authority's own nonce" {
+  @async.with_task_group(_ => {
+    let node = node().on_sequence(method_name="eth_getTransactionCount", answers=[
+      Answers(Json::string("0x7")),
+      Answers(Json::string("0x2")),
+    ])
+    let client = @wallet.WalletClient::new(node, local_account())
+    let nonces = client.nonces(Sponsored(recipient()))
+    assert_eq(nonces.transaction, @types.Quantity::new(7))
+    assert_eq(nonces.authorization, @types.Quantity::new(2))
+    // and the second question was about the authority, not about the sponsor
+    assert_true(
+      node.last_call().unwrap().1.stringify().contains(RECIPIENT.to_lower()),
+    )
+  })
+}
+
+///|
+/// Naming this client's own account as somebody else's is the mistake the
+/// distinction exists to catch, so it is refused rather than answered with the
+/// nonce one short.
+async test "sponsoring yourself is refused" {
+  @async.with_task_group(_ => {
+    let client = @wallet.WalletClient::new(node(), local_account())
+    let me = @types.Address::from_string(ANVIL_ADDRESS)
+    incomplete(() => client.nonces(Sponsored(me)) |> ignore)
+  })
+}
+
+///|
+/// An authorization list makes `prepare` build a type-`0x04` envelope, and the
+/// list travels on it.
+async test "prepare builds a 7702 transaction from an authorization list" {
+  @async.with_task_group(_ => {
+    let node = node()
+    let client = @wallet.WalletClient::new(node, local_account())
+    let authorization = an_authorization(@types.Quantity::new(1))
+    let tx = client.prepare(
+      to=recipient(),
+      gas=@types.Quantity::new(200000),
+      fee=Eip1559(
+        max_fee_per_gas=@types.Wei::from_gwei("20"),
+        max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+      ),
+      authorization_list=[authorization],
+    )
+    assert_true(
+      tx is Eip7702(authorization_list~, ..) &&
+      authorization_list == [authorization],
+    )
+    // the gas was named, so nothing was estimated against a call that does not
+    // know about the delegation
+    assert_eq(
+      node.calls().filter(call => call.0 == "eth_estimateGas").length(),
+      0,
+    )
+  })
+}
+
+///|
+/// The two fields a delegating transaction cannot be given by the node, and
+/// the fee market it has no legacy form for.
+async test "a 7702 transaction says what cannot be worked out" {
+  @async.with_task_group(_ => {
+    let client = @wallet.WalletClient::new(node(), local_account())
+    let list = [an_authorization(@types.Quantity::new(1))]
+    let gas = @types.Quantity::new(200000)
+    let to = recipient()
+    let flat : @types.Fee = Legacy(gas_price=@types.Wei::from_gwei("7"))
+    // no gas: `eth_estimateGas` is never told the list
+    incomplete(() => client.prepare(to~, authorization_list=list) |> ignore)
+    // no recipient: a delegating transaction creates nothing
+    incomplete(() => client.prepare(gas~, authorization_list=list) |> ignore)
+    // a flat price: there is no legacy 7702 envelope
+    incomplete(() => {
+      client.prepare(to~, gas~, fee=flat, authorization_list=list) |> ignore
+    })
+  })
+}
+
+///|
+/// A wallet-held account can send one after all: `authorizationList` is a field
+/// `eth_sendTransaction` carries, so the whole transaction goes over as it is.
+async test "a 7702 transaction reaches a wallet with its authorizations" {
+  @async.with_task_group(_ => {
+    let node = node()
+    let client = @wallet.WalletClient::new(
+      node,
+      @wallet.JsonRpcAccount::new(
+        node,
+        @types.Address::from_string(ANVIL_ADDRESS),
+      ),
+    )
+    let tx = client.prepare(
+      to=recipient(),
+      gas=@types.Quantity::new(200000),
+      fee=Eip1559(
+        max_fee_per_gas=@types.Wei::from_gwei("20"),
+        max_priority_fee_per_gas=@types.Wei::from_gwei("1"),
+      ),
+      authorization_list=[an_authorization(@types.Quantity::new(1))],
+    )
+    client.send_transaction(tx) |> ignore
+    let (called, params) = node.last_call().unwrap()
+    assert_eq(called, "eth_sendTransaction")
+    assert_true(params.stringify().contains("authorizationList"))
   })
 }
 

@@ -29,6 +29,9 @@ pub impl Show for Inclusion with fn output(self, logger) {
 ///
 /// Fields this SDK does not model (the signature, an access list, blob fields)
 /// are dropped rather than rejected, so a newer type still decodes.
+///
+/// The authorization list is read, though: it is what a `0x04` transaction did,
+/// and nothing else in the answer says which accounts it delegated.
 pub(all) struct Transaction {
   hash : TxHash
   /// Whether it is still in the mempool, and where it landed if not.
@@ -53,8 +56,12 @@ pub(all) struct Transaction {
   /// which is replayable on every chain because it names none.
   chain_id : ChainId?
   /// The EIP-2718 type byte: `0x0` legacy, `0x1` access-list, `0x2` dynamic
-  /// fee, `0x3` blob. Absent from nodes older than Berlin, which typed nothing.
+  /// fee, `0x3` blob, `0x4` delegating. Absent from nodes older than Berlin,
+  /// which typed nothing.
   transaction_type : UInt64?
+  /// The EIP-7702 delegations it carried, empty for every other type. Whose
+  /// they are comes out of `SignedAuthorization::authority`, not from here.
+  authorization_list : Array[SignedAuthorization]
 } derive(Eq, Debug)
 
 ///|
@@ -84,6 +91,15 @@ pub fn Transaction::from_json(j : Json) -> Transaction raise CodecError {
     fee: Fee::from_fields(fields),
     chain_id: optional_map(fields, "chainId", ChainId::from_json),
     transaction_type: optional_quantity_field(fields, "type"),
+    authorization_list: match optional_field(fields, "authorizationList") {
+      Some(list) =>
+        json_array_of(
+          list,
+          what="authorizationList",
+          SignedAuthorization::from_json,
+        )
+      None => []
+    },
   }
 }
 

@@ -75,14 +75,32 @@ envelope, a flat `gasPrice` an EIP-155 legacy transaction. It is worth calling
 directly against a wallet too, when the point is to pin the numbers down and
 show them before prompting.
 
-`prepare` builds those two formats and no other. The two that carry more than
-it fills in are built by hand and signed by an account holding its own key: a
-type-`0x04` transaction — the EIP-7702 one, which carries a list of
-authorizations, each signed on its own and each answering `authority()` for
-the account it delegates — through `UnsignedTransaction::eip7702`
-([Delegate an EOA](../../cookbook/delegate-eoa/)), and a type-`0x01` one —
-EIP-2930, an access list at a flat `gasPrice` — through
-`UnsignedTransaction::eip2930`.
+A third format comes out of the same call: `prepare(authorization_list=…)`
+builds a type-`0x04` EIP-7702 transaction, the one that delegates an account to
+a contract's code. It asks for two things it cannot work out — `to`, because a
+delegating transaction creates nothing, and `gas`, because `eth_estimateGas` is
+never told the list and would price the delegations at nothing — and it refuses
+a flat `gasPrice`, which no `0x04` envelope has a field for.
+
+The nonce inside an authorization is **not** the transaction's, and getting it
+wrong raises nothing anywhere, so `client.nonces(…)` answers both at once:
+
+```moonbit no-check
+let nonces = client.nonces(SelfSponsored)      // or Sponsored(authority)
+// sign the authorization for nonces.authorization, then
+client.prepare(to~, gas~, nonce=nonces.transaction, authorization_list~)
+```
+
+`SelfSponsored` is the account sending its own delegation — the transaction
+consumes a nonce first, so the authorization is signed for the one after — and
+`Sponsored(authority)` is this client paying for somebody else's, whose nonce
+stands as it is. Which one it is has to be said; naming this client's own
+account as `Sponsored` is refused rather than answered one short. The recipe is
+[Delegate an EOA](../../cookbook/delegate-eoa/).
+
+The one format `prepare` does not build is type-`0x01` — EIP-2930, an access
+list at a flat `gasPrice` — which is `UnsignedTransaction::eip2930` by hand,
+signed by an account holding its own key.
 
 An access list is what a transaction declares it will touch, so that the first
 access to it is charged the warm price. `UnsignedTransaction::new` takes an
@@ -94,7 +112,13 @@ A wallet is asked for a list through `TransactionRequest`'s own `access_list=`,
 which goes on the wire as `accessList`. A wallet that does not implement
 EIP-2930 signs without it: the declared slots are then charged the cold price
 and nothing else about the transaction changes. A type-`0x01` transaction still
-has no request form.
+has no request form — a request names no type byte, and an access list alone
+would come back as a legacy transaction.
+
+`authorizationList` is the field that *does* name one: it is on no other
+envelope, so a 7702 transaction converts to a request and a wallet-held account
+can send one. Worth reading what comes back, though — an access list a wallet
+ignores costs gas, an authorization list it ignores delegates nobody.
 
 ## Broadcasting something already signed
 

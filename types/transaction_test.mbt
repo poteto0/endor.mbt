@@ -173,3 +173,35 @@ test "a transaction is not decoded from a non-object" {
     _ => fail("expected a non-object to be rejected")
   }
 }
+
+///|
+/// A type-`0x04` transaction reports what it delegated, and that is the one
+/// list this type reads back: nothing else in the answer names the accounts.
+test "a delegating transaction carries its authorizations" {
+  let tx = transaction_with({
+    "type": "0x4".to_json(),
+    "authorizationList": Json::array([
+      {
+        "chainId": "0x1".to_json(),
+        "address": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8".to_json(),
+        "nonce": "0x8".to_json(),
+        "yParity": "0x1".to_json(),
+        "r": "0x1".to_json(),
+        "s": "0x2".to_json(),
+      },
+    ]),
+  })
+  assert_eq(tx.authorization_list.length(), 1)
+  assert_eq(
+    tx.authorization_list[0].authorization().nonce(),
+    @types.Quantity::new(8),
+  )
+}
+
+///|
+/// Every other type reports no list at all, and reads back as the empty one
+/// rather than as an absence a caller has to unwrap.
+test "a transaction with no authorizations has an empty list" {
+  let tx = @types.Transaction::from_json(Json::object(a_transaction_json()))
+  assert_eq(tx.authorization_list, [])
+}
