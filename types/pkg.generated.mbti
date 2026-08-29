@@ -296,6 +296,7 @@ pub(all) struct Transaction {
   fee : Fee
   chain_id : ChainId?
   transaction_type : UInt64?
+  authorization_list : Array[SignedAuthorization]
 } derive(Eq, @debug.Debug)
 pub fn Transaction::from_json(Json) -> Self raise CodecError
 pub impl Show for Transaction
@@ -320,7 +321,7 @@ pub impl Show for TransactionReceipt
 pub struct TransactionRequest {
   // private fields
 } derive(Eq, @debug.Debug)
-pub fn TransactionRequest::new(Address, to? : Address, value? : Wei, data? : Hex, gas? : Quantity, nonce? : Quantity, fee? : Fee, access_list? : Array[AccessListItem]) -> Self
+pub fn TransactionRequest::new(Address, to? : Address, value? : Wei, data? : Hex, gas? : Quantity, nonce? : Quantity, fee? : Fee, access_list? : Array[AccessListItem], authorization_list? : Array[SignedAuthorization]) -> Self
 pub fn TransactionRequest::to_json(Self) -> Json
 
 pub struct TxHash {

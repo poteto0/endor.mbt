@@ -126,3 +126,36 @@ test "the request's access list cannot be changed afterwards" {
   list.clear()
   assert_eq(req.to_json().stringify(), before)
 }
+
+///|
+/// An authorization list is what makes a request a 7702 one — a request names
+/// no type byte — so it goes out under `authorizationList`, and an empty one
+/// is left out like every other absent field.
+test "an authorization list is sent only when it delegates something" {
+  let signed = @types.SignedAuthorization::from_json({
+    "chainId": "0x1",
+    "address": "0x8617e340b3d01fa5f11f306f4090fd50e238070d",
+    "nonce": "0x8",
+    "yParity": "0x1",
+    "r": "0x1",
+    "s": "0x2",
+  })
+  inspect(
+    @types.TransactionRequest::new(
+      sender(),
+      to=address("0x8617E340B3D01FA5F11F306F4090FD50E238070D"),
+      authorization_list=[signed],
+    )
+    .to_json()
+    .stringify(),
+    content=(
+      #|{"from":"0x52908400098527886e0f7030069857d2e4169ee7","to":"0x8617e340b3d01fa5f11f306f4090fd50e238070d","authorizationList":[{"chainId":"0x1","address":"0x8617e340b3d01fa5f11f306f4090fd50e238070d","nonce":"0x8","yParity":"0x1","r":"0x0000000000000000000000000000000000000000000000000000000000000001","s":"0x0000000000000000000000000000000000000000000000000000000000000002"}]}
+    ),
+  )
+  // and the list is copied in, as the access list is
+  let list = [signed]
+  let req = @types.TransactionRequest::new(sender(), authorization_list=list)
+  let before = req.to_json().stringify()
+  list.clear()
+  assert_eq(req.to_json().stringify(), before)
+}

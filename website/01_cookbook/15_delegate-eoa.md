@@ -58,16 +58,34 @@ Two cases, and they differ by one:
 | someone else | the authority's current nonce |
 | the authority itself | its current nonce **+ 1** — the transaction consumes one first |
 
+`WalletClient::nonces` is that arithmetic, and it answers with both numbers
+because they are one answer: read separately they would be two questions about
+a number that moves.
+
 ```moonbit
-async fn self_sponsored_nonce(
-  node : @http.HttpProvider[@endpoint.Endpoint],
-  authority : @endor.Address,
-) -> UInt64 raise {
-  // the pending count is the nonce this transaction will take, so the
-  // authorization inside it is signed for the one after
-  @provider.transaction_count(node, authority, block=Pending) + 1
+async fn delegation_nonces(
+  client : @wallet.WalletClient[
+    @http.HttpProvider[@endpoint.Endpoint],
+    @local.LocalAccount,
+  ],
+) -> (@endor.Quantity, @endor.Quantity) raise {
+  // the account is delegating in its own transaction
+  let mine = client.nonces(SelfSponsored)
+  // and here it is paying for somebody else's
+  let theirs = client.nonces(
+    Sponsored(
+      @endor.Address::from_string("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+    ),
+  )
+  (mine.authorization, theirs.authorization)
 }
 ```
+
+Which of the two it is has to be **said**. The SDK does not work it out from
+whether the authority happens to be the account signing the transaction —
+that guess is right until the day somebody sponsors themselves through a second
+client, and the failure it produces is invisible. Naming this client's own
+account as `Sponsored` is refused rather than answered one short.
 
 ## Every chain at once
 
@@ -101,7 +119,8 @@ it says what it does at the call site.
 
 ## The transaction
 
-The same nine fields an EIP-1559 transaction has, plus the list:
+The same nine fields an EIP-1559 transaction has, plus the list. Hand the list
+to `prepare` and it builds the `0x04` envelope instead of the `0x02` one:
 
 ```moonbit
 async fn send_delegation(
@@ -110,32 +129,36 @@ async fn send_delegation(
   authorizations : Array[@endor.SignedAuthorization],
 ) -> @endor.TxHash raise {
   let client = @wallet.WalletClient::new(node, sponsor)
-  let from = sponsor.address()
-  let tx = @endor.UnsignedTransaction::eip7702(
-    chain_id=@provider.chain_id(node),
-    nonce=@endor.Quantity::new(
-      @provider.transaction_count(node, from, block=Pending),
-    ),
-    max_priority_fee_per_gas=@endor.Wei::from_gwei("1"),
-    max_fee_per_gas=@endor.Wei::from_gwei("20"),
+  let nonces = client.nonces(SelfSponsored)
+  let tx = client.prepare(
+    to=sponsor.address(),
+    nonce=nonces.transaction,
     gas=@endor.Quantity::new(200000),
-    to=from,
     authorization_list=authorizations,
   )
   client.send_transaction(tx)
 }
 ```
 
-Two things the constructor will not let you get wrong:
+`nonce` is passed rather than left open, so the transaction takes the nonce the
+authorizations were signed against. The chain id and the fee are still read from
+the node.
 
-- **`to` is required.** A 7702 transaction cannot create a contract, so the
-  field is an `Address` rather than an `Address?`. There is no argument to omit.
-- **The list cannot be empty.** A 7702 transaction that delegates nothing is
-  invalid, so `eip7702` raises rather than building one. The list is copied in,
-  so emptying yours afterwards changes nothing.
+Two things `prepare` asks for that it fills in for every other transaction:
 
-`prepare` does not build this shape — it fills in an EIP-1559 transaction — so
-the chain id, the nonce and the gas are read and passed here.
+- **`to`.** A 7702 transaction delegates; it does not create. The type says so
+  too — `UnsignedTransaction::eip7702` takes an `Address`, not an `Address?`.
+- **`gas`.** `eth_estimateGas` is never told the authorization list, so what it
+  answers prices the delegations at nothing. Rather than send a transaction that
+  runs out of gas, `prepare` raises `Incomplete` and asks.
+
+A flat `gasPrice` is refused for the same reason there is no legacy 7702
+envelope: there is nowhere to put it.
+
+And one thing the constructor underneath will not let you get wrong: **the list
+cannot be empty.** A 7702 transaction that delegates nothing is invalid, so
+`eip7702` raises rather than building one. The list is copied in, so emptying
+yours afterwards changes nothing.
 
 ## Which account it delegates
 
@@ -177,15 +200,15 @@ fn read_authorizations(
 32-byte words and are read back either way, since a node is free to trim their
 leading zeros.
 
-## Only a key can send one, for now
+## Through a wallet
 
 `send_transaction` above works because a `LocalAccount` signs the bytes itself
 and they leave as `eth_sendRawTransaction`.
 
 A wallet-held account takes the other path: the whole transaction is handed over
-as `eth_sendTransaction`, and that request has no field for an authorization
-list. Sending it without one would send a *different* transaction, so
-`to_request` answers `None` rather than quietly dropping it:
+as `eth_sendTransaction`. That request carries an `authorizationList`, which is
+a field no other envelope has, so the wallet knows to build a `0x04` — and
+`to_request` answers with it rather than `None`:
 
 ```moonbit
 fn has_request_form(
@@ -196,10 +219,14 @@ fn has_request_form(
 }
 ```
 
-Through a `WalletClient` that is a `WalletError::Incomplete`.
+What does not change is the nonce. Everywhere else, a wallet is left to pick
+one; here it cannot be, because the authorizations were signed against a
+particular one before the request existed. So a delegation goes out through
+`nonces` and `prepare` and never through `send`, whichever account is behind it.
 
-That is also why this page has no live demo: there is no wallet path to drive,
-and the demos on this site never hold a key.
+This page has no live demo all the same: the demos on this site drive whatever
+wallet the reader has, and one that does not implement EIP-7702 would take the
+request and delegate nobody.
 
 ## Revoking
 

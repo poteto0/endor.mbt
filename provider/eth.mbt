@@ -217,6 +217,12 @@ pub async fn[P : Provider] gas_price(
 /// Return the contract bytecode deployed at `who` (`eth_getCode`). An
 /// externally owned account has no code, so it answers with an empty `Hex`.
 ///
+/// An EOA that has delegated under EIP-7702 is the exception: it answers with
+/// the twenty-three-byte *delegation designator*, `0xef0100` followed by the
+/// address it delegates to. That is not the code that runs — the code at that
+/// address is — so an answer starting `0xef0100` is read as a pointer, and its
+/// last twenty bytes are the account it points at.
+///
 /// ```
 /// async fn[P : @provider.Provider] code_size(
 ///   p : P,
@@ -275,6 +281,13 @@ pub async fn[P : Provider] storage_at(
 ///|
 /// Whether `who` is a contract, i.e. whether `eth_getCode` returns any bytes
 /// at `block`. A contract deployed after `block` still reads as `false` there.
+///
+/// Since EIP-7702 this is no longer the same question as "is this not a
+/// wallet". A delegated EOA has code — the `0xef0100` designator `code`
+/// describes — so it answers `true` while still being an account a person
+/// signs with. A caller that means "will a transfer to this address run code"
+/// wants this; a caller that means "is this a contract rather than somebody's
+/// account" has to read `code` and look at those three bytes.
 ///
 /// ```
 /// async fn[P : @provider.Provider] warn_on_contract(

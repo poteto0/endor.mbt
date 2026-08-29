@@ -42,6 +42,13 @@ turned into an error.
 `is_contract` is `code` with an emptiness test: an externally owned account has
 no bytecode.
 
+Since EIP-7702 that is no longer the same question as "is this not somebody's
+wallet". A delegated EOA answers `eth_getCode` with a twenty-three-byte
+**delegation designator** — `0xef0100` followed by the address it delegates to —
+so `is_contract` says `true` for an account a person still signs with, and
+`code` answers with a pointer rather than with the code that runs. Read the last
+twenty bytes to find out where it points; the code itself is at *that* address.
+
 `gas_price` is the pre-EIP-1559 price and only half the story on a London chain.
 The rest of the fee material — `max_priority_fee_per_gas`, `fee_history` and the
 `estimate_fees` that composes them — is on the

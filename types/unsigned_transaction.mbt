@@ -448,14 +448,19 @@ fn address_item(address : Address) -> @rlp.Item {
 /// in one step, so it has to be asked in the shape that call takes. `from` is
 /// the one thing this side does not know.
 ///
-/// `None` for a transaction this request cannot ask for. A `TransactionRequest`
-/// has no field for a 7702 authorization list, and it cannot name a type byte
-/// at all — so a 2930 transaction has no request form even with an empty list,
-/// since what came back would be a legacy one.
+/// `None` for a transaction this request cannot ask for. A request names no
+/// type byte, so the fields on it are the whole of what says which envelope to
+/// build — and a 2930 transaction has no fields of its own, so it has no
+/// request form even with an empty access list: what came back would be a
+/// legacy one.
 ///
 /// A 1559 transaction converts with its access list on it. A wallet that
 /// ignores `accessList` signs without it, which prices the declared slots cold
-/// rather than warm and changes nothing else.
+/// rather than warm and changes nothing else. A 7702 transaction converts too,
+/// on `authorizationList`, which is a field only a `0x04` envelope has — but
+/// unlike an access list it is the whole point of the transaction, so what
+/// comes back is worth reading: a wallet that ignored the field would have
+/// delegated nobody.
 pub fn UnsignedTransaction::to_request(
   self : UnsignedTransaction,
   from~ : Address,
@@ -496,7 +501,32 @@ pub fn UnsignedTransaction::to_request(
           fee=Legacy(gas_price~),
         ),
       )
-    Eip2930(_) | Eip7702(_) => None
+    Eip7702(
+      nonce~,
+      max_priority_fee_per_gas~,
+      max_fee_per_gas~,
+      gas~,
+      to~,
+      value~,
+      data~,
+      access_list~,
+      authorization_list~,
+      ..
+    ) =>
+      Some(
+        TransactionRequest::new(
+          from,
+          to~,
+          value~,
+          data~,
+          gas~,
+          nonce~,
+          fee=Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~),
+          access_list~,
+          authorization_list~,
+        ),
+      )
+    Eip2930(_) => None
   }
 }
 

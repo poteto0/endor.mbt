@@ -78,6 +78,13 @@ fn[T] _or_raise(result : Result[T, WalletError]) -> T raise WalletError {
 /// transaction format: an EIP-1559 pair builds a type-`0x02` envelope, a flat
 /// `Legacy` price builds an EIP-155 legacy transaction.
 ///
+/// A non-empty `authorization_list` overrides that and builds a type-`0x04`
+/// EIP-7702 transaction, which asks for two things this cannot work out: `to`,
+/// because a delegating transaction creates nothing, and `gas`, because
+/// `eth_estimateGas` is never told the list and would price the delegations at
+/// nothing. The nonce inside each authorization is not this call's — sign it
+/// for `nonces`' `authorization`, and pass that answer's `transaction` here.
+///
 /// ```
 /// async fn[P : @provider.Provider, A : @account.Account] pay(
 ///   client : @wallet.WalletClient[P, A],
@@ -95,10 +102,30 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
   gas? : @types.Quantity,
   nonce? : @types.Quantity,
   fee? : @types.Fee,
+  authorization_list? : Array[@types.SignedAuthorization] = [],
 ) -> @types.UnsignedTransaction raise WalletError {
   let from = self.address()
   guard gas is Some(_) || to is Some(_) else {
     raise Incomplete("a contract creation has to say its own gas")
+  }
+  // What a delegation has to be told, unwrapped here so that the branch which
+  // builds one does not ask a second time: a recipient, because it delegates
+  // rather than creates, and a gas limit, because `eth_estimateGas` is never
+  // shown the authorization list and would price the delegations at nothing.
+  let delegation = if authorization_list.is_empty() {
+    None
+  } else {
+    guard to is Some(recipient) else {
+      raise Incomplete(
+        "a 7702 transaction has a recipient: it delegates, it does not create",
+      )
+    }
+    guard gas is Some(limit) else {
+      raise Incomplete(
+        "a 7702 transaction has to say its own gas: eth_estimateGas is not told the authorization list",
+      )
+    }
+    Some((recipient, limit))
   }
 
   let (chain_id, nonce, priced, gas) = @async.with_task_group(group => {
@@ -112,12 +139,8 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
       match nonce {
         Some(nonce) => Ok(nonce)
         None =>
-          Ok(
-            @types.Quantity::new(
-              @provider.transaction_count(self.provider, from, block=Pending),
-            ),
-          ) catch {
-            e => Err(Provider(e))
+          Ok(@types.Quantity::new(self.pending_count(from))) catch {
+            e => Err(e)
           }
       }
     })
@@ -164,9 +187,31 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::prepare
   let chain_id = _or_raise(chain_id)
   let nonce = _or_raise(nonce)
   let gas = _or_raise(gas)
+  let priced = _or_raise(priced)
+  if delegation is Some((to, gas)) {
+    // A delegating transaction has no legacy form, so the fee has to be the
+    // 1559 pair rather than whichever one the chain answered with.
+    guard priced is Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~) else {
+      raise Incomplete("a 7702 transaction prices its gas the EIP-1559 way")
+    }
+    return @types.UnsignedTransaction::eip7702(
+      chain_id~,
+      nonce~,
+      max_priority_fee_per_gas~,
+      max_fee_per_gas~,
+      gas~,
+      to~,
+      value~,
+      data~,
+      authorization_list~,
+    ) catch {
+      // `eip7702` refuses only an empty list, which this branch is not.
+      e => raise Incomplete(e.to_string())
+    }
+  }
   // `estimate_fees` answers with one of the two priced forms and never `Auto`,
   // so that arm is a node that named no fee at all.
-  match _or_raise(priced) {
+  match priced {
     Eip1559(max_fee_per_gas~, max_priority_fee_per_gas~) =>
       @types.UnsignedTransaction::new(
         chain_id~,
@@ -225,6 +270,11 @@ pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send_tr
 /// Whatever is left out is filled in by whoever is going to sign: through
 /// `prepare` for an account holding its key, and by the wallet otherwise —
 /// pinning first would decide numbers the wallet is about to decide again.
+///
+/// So this is not the way to send a delegation. An EIP-7702 authorization is
+/// signed against a particular transaction nonce before the transaction exists,
+/// which is the one number that cannot be left to the wallet: `nonces`, then
+/// `prepare`, then `send_transaction`.
 pub async fn[P : @provider.Provider, A : @account.Account] WalletClient::send(
   self : WalletClient[P, A],
   to? : @types.Address,

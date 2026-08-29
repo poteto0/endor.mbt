@@ -9,4 +9,5 @@ import {
 
 import {
   "poteto0/endor/account/local",
+  "poteto0/endor/crypto/secp256k1",
 } for "test"

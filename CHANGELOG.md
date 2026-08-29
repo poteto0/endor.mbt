@@ -14,6 +14,33 @@ policy in full — what counts as a break, and what does not — is
 
 ### Added
 
+- **Sending an EIP-7702 delegation.** `client.prepare(authorization_list=…)`
+  builds the type-`0x04` transaction rather than the `0x02` one, and
+  `TransactionRequest` carries an `authorizationList`, so a wallet-held account
+  can send one too — `UnsignedTransaction::to_request` answers with a request
+  for a 7702 transaction instead of `None`. `Transaction::from_json` reads the
+  list back off a node's answer.
+
+  The nonce arithmetic is the point of it: an authorization carries the
+  *authority's* nonce, which is one ahead of the transaction's when the
+  authority is sending its own delegation, and getting it wrong raises nothing
+  — the signature is valid and the chain silently drops the delegation. So
+  `client.nonces(SelfSponsored)` / `client.nonces(Sponsored(authority))`
+  answers with both nonces at once, and which case it is has to be said rather
+  than guessed from whether two addresses match. Naming the client's own
+  account as `Sponsored` is refused.
+
+  `prepare` asks for `to` and `gas` on this path: a delegating transaction
+  creates nothing, and `eth_estimateGas` is never told the authorization list,
+  so what it answers would price the delegations at nothing. A flat `gasPrice`
+  is refused — there is no legacy 7702 envelope.
+  [Delegate an EOA](https://endor.poteto-mahiro.com/cookbook/delegate-eoa/) is
+  the recipe. One consequence worth knowing about, now written down on
+  [Reads](https://endor.poteto-mahiro.com/reference/reads/): a delegated EOA
+  has code, so `is_contract` answers `true` for an account a person still signs
+  with, and `code` answers with the twenty-three-byte delegation designator
+  (`0xef0100` and the address it points at) rather than with the code that runs.
+
 - **Legacy transactions can be signed locally.**
   `UnsignedTransaction::legacy(chain_id~, nonce~, gas_price~, gas~, …)` builds
   the pre-EIP-2718 form — no type byte, and EIP-155's `v` — for a chain with no
