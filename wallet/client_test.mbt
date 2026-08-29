@@ -240,6 +240,29 @@ async test "a json-rpc account refuses to sign a transaction alone" {
 }
 
 ///|
+/// Nor an authorization: there is no wallet call for one, so the account says
+/// so instead of reaching for a transport that cannot carry the request.
+async test "a json-rpc account refuses to sign an authorization" {
+  @async.with_task_group(_ => {
+    let account = @wallet.JsonRpcAccount::new(
+      node(),
+      @types.Address::from_string(ANVIL_ADDRESS),
+    )
+    let auth = @types.Authorization::new(
+      chain_id=@types.ChainId::mainnet(),
+      address=recipient(),
+      nonce=@types.Quantity::new(0),
+    )
+    try account.sign_authorization(auth) |> ignore catch {
+      NotSupported(_) => ()
+      e => fail("expected NotSupported, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  })
+}
+
+///|
 /// A head block with no base fee makes `estimate_fees` answer with a flat
 /// price, and a flat price is a legacy transaction: the chain that reports no
 /// base fee is the one that would reject a type-`0x02` envelope.

@@ -20,29 +20,31 @@ different signatures, and they need not be the same person.
 Three fields, signed under a magic byte of their own:
 
 ```moonbit
-fn delegate_to(
+async fn delegate_to(
+  authority : @local.LocalAccount,
   contract : @endor.Address,
-  authority_key : @endor.Hex,
   authority_nonce : UInt64,
 ) -> @endor.SignedAuthorization raise {
-  let authorization = @endor.Authorization::new(
-    chain_id=@endor.ChainId::mainnet(),
-    address=contract,
-    nonce=@endor.Quantity::new(authority_nonce),
-  )
-  let key = @secp256k1.PrivateKey::from_bytes(authority_key.to_bytes())
-  let signature = key.sign(authorization.signing_digest())
-  authorization.signed(
-    r=signature.r(),
-    s=signature.s(),
-    y_parity=signature.recovery_id(),
+  authority.sign_authorization(
+    @endor.Authorization::new(
+      chain_id=@endor.ChainId::mainnet(),
+      address=contract,
+      nonce=@endor.Quantity::new(authority_nonce),
+    ),
   )
 }
 ```
 
-`signing_digest` is `keccak256(0x05 || rlp([chain_id, address, nonce]))`. The
-`0x05` is not a transaction type — it is there so that an authorization can
-never be read as one.
+`sign_authorization` is the fourth thing an `Account` signs, alongside a
+transaction, a message and a typed-data document. It answers with a
+`SignedAuthorization` rather than the 65 bytes the other three give back: what a
+transaction carries is the six-element tuple, and recovering the authority needs
+the parity bit kept.
+
+Underneath it is `signing_digest`, which is
+`keccak256(0x05 || rlp([chain_id, address, nonce]))` — public for a caller
+holding a key some other way. The `0x05` is not a transaction type; it is there
+so that an authorization can never be read as one.
 
 ## The nonce is the authority's
 
@@ -228,19 +230,24 @@ This page has no live demo all the same: the demos on this site drive whatever
 wallet the reader has, and one that does not implement EIP-7702 would take the
 request and delegate nobody.
 
+What a wallet-held account cannot do is sign the **authorization**: there is no
+standard RPC for one and no EIP-1193 method either, so `sign_authorization`
+raises `NotSupported` on a `JsonRpcAccount`. A wallet can pay for a delegation
+and send it; the delegation itself is signed where the key is.
+
 ## Revoking
 
 A delegation is undone by delegating to the zero address. It is an ordinary
 authorization — same fields, same signature, one more nonce:
 
 ```moonbit
-fn revoke(
-  authority_key : @endor.Hex,
+async fn revoke(
+  authority : @local.LocalAccount,
   authority_nonce : UInt64,
 ) -> @endor.SignedAuthorization raise {
   delegate_to(
+    authority,
     @endor.Address::from_string("0x0000000000000000000000000000000000000000"),
-    authority_key,
     authority_nonce,
   )
 }

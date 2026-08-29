@@ -32,6 +32,7 @@ pub(open) trait Account {
   async fn sign_transaction(Self, @types.UnsignedTransaction) -> @types.Hex raise AccountError
   async fn sign_message(Self, @types.Hex) -> @types.Hex raise AccountError
   async fn sign_typed_data(Self, @eip712.TypedData) -> @types.Hex raise AccountError
+  async fn sign_authorization(Self, @types.Authorization) -> @types.SignedAuthorization raise AccountError
   fn address(Self) -> @types.Address raise AccountError
   fn account_type(Self) -> String
 }

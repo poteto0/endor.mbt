@@ -1,9 +1,9 @@
 ///|
 /// Something that can sign on behalf of one address.
 ///
-/// The three signing methods are separate because what gets hashed differs for
-/// each: RLP under a type byte, EIP-191 prefixed, EIP-712 structured. A method
-/// that signed "some bytes" would be a signing oracle.
+/// The signing methods are separate because what gets hashed differs for each:
+/// RLP under a type byte, EIP-191 prefixed, EIP-712 structured, RLP under a
+/// magic byte. A method that signed "some bytes" would be a signing oracle.
 pub(open) trait Account {
   /// The whole signed transaction, as `eth_sendRawTransaction` takes it.
   async fn sign_transaction(self : Self, tx : @types.UnsignedTransaction) -> @types.Hex raise AccountError
@@ -13,6 +13,13 @@ pub(open) trait Account {
 
   /// An `eth_signTypedData_v4` signature over the EIP-712 document.
   async fn sign_typed_data(self : Self, typed_data : @eip712.TypedData) -> @types.Hex raise AccountError
+
+  /// The authorization with this account's signature on it, as a transaction's
+  /// `authorization_list` carries it.
+  ///
+  /// Not a `Hex`, because what a transaction carries is the six-element tuple
+  /// and not the 65 bytes: `authority()` needs the parity bit back.
+  async fn sign_authorization(self : Self, authorization : @types.Authorization) -> @types.SignedAuthorization raise AccountError
 
   /// The address these signatures will recover to.
   fn address(self : Self) -> @types.Address raise AccountError

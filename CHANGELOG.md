@@ -74,7 +74,21 @@ policy in full — what counts as a break, and what does not — is
   a wallet can be asked for one: it goes out as `accessList`, and an empty list
   is left off the wire.
 
+- **An account signs authorizations too.**
+  `Account::sign_authorization(auth)` is the fourth signing method beside
+  `sign_transaction`, `sign_message` and `sign_typed_data`. It answers with a
+  `@endor.SignedAuthorization`, not the 65 bytes the other three give back: what
+  a transaction carries is the six-element tuple, and `authority()` needs the
+  parity bit kept. `@local.LocalAccount` signs the bare parity, as a typed
+  transaction does, since an authorization signs its own chain id.
+  `@wallet.JsonRpcAccount` raises `NotSupported` — no standard RPC signs an
+  authorization and EIP-1193 has no method for one, so no transport can carry
+  the request.
+
 ### Changed
+
+- **`Account` gained a method.** An `Account` implemented outside the SDK has to
+  answer `sign_authorization` as well; the two the SDK ships already do.
 
 - **`WalletClient::prepare` honours a `Legacy` fee instead of refusing it**, and
   builds a legacy transaction from it. It also builds one when the node names no

@@ -121,6 +121,42 @@ pub impl @account.Account for LocalAccount with fn sign_typed_data(
 }
 
 ///|
+/// The authorization signed under its own magic byte, ready to ride in a
+/// transaction's `authorization_list`.
+///
+/// The bare parity bit, not the `27` offset: an authorization signs its chain
+/// id, so it is on the transaction's side of that line.
+///
+/// ```
+/// let account = @local.LocalAccount::new(
+///   @types.Hex::from_string(
+///     "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+///   ),
+/// )
+/// let auth = @types.Authorization::new(
+///   chain_id=@types.ChainId::mainnet(),
+///   address=@types.Address::from_string("0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+///   nonce=@types.Quantity::new(0),
+/// )
+/// assert_eq(account.sign_authorization(auth).authority(), account.address())
+/// ```
+pub impl @account.Account for LocalAccount with fn sign_authorization(
+  self : LocalAccount,
+  authorization : @types.Authorization,
+) -> @types.SignedAuthorization raise @account.AccountError {
+  let signature = self.priv_key.sign(authorization.signing_digest()) catch {
+    e => raise @account.AccountError::SigningFailed(e.to_string())
+  }
+  authorization.signed(
+    r=signature.r(),
+    s=signature.s(),
+    y_parity=signature.recovery_id(),
+  ) catch {
+    e => raise @account.AccountError::SigningFailed(e.to_string())
+  }
+}
+
+///|
 /// The address this account's signatures recover to, derived from the key.
 pub impl @account.Account for LocalAccount with fn address(self : LocalAccount) -> @types.Address {
   self.address
