@@ -40,6 +40,13 @@ way; a verifier cannot tell them apart. The recipe is
 An account is asynchronous even when it holds its own key, because one that
 does not has to ask and wait. `@local.LocalAccount` simply never awaits.
 
+The fourth thing an `Account` signs has no `client` row, because no wallet
+signs one: `account.sign_authorization(auth)` is an EIP-7702 authorization, and
+`@wallet.JsonRpcAccount` raises `NotSupported` for it. It answers with a
+`@endor.SignedAuthorization` rather than 65 bytes — a transaction carries the
+six-element tuple, and recovering the authority needs the parity bit. The
+recipe is [Delegate an EOA](../../cookbook/delegate-eoa/).
+
 ## personal_sign
 
 ```moonbit
@@ -159,7 +166,9 @@ Where the digest is computed follows the key. Ask a **wallet** to sign and the
 wallet hashes: the calls above hand over the message or the document, not a
 hash. Sign with `@local.LocalAccount` and the SDK hashes — EIP-191 through
 `endor/eips/eip191`, EIP-712 through `endor/eips/eip712`, a transaction through
-`UnsignedTransaction::signing_digest`.
+`UnsignedTransaction::signing_digest`, an authorization through
+`Authorization::signing_digest` (`keccak256(0x05 || rlp(…))`, under a magic
+byte of its own so that it can never be read as a transaction).
 
 Both hashing paths are `endor/eips/eip712`'s — `encodeType`, `typeHash`,
 `encodeData`, `hashStruct`, `domainSeparator`, `digest` — and they are public

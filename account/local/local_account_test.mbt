@@ -87,7 +87,7 @@ async test "a signed transaction matches cast mktx" {
 }
 
 ///|
-/// The three signing methods must not agree on anything. Each hashes under a
+/// The signing methods must not agree on anything. Each hashes under a
 /// different rule, so the same bytes handed to two of them give two different
 /// signatures — which is exactly what stops a message from being replayed as a
 /// transaction.
@@ -127,4 +127,41 @@ test "the error reads without naming the curve" {
     "That could not be signed.",
   )
   assert_false(@account.AccountError::SigningFailed("digest").is_retryable())
+}
+
+///|
+/// `cast wallet sign-auth --nonce 0 --chain 1`. It answers with the RLP tuple
+/// `f85a 01 94… 80 01 a0<r> a0<s>`, whose six fields are the six read out
+/// here as the JSON an `authorizationList` is written in.
+async test "an authorization matches cast sign-auth" {
+  let auth = @types.Authorization::new(
+    chain_id=@types.ChainId::mainnet(),
+    address=@types.Address::from_string(
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    ),
+    nonce=@types.Quantity::new(0),
+  )
+  inspect(
+    anvil().sign_authorization(auth).to_json().stringify(),
+    content=(
+      #|{"chainId":"0x1","address":"0x70997970c51812dc3a010c7d01b50e0d17dc79c8","nonce":"0x0","yParity":"0x1","r":"0x6ec4b1499e966621ff003b44ec3ae73a8315ed91567430a7e885d3e6f10cd125","s":"0x547fb5e0f781e8e51a88007a9da27a3f79057120578775bc09290dfba7c146db"}
+    ),
+  )
+}
+
+///|
+/// The parity is the bare bit, not the `27` offset a message signature carries
+/// — so the authority recovers, which is the whole of what the signature is
+/// there to say.
+async test "the signed authorization recovers to this account" {
+  let auth = @types.Authorization::any_chain(
+    address=@types.Address::from_string(
+      "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+    ),
+    nonce=@types.Quantity::new(7),
+  )
+  let account = anvil()
+  let signed = account.sign_authorization(auth)
+  assert_eq(signed.authority(), account.address())
+  assert_eq(signed.authorization(), auth)
 }

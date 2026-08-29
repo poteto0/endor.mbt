@@ -74,7 +74,17 @@ policy in full — what counts as a break, and what does not — is
   a wallet can be asked for one: it goes out as `accessList`, and an empty list
   is left off the wire.
 
+- **An account signs authorizations too.**
+  `Account::sign_authorization(auth)` joins `sign_transaction`, `sign_message`
+  and `sign_typed_data`, and answers with a `@endor.SignedAuthorization` rather
+  than the 65 bytes the other three give back. `@local.LocalAccount` signs it;
+  `@wallet.JsonRpcAccount` raises `NotSupported`, there being no wallet call
+  that signs an authorization.
+
 ### Changed
+
+- **`Account` gained a method.** An `Account` implemented outside the SDK has to
+  answer `sign_authorization` as well.
 
 - **`WalletClient::prepare` honours a `Legacy` fee instead of refusing it**, and
   builds a legacy transaction from it. It also builds one when the node names no

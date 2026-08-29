@@ -67,6 +67,22 @@ pub impl[P : @provider.Provider] @account.Account for JsonRpcAccount[P] with fn 
 }
 
 ///|
+/// Never: a wallet has no authorization-signing call. There is no standard RPC
+/// for it and no EIP-1193 method either, so no transport can carry the request.
+///
+/// A delegation this kind of account is the authority for has to be signed
+/// somewhere the key is — a `LocalAccount`, or the wallet's own UI — and handed
+/// to `prepare` as an already-signed authorization.
+pub impl[P : @provider.Provider] @account.Account for JsonRpcAccount[P] with fn sign_authorization(
+  _self : JsonRpcAccount[P],
+  _authorization : @types.Authorization,
+) -> @types.SignedAuthorization raise @account.AccountError {
+  raise @account.AccountError::NotSupported(
+    "a wallet has no call that signs an authorization",
+  )
+}
+
+///|
 pub impl[P : @provider.Provider] @account.Account for JsonRpcAccount[P] with fn address(
   self : JsonRpcAccount[P],
 ) -> @types.Address {

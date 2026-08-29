@@ -54,7 +54,7 @@ the providers send again before an error reaches you is
 | `endor/contract/erc20`   | `Erc20`, the preset over `Contract` for the standard token interface                                        |
 | `endor/contract/multicall` | `Multicall3` — many prepared calls, one `eth_call`, one block                                             |
 | `endor/contract/stablecoin` | `Stablecoin` — `Erc20` plus the EIP-3009 and EIP-2612 calls a submitter sends                            |
-| `endor/account`          | the `Account` trait — sign a transaction, a message, typed data — and `AccountError`                        |
+| `endor/account`          | the `Account` trait — sign a transaction, a message, typed data, a 7702 authorization — and `AccountError`                        |
 | `endor/account/local`    | `LocalAccount` — a private key held in this process, signing with no prompt                                 |
 | `endor/wallet`           | `WalletClient`, a provider paired with an account, and `JsonRpcAccount`, the account a wallet holds         |
 | `endor/provider`         | `Provider` / `EventSource` traits, `ProviderError`, typed RPC and event helpers, `MockProvider`             |
