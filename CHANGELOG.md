@@ -14,6 +14,12 @@ policy in full — what counts as a break, and what does not — is
 
 ### Added
 
+- **`UnsignedTransaction::signable()`** answers an `@endor.SignableTransaction`:
+  the transaction's RLP fields, built once, carrying the same `signing_digest`,
+  `encode_signed` and `hash` the transaction itself does. The methods on
+  `UnsignedTransaction` are unchanged and stay the short way to ask one
+  question; this is for the caller that asks two or three.
+
 - **Sending an EIP-7702 delegation.** `client.prepare(authorization_list=…)`
   builds the type-`0x04` transaction rather than the `0x02` one, and
   `TransactionRequest` carries an `authorizationList`, so a wallet-held account
@@ -111,6 +117,21 @@ policy in full — what counts as a break, and what does not — is
   a 7702 authorization list, and sending one without it would send a different
   transaction. A caller that only builds EIP-1559 transactions unwraps and
   nothing else.
+
+### Performance
+
+- **A signature builds the transaction's RLP fields once**, instead of once for
+  the digest and once again for the bytes to broadcast — building them decodes
+  the calldata out of hex, the recipient, and every storage key the access list
+  declares, and a 7702 transaction's authorization list on top.
+  `@local.LocalAccount::sign_transaction` signs through one
+  `SignableTransaction`; nothing a caller writes has to change.
+
+  It is the smaller half of what a signature costs: the RLP and the Keccak over
+  the payload are paid twice whatever happens to the fields, and one build is
+  around a tenth of one of those passes — so this is a few percent, not a
+  multiple. `types/unsigned_transaction_benchmark_test.mbt` prices the build,
+  one digest, and both signing paths side by side.
 
 ## [0.8.0] - 2026-08-22
 

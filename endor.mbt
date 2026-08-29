@@ -11,6 +11,7 @@ pub using @types {
   type CallRequest,
   type TransactionRequest,
   type UnsignedTransaction,
+  type SignableTransaction,
   type AccessList,
   type AccessListItem,
   type AccessListEstimate,

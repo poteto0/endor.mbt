@@ -71,6 +71,8 @@ pub using @types {type Quantity}
 
 pub using @types {type ReceiptStatus}
 
+pub using @types {type SignableTransaction}
+
 pub using @types {type SignedAuthorization}
 
 pub using @types {type Topic}
