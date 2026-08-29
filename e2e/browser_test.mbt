@@ -234,13 +234,25 @@ fn recipient(id : Int) -> @types.Address {
 }
 
 ///|
-/// The transaction `hash` identifies, once anvil has mined it. Anvil automines,
-/// so by the time `eth_sendTransaction` answers the transaction is on chain and
-/// the node cannot answer `null`.
+/// Block until `hash` is in a block. `eth_sendTransaction` answers as soon as
+/// the node has taken the transaction, which is before it is mined — so every
+/// assertion about chain state waits for the receipt rather than reading
+/// straight back.
+async fn[P : @provider.Provider] mined(
+  provider : P,
+  hash : @types.TxHash,
+) -> Unit raise @provider.ProviderError {
+  @provider.wait_for_receipt(provider, hash, timeout=5_000, poll_interval=100)
+  |> ignore
+}
+
+///|
+/// The transaction `hash` identifies, once it is mined.
 async fn[P : @provider.Provider] a_sent_transaction(
   provider : P,
   hash : @types.TxHash,
 ) -> @types.Transaction raise @provider.ProviderError {
+  mined(provider, hash)
   guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
     raise @provider.MalformedResponse("no transaction for \{hash}")
   }
@@ -259,6 +271,7 @@ async test "sending value moves it to the recipient" {
         value=@types.Wei::from_int(1000),
       ),
     )
+    mined(provider, hash)
     let after = @provider.balance(provider, recipient(1))
     assert_eq(after.to_bigint(), before.to_bigint() + 1000N)
     // the hash the wallet answered with identifies that very transaction
@@ -460,8 +473,8 @@ async test "a log filter is a request the node accepts" {
 /// request named no nonce, no gas and no fee, so every one of those is what the
 /// node chose — and this is the only way to read them back.
 ///
-/// Anvil mines on receipt, so what comes back is already `Mined`; the pending
-/// case is covered against the mock instead.
+/// It is read after the receipt, so what comes back is already `Mined`; the
+/// pending case is covered against the mock instead.
 async test "a sent transaction is read back by its hash" {
   @anvil.on(provider => {
     let hash = @provider.send_transaction(
@@ -472,6 +485,7 @@ async test "a sent transaction is read back by its hash" {
         value=@types.Wei::from_int(3),
       ),
     )
+    mined(provider, hash)
     guard @provider.transaction_by_hash(provider, hash) is Some(tx) else {
       fail("expected the node to know the transaction it just took")
     }

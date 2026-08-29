@@ -27,6 +27,16 @@ pub(open) trait Backend {
 let skip_reported : Array[String] = []
 
 ///|
+/// One body at a time, across every backend. The tests are async, so without
+/// this they interleave — and they share one chain and one set of dev accounts.
+/// Anvil answers two concurrent `eth_sendTransaction` calls from the same
+/// account with the same nonce, so the second transaction replaces the first,
+/// which then never mines and never gets a receipt. Serialising here rather
+/// than partitioning the accounts: there are ten of them and more tests than
+/// that send.
+let one_at_a_time : @async.Mutex = @async.Mutex()
+
+///|
 /// Run `body` against `backend`, or skip when the backend is not configured.
 ///
 /// An error from `body` reaches the test runner as-is: an `inspect` that fails
@@ -45,6 +55,8 @@ pub async fn[B : Backend] run(backend : B, body : async () -> Unit) -> Unit {
     }
     return
   }
+  one_at_a_time.acquire()
+  defer one_at_a_time.release()
   backend.install(endpoint)
   @async.with_task_group(_ => body())
 }
