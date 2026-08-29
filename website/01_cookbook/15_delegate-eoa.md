@@ -35,16 +35,14 @@ async fn delegate_to(
 }
 ```
 
-`sign_authorization` is the fourth thing an `Account` signs, alongside a
-transaction, a message and a typed-data document. It answers with a
-`SignedAuthorization` rather than the 65 bytes the other three give back: what a
-transaction carries is the six-element tuple, and recovering the authority needs
-the parity bit kept.
+`sign_authorization` is the fourth thing an `Account` signs, and the one that
+answers with a `SignedAuthorization` rather than 65 bytes — a transaction
+carries the six-element tuple, and recovering the authority needs the parity
+bit.
 
-Underneath it is `signing_digest`, which is
-`keccak256(0x05 || rlp([chain_id, address, nonce]))` — public for a caller
-holding a key some other way. The `0x05` is not a transaction type; it is there
-so that an authorization can never be read as one.
+Underneath it is `signing_digest`, `keccak256(0x05 || rlp([chain_id, address,
+nonce]))`, public for a caller holding a key some other way. The `0x05` is not a
+transaction type; it is there so that an authorization can never be read as one.
 
 ## The nonce is the authority's
 
@@ -221,6 +219,11 @@ fn has_request_form(
 }
 ```
 
+What a wallet cannot do is sign the **authorization**: no standard RPC signs
+one and EIP-1193 has no method for it, so `JsonRpcAccount::sign_authorization`
+raises `NotSupported`. A wallet pays for a delegation and sends it; the
+delegation itself is signed where the key is.
+
 What does not change is the nonce. Everywhere else, a wallet is left to pick
 one; here it cannot be, because the authorizations were signed against a
 particular one before the request existed. So a delegation goes out through
@@ -229,11 +232,6 @@ particular one before the request existed. So a delegation goes out through
 This page has no live demo all the same: the demos on this site drive whatever
 wallet the reader has, and one that does not implement EIP-7702 would take the
 request and delegate nobody.
-
-What a wallet-held account cannot do is sign the **authorization**: there is no
-standard RPC for one and no EIP-1193 method either, so `sign_authorization`
-raises `NotSupported` on a `JsonRpcAccount`. A wallet can pay for a delegation
-and send it; the delegation itself is signed where the key is.
 
 ## Revoking
 

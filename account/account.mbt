@@ -14,11 +14,8 @@ pub(open) trait Account {
   /// An `eth_signTypedData_v4` signature over the EIP-712 document.
   async fn sign_typed_data(self : Self, typed_data : @eip712.TypedData) -> @types.Hex raise AccountError
 
-  /// The authorization with this account's signature on it, as a transaction's
-  /// `authorization_list` carries it.
-  ///
-  /// Not a `Hex`, because what a transaction carries is the six-element tuple
-  /// and not the 65 bytes: `authority()` needs the parity bit back.
+  /// An EIP-7702 authorization with this account's signature on it. Not a
+  /// `Hex`: a transaction carries the six-element tuple, not the 65 bytes.
   async fn sign_authorization(self : Self, authorization : @types.Authorization) -> @types.SignedAuthorization raise AccountError
 
   /// The address these signatures will recover to.

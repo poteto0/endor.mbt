@@ -49,16 +49,25 @@ pub fn LocalAccount::new(
 }
 
 ///|
-/// Sign a digest and render the 65 bytes a verifier is handed, with the `v`
-/// offset a signature outside a typed transaction carries.
+/// Sign a digest, with the one failure the key can still have on this input
+/// named the way an account names it.
+fn LocalAccount::sign(
+  self : LocalAccount,
+  digest : Bytes,
+) -> @secp256k1.Signature raise @account.AccountError {
+  self.priv_key.sign(digest) catch {
+    e => raise @account.AccountError::SigningFailed(e.to_string())
+  }
+}
+
+///|
+/// The 65 bytes a verifier is handed, with the `v` offset a signature outside
+/// a typed transaction carries.
 fn LocalAccount::sign_offset(
   self : LocalAccount,
   digest : Bytes,
 ) -> @types.Hex raise @account.AccountError {
-  let signature = self.priv_key.sign(digest) catch {
-    e => raise @account.AccountError::SigningFailed(e.to_string())
-  }
-  @types.Hex::from_bytes(signature.to_bytes(v_offset=V_OFFSET))
+  @types.Hex::from_bytes(self.sign(digest).to_bytes(v_offset=V_OFFSET))
 }
 
 ///|
@@ -85,9 +94,7 @@ pub impl @account.Account for LocalAccount with fn sign_transaction(
   self : LocalAccount,
   tx : @types.UnsignedTransaction,
 ) -> @types.Hex raise @account.AccountError {
-  let signature = self.priv_key.sign(tx.signing_digest()) catch {
-    e => raise @account.AccountError::SigningFailed(e.to_string())
-  }
+  let signature = self.sign(tx.signing_digest())
   tx.encode_signed(
     r=signature.r(),
     s=signature.s(),
@@ -122,10 +129,8 @@ pub impl @account.Account for LocalAccount with fn sign_typed_data(
 
 ///|
 /// The authorization signed under its own magic byte, ready to ride in a
-/// transaction's `authorization_list`.
-///
-/// The bare parity bit, not the `27` offset: an authorization signs its chain
-/// id, so it is on the transaction's side of that line.
+/// transaction's `authorization_list`. The bare parity, for the reason
+/// `V_OFFSET` gives.
 ///
 /// ```
 /// let account = @local.LocalAccount::new(
@@ -144,9 +149,7 @@ pub impl @account.Account for LocalAccount with fn sign_authorization(
   self : LocalAccount,
   authorization : @types.Authorization,
 ) -> @types.SignedAuthorization raise @account.AccountError {
-  let signature = self.priv_key.sign(authorization.signing_digest()) catch {
-    e => raise @account.AccountError::SigningFailed(e.to_string())
-  }
+  let signature = self.sign(authorization.signing_digest())
   authorization.signed(
     r=signature.r(),
     s=signature.s(),

@@ -87,7 +87,7 @@ async test "a signed transaction matches cast mktx" {
 }
 
 ///|
-/// The three signing methods must not agree on anything. Each hashes under a
+/// The signing methods must not agree on anything. Each hashes under a
 /// different rule, so the same bytes handed to two of them give two different
 /// signatures — which is exactly what stops a message from being replayed as a
 /// transaction.
@@ -130,8 +130,9 @@ test "the error reads without naming the curve" {
 }
 
 ///|
-/// `cast wallet sign-auth --nonce 0 --chain 1`, whose answer is the RLP tuple
-/// `f85a 01 94… 80 01 a0<r> a0<s>` — chain, address, nonce, parity, r, s.
+/// `cast wallet sign-auth --nonce 0 --chain 1`. It answers with the RLP tuple
+/// `f85a 01 94… 80 01 a0<r> a0<s>`, whose six fields are the six read out
+/// here as the JSON an `authorizationList` is written in.
 async test "an authorization matches cast sign-auth" {
   let auth = @types.Authorization::new(
     chain_id=@types.ChainId::mainnet(),
@@ -159,7 +160,8 @@ async test "the signed authorization recovers to this account" {
     ),
     nonce=@types.Quantity::new(7),
   )
-  let signed = anvil().sign_authorization(auth)
-  assert_eq(signed.authority(), anvil().address())
+  let account = anvil()
+  let signed = account.sign_authorization(auth)
+  assert_eq(signed.authority(), account.address())
   assert_eq(signed.authorization(), auth)
 }
