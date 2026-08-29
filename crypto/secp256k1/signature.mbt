@@ -60,9 +60,8 @@ const SIGNATURE_BYTES : Int = COORD_BYTES * 2 + 1
 /// Read a signature back off the wire: the exact inverse of `to_bytes`. Pass the
 /// same `v_offset` both directions and the round trip is the identity.
 ///
-/// Everything the type promises is checked here, because this is the only way
-/// bytes become a `Signature`: both halves in `[1, N)`, an `s` in the low half
-/// per EIP-2, and a recovery id in `0..=3`.
+/// Length aside, the checks are `from_halves`', which this splits the bytes
+/// for.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
@@ -81,25 +80,59 @@ pub fn Signature::from_bytes(
   guard bytes.length() == SIGNATURE_BYTES else {
     raise InvalidLength("signature must be \{SIGNATURE_BYTES} bytes")
   }
+  Signature::from_halves(
+    r=bytes[:COORD_BYTES].to_owned(),
+    s=bytes[COORD_BYTES:COORD_BYTES * 2].to_owned(),
+    recovery_id=bytes[COORD_BYTES * 2].to_int() - v_offset,
+  )
+}
+
+///|
+/// A signature from its three parts, for a caller that already has them apart:
+/// a transaction and an authorization carry `r`, `s` and the recovery id as
+/// three fields rather than as the 65 bytes.
+///
+/// Everything the type promises is checked here, because every `Signature`
+/// comes through here: both halves in `[1, N)`, an `s` in the low half per
+/// EIP-2, and a recovery id in `0..=3`.
+///
+/// ```
+/// let key = @secp256k1.PrivateKey::from_bytes(
+///   @codec.bytes_of_digits(
+///     "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032",
+///   ),
+/// )
+/// let signed = key.sign(@keccak.keccak256(b"foo"))
+/// let signature = @secp256k1.Signature::from_halves(
+///   r=signed.r(),
+///   s=signed.s(),
+///   recovery_id=signed.recovery_id(),
+/// )
+/// assert_eq(signature.to_bytes(), signed.to_bytes())
+/// ```
+pub fn Signature::from_halves(
+  r~ : Bytes,
+  s~ : Bytes,
+  recovery_id~ : Int,
+) -> Signature raise CurveError {
   // Both halves live in the same range and are read the same way; only the
   // name in the complaint tells them apart.
-  fn half(
-    digits : BytesView,
-    name : String,
-  ) -> @bigint.BigInt raise CurveError {
-    guard scalar_of_octets(digits.to_owned()) is Some(value) else {
+  fn half(bytes : Bytes, name : String) -> @bigint.BigInt raise CurveError {
+    guard bytes.length() == COORD_BYTES else {
+      raise InvalidLength("\{name} must be \{COORD_BYTES} bytes")
+    }
+    guard scalar_of_octets(bytes) is Some(value) else {
       raise InvalidSignature("\{name} is zero")
     }
     guard value < group_order else { raise InvalidSignature("\{name} >= N") }
     value
   }
 
-  let r = half(bytes[:COORD_BYTES], "r")
-  let s = half(bytes[COORD_BYTES:COORD_BYTES * 2], "s")
+  let r = half(r, "r")
+  let s = half(s, "s")
   guard s <= half_group_order else {
     raise InvalidSignature("s is not the low half")
   }
-  let recovery_id = bytes[COORD_BYTES * 2].to_int() - v_offset
   guard recovery_id >= 0 && recovery_id <= 3 else {
     raise InvalidSignature("recovery id out of range")
   }

@@ -101,8 +101,8 @@ test "only a parity bit can be attached to an authorization" {
   }
   let short = Bytes::make(31, b'\x01')
   try auth.signed(r=short, s=short, y_parity=0) |> ignore catch {
-    InvalidValue(_) => ()
-    e => fail("expected an invalid value, but not \{e}")
+    InvalidLength(_) => ()
+    e => fail("expected an invalid length, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }
@@ -227,5 +227,46 @@ test "a signature half wider than a word is refused" {
     e => fail("expected an invalid length, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
+  }
+}
+
+///|
+/// One over `(N-1)/2`: the lowest `s` EIP-2 calls the high one of its pair.
+const HIGH_S = "7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a1"
+
+///|
+/// The two gates said the same thing about a signature and answered
+/// differently: `signed` took a high `s` and `authority` then refused to read
+/// what it had taken. EIP-7702 drops such an authorization and keeps the
+/// transaction, so nothing downstream would have complained either.
+test "a high s is refused where the authorization is built" {
+  let auth = @types.Authorization::new(
+    chain_id=@types.ChainId::mainnet(),
+    address=@types.Address::from_string(RECIPIENT),
+    nonce=@types.Quantity::new(1),
+  )
+  let high_s = @codec.bytes_of_digits(HIGH_S)
+  try
+    auth.signed(r=Bytes::make(32, b'\x01'), s=high_s, y_parity=1) |> ignore
+  catch {
+    InvalidValue(_) => ()
+    e => fail("expected an invalid value, but not \{e}")
+  } noraise {
+    _ => fail("expected fail, but success")
+  }
+}
+
+///|
+/// And the same of one read back off a node's answer, which is the path a
+/// signature the SDK did not produce actually arrives by. A zero half is the
+/// other one no key ever produced.
+test "a signature a node reported and the chain will drop is refused" {
+  for edit in [{ "s": ("0x" + HIGH_S).to_json() }, { "r": "0x0".to_json() }] {
+    try signed_with(edit) |> ignore catch {
+      InvalidValue(_) => ()
+      e => fail("expected an invalid value, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
   }
 }

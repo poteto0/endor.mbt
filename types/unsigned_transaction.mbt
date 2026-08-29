@@ -557,9 +557,8 @@ fn envelope(leading_byte : Byte?, fields : Array[@rlp.Item]) -> Bytes {
 /// The transaction as it goes to `eth_sendRawTransaction`: the same fields
 /// again with the signature appended, under the same type byte.
 ///
-/// Takes the signature in parts, so this package stays independent of the curve
-/// that produced it. Raises unless `y_parity` is 0 or 1 — a recovery id of 2 or
-/// 3 says `r` wrapped past the group order, which no transaction can carry.
+/// Takes the signature in parts, and raises on one no transaction can carry:
+/// see `check_signature` for what that is.
 pub fn UnsignedTransaction::encode_signed(
   self : UnsignedTransaction,
   r~ : Bytes,

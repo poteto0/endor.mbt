@@ -98,9 +98,9 @@ pub impl Show for SignedAuthorization with fn output(self, logger) {
 }
 
 ///|
-/// Attach a signature over `signing_digest`. Raises on a signature no
-/// authorization can carry, on the same terms as
-/// `UnsignedTransaction::encode_signed`.
+/// Attach a signature over `signing_digest`, on `check_signature`'s terms —
+/// which are the curve's, so what is attached here is what `authority` will
+/// read back rather than a wider set of it.
 ///
 /// ```
 /// let key = @secp256k1.PrivateKey::from_bytes(
@@ -201,12 +201,14 @@ pub fn Authorization::nonce(self : Authorization) -> Quantity {
 pub fn SignedAuthorization::authority(
   self : SignedAuthorization,
 ) -> Address raise @secp256k1.CurveError {
-  // the 65 bytes `Signature::to_bytes` writes, at no `v` offset: an
-  // authorization carries the parity bit itself
+  // the parity bit is the recovery id itself: an authorization signs no chain
+  // id into it
   Address::recover(
     self.authorization.signing_digest(),
-    @secp256k1.Signature::from_bytes(
-      self.r + self.s + Bytes::make(1, self.y_parity.to_byte()),
+    @secp256k1.Signature::from_halves(
+      r=self.r,
+      s=self.s,
+      recovery_id=self.y_parity,
     ),
   )
 }
@@ -235,6 +237,10 @@ pub fn SignedAuthorization::to_json(self : SignedAuthorization) -> Json {
 /// Chain id `0` is read as the every-chain authorization it is. It is
 /// `any_chain`'s alone to *write*; refusing to read one a node reported would
 /// leave an authorization that exists unreadable.
+///
+/// The signature goes through `signed`, so one a node reports and the chain
+/// will drop is refused here rather than at an `authority` call the carrying
+/// code may never make.
 ///
 /// ```
 /// let signed = @types.SignedAuthorization::from_json({

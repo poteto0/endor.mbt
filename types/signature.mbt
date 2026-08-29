@@ -1,6 +1,16 @@
 ///|
-/// A signature nothing signed here can carry. A recovery id of 2 or 3 says `r`
-/// wrapped past the group order; `r` and `s` are a word each.
+/// A signature nothing signed here can carry.
+///
+/// What may be carried is `@secp256k1.Signature`'s to say — both halves in
+/// `[1, N)` and an `s` in the low half — so that is asked of it rather than
+/// spelled a second time here, and its complaint is carried across as the
+/// `CodecError` a caller of this package already catches. Only the parity is
+/// this layer's: a recovery id of 2 or 3 says `r` wrapped past the group order,
+/// which the curve allows and no transaction or authorization can carry.
+///
+/// The high `s` is the one that reads as harmless and is not. EIP-2 makes such
+/// a transaction invalid outright; EIP-7702 keeps the transaction and drops the
+/// authorization, so it is mined, succeeds, and delegates nothing.
 fn check_signature(
   r~ : Bytes,
   s~ : Bytes,
@@ -9,9 +19,13 @@ fn check_signature(
   guard y_parity == 0 || y_parity == 1 else {
     raise InvalidValue("y parity must be 0 or 1: \{y_parity}")
   }
-  guard r.length() == 32 && s.length() == 32 else {
-    raise InvalidValue("r and s must be 32 bytes each")
-  }
+  ignore(
+    @secp256k1.Signature::from_halves(r~, s~, recovery_id=y_parity) catch {
+      @secp256k1.InvalidLength(why) => raise InvalidLength(why)
+      @secp256k1.InvalidKey(why) | @secp256k1.InvalidSignature(why) =>
+        raise InvalidValue(why)
+    },
+  )
 }
 
 ///|

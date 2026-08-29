@@ -83,6 +83,28 @@ policy in full — what counts as a break, and what does not — is
 
 ### Changed
 
+- **One definition of a signature something can carry.** `Authorization::signed`
+  and `UnsignedTransaction::encode_signed` / `hash` now ask the curve what they
+  previously only counted bytes for: `r` and `s` have to be scalars in `[1, N)`
+  and `s` the low one of its pair, the terms `@secp256k1.Signature::from_bytes`
+  was already holding `SignedAuthorization::authority` to. A signature the SDK
+  itself produced already met them — `PrivateKey::sign` normalises `s` — so what
+  changes is the paths where the signature comes from elsewhere: an external
+  signer, a sponsor handing over somebody's `r` and `s`, and
+  `SignedAuthorization::from_json` reading a node's answer back.
+
+  It was worth a break because of what the gap did quietly: EIP-7702 treats an
+  authorization with a high `s` as invalid and *skips* it, so the transaction is
+  accepted, mined and successful with the delegation simply gone, and the SDK
+  raised nothing anywhere. `Transaction::from_json` now refuses a transaction
+  carrying such an authorization rather than handing back one whose `authority()`
+  cannot be asked.
+
+  A signature half of the wrong width now raises `InvalidLength` rather than
+  `InvalidValue`, which is what that variant is for. New:
+  `@secp256k1.Signature::from_halves`, the same checks for a caller holding the
+  three fields apart rather than the 65 bytes.
+
 - **`Account` gained a method.** An `Account` implemented outside the SDK has to
   answer `sign_authorization` as well.
 
