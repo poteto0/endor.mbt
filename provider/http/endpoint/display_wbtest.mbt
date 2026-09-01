@@ -10,6 +10,16 @@ test "the key a hosted url carries in its path is dropped" {
     display_url("https://mainnet.infura.io/v3/SECRETKEY"),
     content="https://mainnet.infura.io/v3/***",
   )
+  // QuickNode's canonical form writes the trailing slash, which closes the
+  // key's segment; the key is the whole path, with no version above it
+  inspect(
+    display_url("https://cold-frosty.quiknode.pro/SECRETKEY/"),
+    content="https://cold-frosty.quiknode.pro/***/",
+  )
+  inspect(
+    display_url("https://cold-frosty.quiknode.pro/SECRETKEY"),
+    content="https://cold-frosty.quiknode.pro/***",
+  )
 }
 
 ///|
@@ -44,7 +54,7 @@ test "a url with no secret in it is unchanged" {
   inspect(display_url("http://127.0.0.1:8545"), content="http://127.0.0.1:8545")
   inspect(display_url("https://rpc.invalid"), content="https://rpc.invalid")
   inspect(display_url("http://[::1]:8545"), content="http://[::1]:8545")
-  // a trailing slash ends no segment, so there is nothing there to hide
+  // a path that is nothing but `/` ends no segment, so nothing is hidden
   inspect(
     display_url("http://127.0.0.1:8545/"),
     content="http://127.0.0.1:8545/",
