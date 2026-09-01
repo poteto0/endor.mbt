@@ -94,8 +94,10 @@ pub impl @account.Account for LocalAccount with fn sign_transaction(
   self : LocalAccount,
   tx : @types.UnsignedTransaction,
 ) -> @types.Hex raise @account.AccountError {
-  let signature = self.sign(tx.signing_digest())
-  tx.encode_signed(
+  // one build of the transaction's fields, for the digest and the bytes both
+  let signable = tx.signable()
+  let signature = self.sign(signable.signing_digest())
+  signable.encode_signed(
     r=signature.r(),
     s=signature.s(),
     y_parity=signature.recovery_id(),

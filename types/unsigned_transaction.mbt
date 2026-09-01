@@ -259,7 +259,8 @@ fn UnsignedTransaction::type_byte(self : UnsignedTransaction) -> Byte? {
 /// transaction's own EIP fixes. Order is the whole of what says which field is
 /// which — RLP carries no names — so this list is the format.
 ///
-/// What follows them is `signing_fields`' and `signed_fields`' to say.
+/// What follows them — the chain id a legacy transaction signs, or the
+/// signature — is `SignableTransaction`'s to say.
 fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
   match self {
     Eip1559(
@@ -338,49 +339,6 @@ fn UnsignedTransaction::fields(self : UnsignedTransaction) -> Array[@rlp.Item] {
         Bytes(data.to_bytes()),
       ]
   }
-}
-
-///|
-/// The fields the signature commits to.
-///
-/// A typed transaction signs its fields as they are. A legacy one has no field
-/// for the chain id, so EIP-155 signs `[chain_id, 0, 0]` in the three slots
-/// `signed_fields` fills with the signature.
-fn UnsignedTransaction::signing_fields(
-  self : UnsignedTransaction,
-) -> Array[@rlp.Item] {
-  let fields = self.fields()
-  match self {
-    Eip1559(_) | Eip2930(_) | Eip7702(_) => ()
-    Legacy(chain_id~, ..) => {
-      fields.push(@rlp.Item::of_uint64(chain_id.to_uint64()))
-      fields.push(@rlp.Item::of_uint64(0))
-      fields.push(@rlp.Item::of_uint64(0))
-    }
-  }
-  fields
-}
-
-///|
-/// The fields with the signature on the end.
-///
-/// A typed transaction carries the parity bit itself. A legacy one carries
-/// EIP-155's `v`, the parity with the chain id folded in — the only place it
-/// says which chain it is for.
-fn UnsignedTransaction::signed_fields(
-  self : UnsignedTransaction,
-  r~ : Bytes,
-  s~ : Bytes,
-  y_parity~ : Int,
-) -> Array[@rlp.Item] {
-  let v = match self {
-    Eip1559(_) | Eip2930(_) | Eip7702(_) => y_parity.to_uint64()
-    Legacy(chain_id~, ..) =>
-      y_parity.to_uint64() + chain_id.to_uint64() * 2 + 35
-  }
-  let fields = self.fields()
-  push_signature(fields, v~, r~, s~)
-  fields
 }
 
 ///|
@@ -536,8 +494,11 @@ pub fn UnsignedTransaction::to_request(
 /// The type byte is outside the RLP, which is what EIP-2718 introduced — an
 /// envelope, so that a new transaction format needs a new byte rather than a
 /// new way to tell lists apart.
+///
+/// Builds the fields for this call alone; a caller that also encodes or hashes
+/// takes one `signable()` and asks that.
 pub fn UnsignedTransaction::signing_digest(self : UnsignedTransaction) -> Bytes {
-  @keccak.keccak256(envelope(self.type_byte(), self.signing_fields()))
+  self.signable().signing_digest()
 }
 
 ///|
@@ -566,20 +527,7 @@ pub fn UnsignedTransaction::encode_signed(
   s~ : Bytes,
   y_parity~ : Int,
 ) -> Hex raise CodecError {
-  Hex::from_bytes(self.signed_bytes(r~, s~, y_parity~))
-}
-
-///|
-/// The broadcast bytes themselves, so that `hash` does not go through the hex
-/// string `encode_signed` builds only to take it apart again.
-fn UnsignedTransaction::signed_bytes(
-  self : UnsignedTransaction,
-  r~ : Bytes,
-  s~ : Bytes,
-  y_parity~ : Int,
-) -> Bytes raise CodecError {
-  check_signature(r~, s~, y_parity~)
-  envelope(self.type_byte(), self.signed_fields(r~, s~, y_parity~))
+  self.signable().encode_signed(r~, s~, y_parity~)
 }
 
 ///|
@@ -591,10 +539,5 @@ pub fn UnsignedTransaction::hash(
   s~ : Bytes,
   y_parity~ : Int,
 ) -> TxHash raise CodecError {
-  TxHash::from_string(
-    "0x" +
-    @codec.digits_of_bytes(
-      @keccak.keccak256(self.signed_bytes(r~, s~, y_parity~)),
-    ),
-  )
+  self.signable().hash(r~, s~, y_parity~)
 }

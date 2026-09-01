@@ -268,6 +268,13 @@ pub(all) enum ReceiptStatus {
 } derive(Eq, @debug.Debug)
 pub impl Show for ReceiptStatus
 
+pub struct SignableTransaction {
+  // private fields
+} derive(Eq, @debug.Debug)
+pub fn SignableTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> Hex raise CodecError
+pub fn SignableTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
+pub fn SignableTransaction::signing_digest(Self) -> Bytes
+
 pub struct SignedAuthorization {
   // private fields
 } derive(Eq, @debug.Debug)
@@ -345,6 +352,7 @@ pub fn UnsignedTransaction::encode_signed(Self, r~ : Bytes, s~ : Bytes, y_parity
 pub fn UnsignedTransaction::hash(Self, r~ : Bytes, s~ : Bytes, y_parity~ : Int) -> TxHash raise CodecError
 pub fn UnsignedTransaction::legacy(chain_id~ : ChainId, nonce~ : Quantity, gas_price~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex) -> Self
 pub fn UnsignedTransaction::new(chain_id~ : ChainId, nonce~ : Quantity, max_priority_fee_per_gas~ : Wei, max_fee_per_gas~ : Wei, gas~ : Quantity, to? : Address, value? : Wei, data? : Hex, access_list? : Array[AccessListItem]) -> Self
+pub fn UnsignedTransaction::signable(Self) -> SignableTransaction
 pub fn UnsignedTransaction::signing_digest(Self) -> Bytes
 pub fn UnsignedTransaction::to_request(Self, from~ : Address) -> TransactionRequest?
 
