@@ -201,8 +201,8 @@ test "r and s must be 32 bytes each" {
   )
   let word = Bytes::make(31, b'\x01') // 31 bytes instead of 32
   try tx.encode_signed(r=word, s=word, y_parity=0) |> ignore catch {
-    InvalidValue(_) => ()
-    e => fail("expected an invalid value, but not \{e}")
+    InvalidLength(_) => ()
+    e => fail("expected an invalid length, but not \{e}")
   } noraise {
     _ => fail("expected fail, but success")
   }

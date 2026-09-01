@@ -265,3 +265,21 @@ test "recovering against a digest that is not 32 bytes is refused" {
     })
   }
 }
+
+///|
+/// `from_halves` is reached with the fields already apart, so the width of each
+/// half is its own to check: `from_bytes`' 65 says nothing about a caller that
+/// never had 65 bytes.
+test "a half that is not a word is not a signature" {
+  let word = Bytes::make(32, b'\x01')
+  for half in [Bytes::make(31, b'\x01'), Bytes::make(33, b'\x01')] {
+    try
+      @secp256k1.Signature::from_halves(r=half, s=word, recovery_id=0) |> ignore
+    catch {
+      @secp256k1.InvalidLength(_) => ()
+      e => fail("expected an invalid length, but not \{e}")
+    } noraise {
+      _ => fail("expected fail, but success")
+    }
+  }
+}

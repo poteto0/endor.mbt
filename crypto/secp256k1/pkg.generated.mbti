@@ -30,6 +30,7 @@ pub struct Signature {
   // private fields
 }
 pub fn Signature::from_bytes(Bytes, v_offset? : Int) -> Self raise CurveError
+pub fn Signature::from_halves(r~ : Bytes, s~ : Bytes, recovery_id~ : Int) -> Self raise CurveError
 pub fn Signature::r(Self) -> Bytes
 pub fn Signature::recover(Self, Bytes) -> Bytes raise CurveError
 pub fn Signature::recovery_id(Self) -> Int

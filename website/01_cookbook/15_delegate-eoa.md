@@ -182,6 +182,14 @@ account that signed it, and nothing else in it says so.
 What this does *not* catch is the nonce. A wrong one is a valid signature by the
 right account; it is the chain that skips it when the block is built.
 
+The signature itself is not this call's to catch either — an `r` or `s` outside
+the range a signature lives in, or an `s` in the high half EIP-2 forbids, is
+refused where the authorization is built or read back, so a
+`SignedAuthorization` that exists is one the chain will read. That matters
+because the chain says nothing about the ones it will not: EIP-7702 skips an
+invalid authorization and keeps the transaction, which is then mined and
+successful with the delegation gone.
+
 ## On the wire
 
 An authorization travels as a six-field JSON object — the three signed fields,
