@@ -5,6 +5,11 @@
 /// multiplication to find and never changes. Opaque, because `from_bytes` is
 /// the only way to hold one — which is what makes "a `PrivateKey` is a scalar
 /// in `[1, N)`" true of every value of the type.
+///
+/// Not constant time. The ladder walks a fixed 256 bits, so the doubling count
+/// no longer follows the scalar's length, but additions still track its bits
+/// and the `BigInt` under them is value-dependent throughout. Anyone who can
+/// time this process learns something about the scalars it multiplies.
 pub struct PrivateKey {
   priv scalar : @bigint.BigInt
   priv public_key : Bytes

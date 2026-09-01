@@ -202,23 +202,22 @@ fn Point::to_affine(self : Point) -> (@bigint.BigInt, @bigint.BigInt) {
 /// `k * G` in affine coordinates, by double-and-add over the bits of `k`, most
 /// significant first.
 ///
-/// `k` must be in `[1, N)`, so it has a highest set bit and the ladder starts at
-/// G there. Every value it holds is some `m * G` with `0 < m < N`, so none is
-/// infinity, and `m` is always even where it adds.
+/// All 256 bits are walked, leading zeros included, so the number of doublings
+/// does not say where `k`'s highest set bit sits. Until that bit the
+/// accumulator is infinity, which doubles to itself and which `add_base` has no
+/// formula for, so the first addition is G outright.
+///
+/// `k` must be in `[1, N)`, so the result is never infinity. Every value the
+/// accumulator holds is some `m * G` with `0 <= m < N`, and `m` is always even
+/// where it adds, so no addition meets `±G`.
 fn scalar_base_mult(k : @bigint.BigInt) -> (@bigint.BigInt, @bigint.BigInt) {
-  let mut acc = Point::base()
-  let mut started = false
+  let mut acc = Point::infinity()
   for byte in k.to_octets(length=COORD_BYTES) {
+    let bits = byte.to_int()
     for bit = 7; bit >= 0; bit = bit - 1 {
-      let is_set = ((byte.to_int() >> bit) & 1) == 1
-      if started {
-        acc = acc.double()
-        if is_set {
-          acc = acc.add_base()
-        }
-      } else {
-        // The first set bit is G itself, which `acc` already holds.
-        started = is_set
+      acc = acc.double()
+      if ((bits >> bit) & 1) == 1 {
+        acc = if acc.is_infinity() { Point::base() } else { acc.add_base() }
       }
     }
   }

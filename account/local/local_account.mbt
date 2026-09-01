@@ -10,8 +10,10 @@ const V_OFFSET = 27
 ///
 /// It reaches no node and no wallet, which makes it the account for a script, a
 /// backend, or a test — and the account that can lose the key, so a browser is
-/// the wrong place for one. The address is derived in the constructor, so an
-/// account cannot claim an address its key does not sign for.
+/// the wrong place for one, and so is a runtime whose timing others share —
+/// signing is not constant time, see `@secp256k1.PrivateKey`. The address is
+/// derived in the constructor, so an account cannot claim an address its key
+/// does not sign for.
 pub struct LocalAccount {
   priv priv_key : @secp256k1.PrivateKey
   priv address : @types.Address
